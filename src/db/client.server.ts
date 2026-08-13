@@ -22,9 +22,13 @@ function createDb() {
      * intermittent "prepared statement does not exist" errors under load.
      */
     prepare: false,
-    // The pooler already multiplexes, so each instance needs only a few
-    // connections of its own; Supabase caps client connections fairly low.
-    max: 5,
+    /**
+     * On Vercel each concurrent invocation is its own isolate with its own pool,
+     * so a generous `max` multiplies across instances and exhausts the pooler's
+     * client slots under any real traffic. One connection per isolate is the
+     * right shape when something upstream is already doing the pooling.
+     */
+    max: process.env.VERCEL ? 1 : 5,
     idle_timeout: 20,
     connect_timeout: 15,
     ssl: isLocal ? false : 'require',
