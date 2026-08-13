@@ -15,7 +15,6 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "sync": "curl -s -X POST http://localhost:3005/_nitro/tasks/sync:games",
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check"

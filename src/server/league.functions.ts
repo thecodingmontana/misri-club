@@ -104,9 +104,9 @@ export const verifyUsernameFn = createServerFn({ method: 'GET' })
 // --- Mutations -------------------------------------------------------------
 
 /**
- * Deliberately public: syncing is idempotent, only ever reads from chess.com,
- * and the 20-minute cron performs the identical job unattended. Gating it would
- * buy nothing while making the board go stale whenever no admin is around.
+ * Deliberately public: syncing is idempotent and only ever reads from
+ * chess.com, so anyone can pull the latest games and the board never goes
+ * stale waiting for an admin.
  */
 export const syncNowFn = createServerFn({ method: 'POST' }).handler(async () =>
   syncGames(),
