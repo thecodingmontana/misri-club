@@ -1,329 +1,337 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { useMutation } from '@tanstack/react-query'
-import { ExternalLink, RefreshCw } from 'lucide-react'
+import {
+  AlertTriangle,
+  ChevronRight,
+  Clock,
+  ExternalLink,
+  RefreshCw,
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 import { getLeaderboardFn, syncNowFn } from '#/server/league.functions'
-import { LiveRating, RatingsProvider } from '#/components/live-ratings'
-import { PlayerLink } from '#/components/player-link'
-import { RosterCard } from '#/components/roster-card'
-import { Badge } from '#/components/ui/badge'
+import type { FixtureView } from '#/server/queries.server'
+import { PlayerChip } from '#/components/player-chip'
 import { Button } from '#/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
-import { formatDate, relativeTime } from '#/lib/format'
+import { Card, CardContent } from '#/components/ui/card'
+import { countdown, relativeTime } from '#/lib/format'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/')({
   loader: () => getLeaderboardFn(),
-  component: Leaderboard,
+  component: HomeScreen,
 })
-
-function Leaderboard() {
-  const data = Route.useLoaderData()
-  const usernames = data.standings.map((row) => row.username)
-
-  return (
-    <RatingsProvider usernames={usernames}>
-      <div className="space-y-8">
-        <SeasonHeader data={data} />
-
-        <div className="grid gap-6 lg:grid-cols-3">
-          <StandingsCard data={data} />
-          <div className="space-y-6">
-            <RosterCard
-              roster={data.roster}
-              membersListable={data.club.membersListable}
-              membersCount={data.club.membersCount}
-              clubUrl={data.club.url}
-            />
-            <RecentGamesCard data={data} />
-          </div>
-        </div>
-      </div>
-    </RatingsProvider>
-  )
-}
 
 type Data = Awaited<ReturnType<typeof getLeaderboardFn>>
 
-function SeasonHeader({ data }: { data: Data }) {
+function HomeScreen() {
+  const data = Route.useLoaderData()
+
+  return (
+    <div className="space-y-6">
+      <MatchdayCard data={data} />
+      <TopPlayers data={data} />
+      <RecentResults data={data} />
+    </div>
+  )
+}
+
+function SectionHeader({
+  title,
+  to,
+}: {
+  title: string
+  to?: '/table' | '/fixtures'
+}) {
+  return (
+    <div className="mb-2.5 flex items-baseline justify-between">
+      <h2 className="display text-lg font-semibold">{title}</h2>
+      {to && (
+        <Link
+          to={to}
+          className="flex items-center gap-0.5 text-xs font-medium text-brass"
+        >
+          See all
+          <ChevronRight className="size-3.5" />
+        </Link>
+      )}
+    </div>
+  )
+}
+
+/**
+ * The pressure valve of the whole league: which matchday is open and how long
+ * is left before every unplayed fixture in it costs both players a point.
+ */
+function MatchdayCard({ data }: { data: Data }) {
   const router = useRouter()
   const sync = useServerFn(syncNowFn)
+  const current = data.current
 
   const mutation = useMutation({
     mutationFn: () => sync(),
     onSuccess: async (result) => {
       await router.invalidate()
-      const parts = [
+      toast.success(
         result.gamesAdded === 0
           ? 'No new games'
           : `${result.gamesAdded} new game${result.gamesAdded === 1 ? '' : 's'}`,
-        `${result.archivesFetched} archives scanned`,
-      ]
-      if (result.roster.added.length > 0) {
-        parts.push(`${result.roster.added.length} new member(s)`)
-      }
-      toast.success(parts.join(' · '), {
-        description: result.errors.length
-          ? `${result.errors.length} endpoint(s) failed — see server logs.`
-          : result.roster.membersVisible
-            ? undefined
-            : 'Club is private, so its roster is managed by hand.',
-      })
+        {
+          description: result.errors.length
+            ? `${result.errors.length} endpoint(s) failed.`
+            : `${result.gamesLinked} counted towards fixtures.`,
+        },
+      )
     },
-    onError: (error: Error) => toast.error('Sync failed', { description: error.message }),
+    onError: (error: Error) =>
+      toast.error('Sync failed', { description: error.message }),
   })
 
-  return (
-    <section className="rise-in">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="kicker">{data.season.label} · in progress</p>
-          <h1 className="display mt-2 text-4xl font-semibold tracking-tight sm:text-5xl">
-            Club Standings
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Started {formatDate(data.season.startedAt)} · last synced{' '}
-            <span className="text-foreground">
-              {relativeTime(data.lastSyncAt)}
-            </span>
+  if (!current) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center">
+          <h2 className="display text-lg font-semibold">No schedule yet</h2>
+          <p className="mx-auto mt-1.5 max-w-[16rem] text-xs text-muted-foreground">
+            Once fixtures are drawn, each matchday opens for{' '}
+            {data.season.matchdayDays} days and every pairing has to be played
+            before it closes.
           </p>
-        </div>
+          <Button asChild size="sm" className="mt-4">
+            <Link to="/fixtures">Go to fixtures</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
 
-        <Button
+  const remaining = current.dueAt - data.now
+  const opensIn = current.opensAt - data.now
+  const urgent = current.state === 'live' && remaining < 12 * 60 * 60 * 1000
+
+  return (
+    <section>
+      <div className="mb-2.5 flex items-baseline justify-between">
+        <h2 className="display text-lg font-semibold">
+          {current.state === 'upcoming' ? 'Next matchday' : 'This matchday'}
+        </h2>
+        <button
+          type="button"
           onClick={() => mutation.mutate()}
           disabled={mutation.isPending}
-          className="gap-2"
+          className="flex items-center gap-1 text-xs font-medium text-brass disabled:opacity-60"
         >
           <RefreshCw
-            className={cn('size-4', mutation.isPending && 'animate-spin')}
+            className={cn('size-3.5', mutation.isPending && 'animate-spin')}
           />
-          {mutation.isPending ? 'Syncing…' : 'Sync now'}
-        </Button>
+          {mutation.isPending ? 'Syncing' : 'Sync'}
+        </button>
       </div>
 
-      <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Players" value={data.stats.players} />
-        <Stat label="Games recorded" value={data.stats.totalGames} />
-        <Stat
-          label="Fixtures played"
-          value={`${data.stats.playedFixtures}/${data.stats.scheduledFixtures}`}
-        />
-        <Stat
-          label="Leader"
-          value={data.standings[0]?.username ?? '—'}
-          mono={false}
-        />
-      </dl>
+      <Card className="overflow-hidden">
+        <div
+          className={cn(
+            'flex items-center justify-between gap-2 border-b border-border/60 px-4 py-2.5',
+            urgent ? 'bg-destructive/15' : 'bg-brass/10',
+          )}
+        >
+          <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
+            Matchday {current.matchday}
+          </span>
+          <span
+            className={cn(
+              'numeric flex items-center gap-1.5 text-xs font-semibold',
+              urgent ? 'text-destructive' : 'text-brass',
+            )}
+          >
+            <Clock className="size-3.5" />
+            {current.state === 'upcoming'
+              ? `opens in ${countdown(opensIn)}`
+              : current.state === 'finished'
+                ? 'season complete'
+                : `${countdown(remaining)} left`}
+          </span>
+        </div>
+
+        <CardContent className="space-y-2 p-3">
+          {current.fixtures.map((fixture) => (
+            <FixtureRow key={fixture.id} fixture={fixture} data={data} />
+          ))}
+        </CardContent>
+      </Card>
+
+      {current.state === 'live' && (
+        <div className="mt-2 flex items-start gap-1.5 px-1">
+          <AlertTriangle className="mt-0.5 size-3 shrink-0 text-brass" />
+          <p className="text-[0.7rem] leading-snug text-muted-foreground">
+            Any fixture still unplayed when the window closes costs{' '}
+            <span className="font-medium text-foreground">both</span> players a
+            point.
+          </p>
+        </div>
+      )}
     </section>
   )
 }
 
-function Stat({
-  label,
-  value,
-  mono = true,
+function avatarFor(data: Data, username: string | null) {
+  if (!username) return null
+  return data.roster.find((p) => p.username === username)?.avatar ?? null
+}
+
+function FixtureRow({
+  fixture,
+  data,
 }: {
-  label: string
-  value: string | number
-  mono?: boolean
+  fixture: FixtureView
+  data: Data
 }) {
+  if (fixture.bye) {
+    return (
+      <div className="flex items-center justify-between rounded-xl border border-dashed border-border/60 px-3 py-2.5">
+        <PlayerChip
+          username={fixture.bye}
+          avatar={avatarFor(data, fixture.bye)}
+          size="sm"
+          muted
+        />
+        <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">
+          Bye
+        </span>
+      </div>
+    )
+  }
+
+  if (!fixture.home || !fixture.away) return null
+
+  const game = fixture.game
+
   return (
-    <div className="brass-edge overflow-hidden rounded-lg border border-border/70 bg-card/60 px-4 py-3">
-      <dt className="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </dt>
-      <dd
-        className={cn(
-          'mt-1 truncate text-xl font-semibold text-brass',
-          mono && 'numeric',
+    <div className="rounded-xl border border-border/60 bg-background/40 px-3 py-2.5">
+      <div className="flex items-center gap-2">
+        <PlayerChip
+          username={fixture.home}
+          avatar={avatarFor(data, fixture.home)}
+          size="sm"
+          className="flex-1"
+        />
+
+        {game ? (
+          <a
+            href={game.chessComUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="numeric shrink-0 rounded-md border border-brass/30 bg-brass/10 px-2 py-0.5 text-[0.7rem] font-semibold text-brass"
+          >
+            {game.result === 'draw' ? '½–½' : game.homeWon ? '1–0' : '0–1'}
+          </a>
+        ) : (
+          <span
+            className={cn(
+              'numeric shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-semibold uppercase',
+              fixture.status === 'expired'
+                ? 'bg-destructive/15 text-destructive'
+                : 'text-muted-foreground/70',
+            )}
+          >
+            {fixture.status === 'expired' ? '−1 / −1' : 'vs'}
+          </span>
         )}
-      >
-        {value}
-      </dd>
+
+        <div className="flex flex-1 justify-end">
+          <PlayerChip
+            username={fixture.away}
+            avatar={avatarFor(data, fixture.away)}
+            size="sm"
+            className="flex-row-reverse"
+          />
+        </div>
+      </div>
     </div>
   )
 }
 
-function StandingsCard({ data }: { data: Data }) {
-  return (
-    <Card className="rise-in lg:col-span-2">
-      <CardHeader>
-        <CardTitle className="display text-xl">Table</CardTitle>
-      </CardHeader>
-      <CardContent className="px-0">
-        {data.standings.length === 0 ? (
-          <Empty>
-            {data.club.membersListable ? (
-              <>
-                No players yet — hit <strong>Sync now</strong> to pull the club
-                roster from chess.com.
-              </>
-            ) : (
-              <>
-                No players yet — add club members by username in the{' '}
-                <strong>Roster</strong> panel, then hit <strong>Sync now</strong>
-                .
-              </>
-            )}
-          </Empty>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-12 pl-6">#</TableHead>
-                  <TableHead>Player</TableHead>
-                  <TableHead className="text-right">Rating</TableHead>
-                  <TableHead className="text-right">P</TableHead>
-                  <TableHead className="text-right">W</TableHead>
-                  <TableHead className="text-right">D</TableHead>
-                  <TableHead className="text-right">L</TableHead>
-                  <TableHead className="pr-6 text-right">Pts</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.standings.map((row, index) => (
-                  <TableRow key={row.playerId}>
-                    <TableCell className="numeric pl-6 text-muted-foreground">
-                      {index + 1}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <PlayerLink username={row.username} />
-                        {index === 0 && row.points > 0 && (
-                          <Badge
-                            variant="outline"
-                            className="border-brass/40 text-brass"
-                          >
-                            Leader
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <LiveRating username={row.username} />
-                    </TableCell>
-                    <TableCell className="numeric text-right text-muted-foreground">
-                      {row.played}
-                    </TableCell>
-                    <TableCell className="numeric text-right">
-                      {row.wins}
-                    </TableCell>
-                    <TableCell className="numeric text-right">
-                      {row.draws}
-                    </TableCell>
-                    <TableCell className="numeric text-right">
-                      {row.losses}
-                    </TableCell>
-                    <TableCell className="numeric pr-6 text-right text-base font-semibold text-brass">
-                      {row.points}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
+function TopPlayers({ data }: { data: Data }) {
+  const top = data.standings.slice(0, 3)
+  if (top.length === 0) return null
 
-function RecentGamesCard({ data }: { data: Data }) {
+  const medal = ['border-brass/60 text-brass', 'border-border text-foreground', 'border-border text-muted-foreground']
+
   return (
-    <Card className="rise-in">
-      <CardHeader>
-        <CardTitle className="display text-xl">Recent games</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {data.recentGames.length === 0 ? (
-          <Empty>
-            Nothing played yet this season. Games between two club members show
-            up here automatically once they finish.
-          </Empty>
-        ) : (
-          <ul className="space-y-3">
-            {data.recentGames.map((game) => (
-              <li
-                key={game.id}
-                className="rounded-lg border border-border/60 bg-background/40 p-3"
+    <section>
+      <SectionHeader title="Top players" to="/table" />
+      <Card>
+        <CardContent className="divide-y divide-border/50 p-0">
+          {top.map((row, index) => (
+            <div key={row.playerId} className="flex items-center gap-3 px-3 py-2.5">
+              <span
+                className={cn(
+                  'numeric grid size-6 shrink-0 place-items-center rounded-full border text-[0.7rem] font-bold',
+                  medal[index],
+                )}
               >
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span
-                      aria-hidden
-                      title="White"
-                      className="size-2 shrink-0 rounded-full bg-parchment ring-1 ring-border"
-                      style={{ background: 'oklch(0.93 0.014 82)' }}
-                    />
-                    <PlayerLink
-                      username={game.white}
-                      className="truncate text-sm"
-                    />
-                  </span>
-                  <Score result={game.result} />
-                  <span className="flex min-w-0 items-center justify-end gap-1.5">
-                    <PlayerLink
-                      username={game.black}
-                      className="truncate text-sm"
-                    />
-                    <span
-                      aria-hidden
-                      title="Black"
-                      className="size-2 shrink-0 rounded-full ring-1 ring-border"
-                      style={{ background: 'oklch(0.24 0.019 50)' }}
-                    />
-                  </span>
-                </div>
-                <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>
-                    {game.matchday ? `Matchday ${game.matchday}` : 'Friendly'}
-                    {game.timeClass ? ` · ${game.timeClass}` : ''}
-                  </span>
-                  <a
-                    href={game.chessComUrl}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="inline-flex items-center gap-1 hover:text-brass"
-                  >
-                    {relativeTime(game.endedAt)}
-                    <ExternalLink className="size-3" />
-                  </a>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+                {index + 1}
+              </span>
+              <PlayerChip
+                username={row.username}
+                avatar={row.avatar}
+                className="flex-1"
+              />
+              <span className="numeric text-sm font-semibold text-brass">
+                {row.points}
+              </span>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </section>
   )
 }
 
-function Score({ result }: { result: 'white' | 'black' | 'draw' }) {
-  const label =
-    result === 'white' ? '1 – 0' : result === 'black' ? '0 – 1' : '½ – ½'
+function RecentResults({ data }: { data: Data }) {
+  if (data.recentGames.length === 0) return null
 
   return (
-    <span className="numeric shrink-0 rounded border border-border/70 bg-card px-2 py-0.5 text-xs text-brass">
-      {label}
-    </span>
-  )
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="px-6 py-10 text-center text-sm text-muted-foreground">
-      {children}
-    </p>
+    <section>
+      <SectionHeader title="Recent games" to="/fixtures" />
+      <div className="space-y-2">
+        {data.recentGames.slice(0, 6).map((game) => (
+          <a
+            key={game.id}
+            href={game.chessComUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="flex items-center gap-2 rounded-xl border border-border/60 bg-card/60 px-3 py-2.5 transition-colors hover:border-brass/30"
+          >
+            <span className="min-w-0 flex-1 truncate text-[0.8rem] font-medium">
+              {game.white}
+            </span>
+            <span className="numeric shrink-0 rounded border border-border/70 px-1.5 py-0.5 text-[0.7rem] text-brass">
+              {game.result === 'white'
+                ? '1–0'
+                : game.result === 'black'
+                  ? '0–1'
+                  : '½–½'}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-right text-[0.8rem] font-medium">
+              {game.black}
+            </span>
+            <span className="flex shrink-0 flex-col items-end gap-0.5 pl-1 text-[0.6rem] text-muted-foreground">
+              <span>{relativeTime(game.endedAt)}</span>
+              <span
+                className={cn(
+                  'uppercase tracking-wide',
+                  game.counts ? 'text-brass/80' : 'text-muted-foreground/60',
+                )}
+              >
+                {game.counts ? `MD${game.matchday}` : 'friendly'}
+              </span>
+            </span>
+            <ExternalLink className="size-3 shrink-0 text-muted-foreground/50" />
+          </a>
+        ))}
+      </div>
+    </section>
   )
 }

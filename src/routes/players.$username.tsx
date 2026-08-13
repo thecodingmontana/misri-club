@@ -1,207 +1,222 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { ExternalLink } from 'lucide-react'
+import { Clock, ExternalLink } from 'lucide-react'
 
 import { getPlayerFn } from '#/server/league.functions'
 import { LiveRating, RatingsProvider } from '#/components/live-ratings'
-import { PlayerLink } from '#/components/player-link'
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar'
 import { Badge } from '#/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '#/components/ui/table'
-import { formatDate, record, relativeTime, winRate } from '#/lib/format'
+import { Card } from '#/components/ui/card'
+import { countdown, formatDate, record, relativeTime, winRate } from '#/lib/format'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/players/$username')({
   loader: ({ params }) => getPlayerFn({ data: { username: params.username } }),
-  component: PlayerPage,
+  component: PlayerScreen,
   notFoundComponent: () => (
-    <div className="py-24 text-center">
+    <div className="py-20 text-center">
       <p className="kicker">Unknown player</p>
-      <h1 className="display mt-3 text-3xl font-semibold">
-        Not on the roster
-      </h1>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <h1 className="display mt-2 text-2xl font-semibold">Not on the roster</h1>
+      <p className="mt-2 text-xs text-muted-foreground">
         This username isn&apos;t a tracked Misri club member.
       </p>
     </div>
   ),
 })
 
-function PlayerPage() {
+function PlayerScreen() {
   const data = Route.useLoaderData()
-  const { player, totals, history, games } = data
+  const { player, totals, history, games, fixtures, now } = data
+
+  const open = fixtures.filter(
+    (f) => f.status === 'live' || f.status === 'upcoming',
+  )
 
   return (
     <RatingsProvider usernames={[player.username]}>
-      <div className="space-y-8">
-        <section className="rise-in flex flex-wrap items-center gap-5">
-          <Avatar className="size-16 border border-brass/30">
+      <div className="space-y-5">
+        <header className="flex items-center gap-3">
+          <Avatar className="size-14 border border-brass/30">
             {player.avatar && <AvatarImage src={player.avatar} alt="" />}
-            <AvatarFallback className="display bg-card text-xl text-brass">
+            <AvatarFallback className="display bg-card text-lg text-brass">
               {player.username.slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
 
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="display text-3xl font-semibold tracking-tight sm:text-4xl">
-                {player.username}
-              </h1>
-              {player.active ? (
-                <Badge variant="outline" className="border-brass/40 text-brass">
-                  Active
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-muted-foreground">
-                  Left the club
-                </Badge>
-              )}
-            </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Joined the club {formatDate(player.joinedAt)} · current rating{' '}
+          <div className="min-w-0 flex-1">
+            <h1 className="display truncate text-2xl font-semibold">
+              {player.username}
+            </h1>
+            <p className="mt-0.5 flex items-center gap-1.5 text-[0.7rem] text-muted-foreground">
               <LiveRating
                 username={player.username}
                 className="text-foreground"
               />
+              <span>· joined {formatDate(player.joinedAt)}</span>
             </p>
           </div>
 
-          <a
-            href={`https://www.chess.com/member/${player.username}`}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-brass/50 hover:text-brass"
-          >
-            chess.com profile
-            <ExternalLink className="size-3.5" />
-          </a>
-        </section>
+          {!player.active && (
+            <Badge variant="outline" className="text-muted-foreground">
+              Left
+            </Badge>
+          )}
+        </header>
 
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Career points" value={totals.points} />
-          <Stat label="Games played" value={totals.played} />
+        <a
+          href={`https://www.chess.com/member/${player.username}`}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="flex items-center justify-center gap-1.5 rounded-xl border border-border/60 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-brass/40 hover:text-brass"
+        >
+          View chess.com profile
+          <ExternalLink className="size-3.5" />
+        </a>
+
+        <div className="grid grid-cols-4 gap-2">
+          <Stat label="Pts" value={totals.points} />
+          <Stat label="Played" value={totals.played} />
           <Stat
-            label="W–D–L"
-            value={record(totals.wins, totals.draws, totals.losses)}
+            label="Missed"
+            value={totals.forfeits}
+            tone={totals.forfeits > 0 ? 'bad' : undefined}
           />
           <Stat
-            label="Score rate"
+            label="Score"
             value={winRate(totals.wins, totals.draws, totals.losses)}
           />
-        </dl>
-
-        <div className="grid gap-6 lg:grid-cols-5">
-          <Card className="rise-in lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="display text-xl">By season</CardTitle>
-            </CardHeader>
-            <CardContent className="px-0">
-              {history.length === 0 ? (
-                <Empty>No seasons recorded yet.</Empty>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="pl-6">Season</TableHead>
-                      <TableHead className="text-right">P</TableHead>
-                      <TableHead className="text-right">W–D–L</TableHead>
-                      <TableHead className="pr-6 text-right">Pts</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {history.map((season) => (
-                      <TableRow key={season.seasonId}>
-                        <TableCell className="pl-6">
-                          <span className="font-medium">{season.label}</span>
-                          {season.endedAt === null && (
-                            <span className="ml-2 text-xs text-brass">
-                              current
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="numeric text-right text-muted-foreground">
-                          {season.played}
-                        </TableCell>
-                        <TableCell className="numeric text-right">
-                          {record(season.wins, season.draws, season.losses)}
-                        </TableCell>
-                        <TableCell className="numeric pr-6 text-right font-semibold text-brass">
-                          {season.points}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="rise-in lg:col-span-3">
-            <CardHeader>
-              <CardTitle className="display text-xl">Game history</CardTitle>
-            </CardHeader>
-            <CardContent className="px-0">
-              {games.length === 0 ? (
-                <Empty>
-                  No games recorded against other club members yet.
-                </Empty>
-              ) : (
-                <div className="max-h-[32rem] overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="pl-6">Opponent</TableHead>
-                        <TableHead>As</TableHead>
-                        <TableHead>Result</TableHead>
-                        <TableHead className="pr-6 text-right">Played</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {games.map((game) => (
-                        <TableRow key={game.id}>
-                          <TableCell className="pl-6">
-                            <PlayerLink username={game.opponent} />
-                            {game.matchday && (
-                              <span className="ml-2 text-xs text-muted-foreground">
-                                MD{game.matchday}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-xs uppercase tracking-wider text-muted-foreground">
-                            {game.colour}
-                          </TableCell>
-                          <TableCell>
-                            <Outcome outcome={game.outcome} />
-                          </TableCell>
-                          <TableCell className="pr-6 text-right">
-                            <a
-                              href={game.chessComUrl}
-                              target="_blank"
-                              rel="noreferrer noopener"
-                              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-brass"
-                            >
-                              {relativeTime(game.endedAt)}
-                              <ExternalLink className="size-3" />
-                            </a>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
+
+        {open.length > 0 && (
+          <Section title="Your fixtures">
+            <Card className="p-0">
+              <div className="divide-y divide-border/40">
+                {open.map((fixture) => {
+                  const opponent =
+                    fixture.home === player.username ? fixture.away : fixture.home
+
+                  return (
+                    <div
+                      key={fixture.id}
+                      className="flex items-center gap-2 px-3 py-2.5"
+                    >
+                      <span className="numeric w-8 shrink-0 text-[0.65rem] text-muted-foreground">
+                        MD{fixture.matchday}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[0.8rem] font-medium">
+                        {fixture.bye ? 'Bye' : `vs ${opponent}`}
+                      </span>
+                      <span
+                        className={cn(
+                          'numeric flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[0.62rem] font-semibold',
+                          fixture.status === 'live'
+                            ? 'bg-brass/15 text-brass'
+                            : 'text-muted-foreground',
+                        )}
+                      >
+                        <Clock className="size-3" />
+                        {fixture.status === 'live'
+                          ? `${countdown(fixture.dueAt - now)} left`
+                          : formatDate(fixture.opensAt)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </Card>
+          </Section>
+        )}
+
+        <Section title="By season">
+          {history.length === 0 ? (
+            <Empty>No seasons recorded yet.</Empty>
+          ) : (
+            <Card className="p-0">
+              <div className="divide-y divide-border/40">
+                {history.map((season) => (
+                  <div
+                    key={season.seasonId}
+                    className="flex items-center gap-2 px-3 py-2.5"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-[0.8rem] font-medium">
+                      {season.label}
+                      {season.endedAt === null && (
+                        <span className="ml-1.5 text-[0.6rem] text-brass">
+                          current
+                        </span>
+                      )}
+                    </span>
+                    <span className="numeric text-[0.7rem] text-muted-foreground">
+                      {record(season.wins, season.draws, season.losses)}
+                      {season.forfeits > 0 && (
+                        <span className="text-destructive">
+                          {' '}
+                          {season.forfeits}✕
+                        </span>
+                      )}
+                    </span>
+                    <span className="numeric w-8 shrink-0 text-right text-sm font-semibold text-brass">
+                      {season.points}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+        </Section>
+
+        <Section title="Game history">
+          {games.length === 0 ? (
+            <Empty>No games recorded against other club members yet.</Empty>
+          ) : (
+            <div className="space-y-2">
+              {games.map((game) => (
+                <a
+                  key={game.id}
+                  href={game.chessComUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="flex items-center gap-2 rounded-xl border border-border/60 bg-card/60 px-3 py-2.5 transition-colors hover:border-brass/30"
+                >
+                  <Outcome outcome={game.outcome} />
+                  <span className="min-w-0 flex-1 truncate text-[0.8rem]">
+                    <span className="text-muted-foreground">vs </span>
+                    {game.opponent}
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end text-[0.6rem] text-muted-foreground">
+                    <span>{relativeTime(game.endedAt)}</span>
+                    <span
+                      className={cn(
+                        'uppercase tracking-wide',
+                        game.counts
+                          ? 'text-brass/80'
+                          : 'text-muted-foreground/60',
+                      )}
+                    >
+                      {game.counts ? `MD${game.matchday}` : 'friendly'}
+                    </span>
+                  </span>
+                </a>
+              ))}
+            </div>
+          )}
+        </Section>
       </div>
     </RatingsProvider>
+  )
+}
+
+function Section({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <section>
+      <h2 className="display mb-2 text-lg font-semibold">{title}</h2>
+      {children}
+    </section>
   )
 }
 
@@ -209,34 +224,47 @@ function Outcome({ outcome }: { outcome: 'win' | 'draw' | 'loss' }) {
   return (
     <span
       className={cn(
-        'numeric rounded border px-2 py-0.5 text-xs',
-        outcome === 'win' && 'border-felt/50 bg-felt/15 text-foreground',
-        outcome === 'draw' && 'border-border text-muted-foreground',
-        outcome === 'loss' && 'border-destructive/40 text-destructive',
+        'numeric grid size-6 shrink-0 place-items-center rounded text-[0.68rem] font-bold',
+        outcome === 'win' && 'bg-felt/25 text-foreground',
+        outcome === 'draw' && 'bg-secondary text-muted-foreground',
+        outcome === 'loss' && 'bg-destructive/15 text-destructive/90',
       )}
     >
-      {outcome === 'win' ? 'Win' : outcome === 'draw' ? 'Draw' : 'Loss'}
+      {outcome === 'win' ? 'W' : outcome === 'draw' ? '½' : 'L'}
     </span>
   )
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
+function Stat({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: string | number
+  tone?: 'bad'
+}) {
   return (
-    <div className="brass-edge overflow-hidden rounded-lg border border-border/70 bg-card/60 px-4 py-3">
-      <dt className="text-[0.7rem] font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="numeric mt-1 truncate text-xl font-semibold text-brass">
+    <div className="rounded-xl border border-border/60 bg-card/60 px-2 py-2.5 text-center">
+      <div
+        className={cn(
+          'numeric text-lg font-semibold',
+          tone === 'bad' ? 'text-destructive' : 'text-brass',
+        )}
+      >
         {value}
-      </dd>
+      </div>
+      <div className="text-[0.58rem] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
     </div>
   )
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <p className="px-6 py-10 text-center text-sm text-muted-foreground">
+    <Card className="p-6 text-center text-xs text-muted-foreground">
       {children}
-    </p>
+    </Card>
   )
 }

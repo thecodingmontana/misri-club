@@ -1,7 +1,6 @@
 import { createContext, use } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getPlayerRatingsFn } from '#/server/league.functions'
-import { Skeleton } from '#/components/ui/skeleton'
 import { cn } from '#/lib/utils'
 
 interface RatingEntry {
@@ -56,7 +55,17 @@ export function LiveRating({
   const { ratings, isLoading } = use(RatingsContext)
 
   if (isLoading && !ratings) {
-    return <Skeleton className={cn('h-4 w-10 rounded', className)} />
+    // A span, not shadcn's <div>-based Skeleton: this renders inline inside
+    // paragraphs, and a <div> in a <p> is invalid HTML that breaks hydration.
+    return (
+      <span
+        aria-hidden
+        className={cn(
+          'inline-block h-3.5 w-8 animate-pulse rounded bg-accent align-middle',
+          className,
+        )}
+      />
+    )
   }
 
   const entry = ratings?.[username]

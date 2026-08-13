@@ -11,8 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AllTimeRouteImport } from './routes/all-time'
+import { Route as ClubRouteImport } from './routes/club'
 import { Route as FixturesRouteImport } from './routes/fixtures'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as TableRouteImport } from './routes/table'
 import { Route as PlayersUsernameRouteImport } from './routes/players.$username'
 
 const IndexRoute = IndexRouteImport.update({
@@ -25,6 +27,11 @@ const AllTimeRoute = AllTimeRouteImport.update({
   path: '/all-time',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClubRoute = ClubRouteImport.update({
+  id: '/club',
+  path: '/club',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FixturesRoute = FixturesRouteImport.update({
   id: '/fixtures',
   path: '/fixtures',
@@ -33,6 +40,11 @@ const FixturesRoute = FixturesRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TableRoute = TableRouteImport.update({
+  id: '/table',
+  path: '/table',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlayersUsernameRoute = PlayersUsernameRouteImport.update({
@@ -44,44 +56,68 @@ const PlayersUsernameRoute = PlayersUsernameRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/all-time': typeof AllTimeRoute
+  '/club': typeof ClubRoute
   '/fixtures': typeof FixturesRoute
   '/login': typeof LoginRoute
+  '/table': typeof TableRoute
   '/players/$username': typeof PlayersUsernameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/all-time': typeof AllTimeRoute
+  '/club': typeof ClubRoute
   '/fixtures': typeof FixturesRoute
   '/login': typeof LoginRoute
+  '/table': typeof TableRoute
   '/players/$username': typeof PlayersUsernameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/all-time': typeof AllTimeRoute
+  '/club': typeof ClubRoute
   '/fixtures': typeof FixturesRoute
   '/login': typeof LoginRoute
+  '/table': typeof TableRoute
   '/players/$username': typeof PlayersUsernameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/all-time' | '/fixtures' | '/login' | '/players/$username'
+  fullPaths:
+    | '/'
+    | '/all-time'
+    | '/club'
+    | '/fixtures'
+    | '/login'
+    | '/table'
+    | '/players/$username'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/all-time' | '/fixtures' | '/login' | '/players/$username'
+  to:
+    | '/'
+    | '/all-time'
+    | '/club'
+    | '/fixtures'
+    | '/login'
+    | '/table'
+    | '/players/$username'
   id:
     | '__root__'
     | '/'
     | '/all-time'
+    | '/club'
     | '/fixtures'
     | '/login'
+    | '/table'
     | '/players/$username'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AllTimeRoute: typeof AllTimeRoute
+  ClubRoute: typeof ClubRoute
   FixturesRoute: typeof FixturesRoute
   LoginRoute: typeof LoginRoute
+  TableRoute: typeof TableRoute
   PlayersUsernameRoute: typeof PlayersUsernameRoute
 }
 
@@ -101,6 +137,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AllTimeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/club': {
+      id: '/club'
+      path: '/club'
+      fullPath: '/club'
+      preLoaderRoute: typeof ClubRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/fixtures': {
       id: '/fixtures'
       path: '/fixtures'
@@ -113,6 +156,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/table': {
+      id: '/table'
+      path: '/table'
+      fullPath: '/table'
+      preLoaderRoute: typeof TableRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/players/$username': {
@@ -128,8 +178,10 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AllTimeRoute: AllTimeRoute,
+  ClubRoute: ClubRoute,
   FixturesRoute: FixturesRoute,
   LoginRoute: LoginRoute,
+  TableRoute: TableRoute,
   PlayersUsernameRoute: PlayersUsernameRoute,
 }
 export const routeTree = rootRouteImport

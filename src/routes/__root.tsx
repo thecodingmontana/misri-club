@@ -8,7 +8,8 @@ import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
-import { SiteHeader } from '#/components/site-header'
+import { BottomNav } from '#/components/bottom-nav'
+import { TopBar } from '#/components/top-bar'
 import { Toaster } from '#/components/ui/sonner'
 import { getSessionFn } from '#/server/auth.functions'
 
@@ -24,13 +25,17 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+      {
+        name: 'viewport',
+        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
+      },
       { title: 'Misri Chess Club League' },
       {
         name: 'description',
         content:
           'Season standings, fixtures and all-time records for the Misri chess.com club.',
       },
+      { name: 'theme-color', content: '#241d16' },
     ],
     links: [
       { rel: 'stylesheet', href: appCss },
@@ -46,22 +51,18 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
   notFoundComponent: NotFound,
 })
 
+/**
+ * The whole app lives in a phone-width column, centred on wider screens, so it
+ * reads as a mobile app rather than stretching across a desktop monitor.
+ */
 function RootLayout() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <SiteHeader />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 sm:px-6">
+    <div className="mx-auto flex min-h-screen w-full max-w-[27rem] flex-col border-x border-border/40 bg-background/30 shadow-[0_0_60px_rgba(0,0,0,0.35)]">
+      <TopBar />
+      <main className="flex-1 px-4 pb-32 pt-4">
         <Outlet />
       </main>
-      <footer className="border-t border-border/60 py-6">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2 px-4 text-xs text-muted-foreground sm:px-6">
-          <span>
-            Results sync automatically from the chess.com public API every 20
-            minutes.
-          </span>
-          <span className="numeric">3 · 1 · 0 scoring</span>
-        </div>
-      </footer>
+      <BottomNav />
     </div>
   )
 }
@@ -70,8 +71,8 @@ function NotFound() {
   return (
     <div className="py-24 text-center">
       <p className="kicker">404</p>
-      <h1 className="display mt-3 text-3xl font-semibold">Nothing here</h1>
-      <p className="mt-2 text-muted-foreground">
+      <h1 className="display mt-3 text-2xl font-semibold">Nothing here</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
         That page isn&apos;t part of the league.
       </p>
     </div>
@@ -86,9 +87,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <Toaster position="bottom-center" />
+        <Toaster position="top-center" />
         <TanStackDevtools
-          config={{ position: 'bottom-right' }}
+          config={{ position: 'bottom-left' }}
           plugins={[
             { name: 'Tanstack Router', render: <TanStackRouterDevtoolsPanel /> },
             TanStackQueryDevtools,
