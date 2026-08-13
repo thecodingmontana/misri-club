@@ -1,36 +1,62 @@
 import { relations } from 'drizzle-orm'
 import {
+  boolean,
   index,
   integer,
+  pgEnum,
+  pgTable,
   primaryKey,
-  sqliteTable,
   text,
+  timestamp,
   uniqueIndex,
-} from 'drizzle-orm/sqlite-core'
+} from 'drizzle-orm/pg-core'
 
-export const players = sqliteTable('players', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+/**
+ * Every table here has RLS enabled with **no policies**, which is a deny-all.
+ *
+ * This matters on Supabase specifically: PostgREST exposes the `public` schema
+ * over the project's anon key, and the default grants let `anon` read and write
+ * any table that has RLS switched off. Tables created by a migration don't get
+ * RLS automatically the way dashboard-created ones do, so without this the whole
+ * league would be world-writable at `/rest/v1/players`. The app itself connects
+ * as `postgres`, which bypasses RLS, so nothing in our own access path changes.
+ */
+
+export const gameResult = pgEnum('game_result', ['white', 'black', 'draw'])
+export const gameSource = pgEnum('game_source', ['auto', 'manual'])
+
+/** Millisecond precision is plenty for match windows, and cheaper than the µs default. */
+const ts = (name: string) =>
+  timestamp(name, { mode: 'date', precision: 3, withTimezone: true })
+
+export const players = pgTable('players', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   /** chess.com username, canonical (lowercase) casing — the API's own form */
   username: text('username').notNull().unique(),
   /** Display casing as chess.com renders it on the profile URL */
   displayName: text('display_name'),
   avatar: text('avatar'),
-  joinedAt: integer('joined_at', { mode: 'timestamp' }).notNull(),
+  joinedAt: ts('joined_at').notNull(),
   /** false = left the club / inactive. We never delete, so history survives. */
-  active: integer('active', { mode: 'boolean' }).notNull().default(true),
-})
+  active: boolean('active').notNull().default(true),
+}).enableRLS()
 
-export const seasons = sqliteTable('seasons', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
+export const seasons = pgTable('seasons', {
+  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   label: text('label').notNull(), // e.g. "Season 1"
-  startedAt: integer('started_at', { mode: 'timestamp' }).notNull(),
-  endedAt: integer('ended_at', { mode: 'timestamp' }), // null = current season
-})
+  startedAt: ts('started_at').notNull(),
+  endedAt: ts('ended_at'), // null = current season
+  /**
+   * How long each matchday stays open. Players have this many days to arrange
+   * and finish their fixture before it expires against both of them.
+   */
+  matchdayDays: integer('matchday_days').notNull().default(2),
+}).enableRLS()
 
-export const fixtures = sqliteTable(
+export const fixtures = pgTable(
   'fixtures',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
     seasonId: integer('season_id')
       .notNull()
       .references(() => seasons.id),
@@ -39,18 +65,33 @@ export const fixtures = sqliteTable(
     homePlayerId: integer('home_player_id').references(() => players.id), // null = bye
     awayPlayerId: integer('away_player_id').references(() => players.id), // null = bye
     byePlayerId: integer('bye_player_id').references(() => players.id),
+    /**
+     * The playing window. A game counts for this fixture only if it finished
+     * inside it; once `dueAt` passes with nothing played, the fixture expires
+     * and costs both players a point.
+     */
+    opensAt: ts('opens_at').notNull(),
+    dueAt: ts('due_at').notNull(),
   },
-  (t) => [index('fixtures_season_idx').on(t.seasonId, t.matchday)],
-)
+  (t) => [
+    index('fixtures_season_idx').on(t.seasonId, t.matchday),
+    // Foreign keys get no index for free in Postgres, and every standings
+    // rebuild joins through these.
+    index('fixtures_home_idx').on(t.homePlayerId),
+    index('fixtures_away_idx').on(t.awayPlayerId),
+    // Deadline sweeps ask "which windows closed since I last looked".
+    index('fixtures_due_idx').on(t.seasonId, t.dueAt),
+  ],
+).enableRLS()
 
-export const games = sqliteTable(
+export const games = pgTable(
   'games',
   {
-    id: integer('id').primaryKey({ autoIncrement: true }),
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
     seasonId: integer('season_id')
       .notNull()
       .references(() => seasons.id),
-    /** null if it's an extra/unscheduled game */
+    /** null if it's an extra/unscheduled game (a friendly) */
     fixtureId: integer('fixture_id').references(() => fixtures.id),
     /** dedup key — a game is only ever recorded once, so sync is idempotent */
     chessComUrl: text('chess_com_url').notNull().unique(),
@@ -60,20 +101,22 @@ export const games = sqliteTable(
     blackPlayerId: integer('black_player_id')
       .notNull()
       .references(() => players.id),
-    result: text('result', { enum: ['white', 'black', 'draw'] }).notNull(),
+    result: gameResult('result').notNull(),
     timeClass: text('time_class'),
-    endedAt: integer('ended_at', { mode: 'timestamp' }).notNull(),
-    source: text('source', { enum: ['auto', 'manual'] })
-      .notNull()
-      .default('auto'),
+    endedAt: ts('ended_at').notNull(),
+    source: gameSource('source').notNull().default('auto'),
   },
   (t) => [
-    index('games_season_idx').on(t.seasonId, t.endedAt),
+    index('games_season_idx').on(t.seasonId, t.endedAt.desc()),
+    index('games_white_idx').on(t.whitePlayerId),
+    index('games_black_idx').on(t.blackPlayerId),
+    // One game per fixture. Postgres treats NULLs as distinct, so any number of
+    // unlinked friendlies coexist happily.
     uniqueIndex('games_fixture_idx').on(t.fixtureId),
   ],
-)
+).enableRLS()
 
-export const seasonStandings = sqliteTable(
+export const seasonStandings = pgTable(
   'season_standings',
   {
     seasonId: integer('season_id')
@@ -86,19 +129,25 @@ export const seasonStandings = sqliteTable(
     wins: integer('wins').notNull().default(0),
     draws: integer('draws').notNull().default(0),
     losses: integer('losses').notNull().default(0),
+    /** Fixtures that expired unplayed — each one cost this player a point. */
+    forfeits: integer('forfeits').notNull().default(0),
   },
-  (t) => [primaryKey({ columns: [t.seasonId, t.playerId] })],
-)
+  (t) => [
+    primaryKey({ columns: [t.seasonId, t.playerId] }),
+    // The composite PK covers season-first lookups; all-time rolls up by player.
+    index('standings_player_idx').on(t.playerId),
+  ],
+).enableRLS()
 
 /**
- * Small key/value scratchpad for job bookkeeping (e.g. `sync:lastRunAt`).
- * Not part of the league model — it just keeps the UI honest about freshness.
+ * Small key/value scratchpad for job bookkeeping (`sync:lastRunAt`, cached club
+ * metadata, standings freshness). Not part of the league model.
  */
-export const appMeta = sqliteTable('app_meta', {
+export const appMeta = pgTable('app_meta', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
-  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
-})
+  updatedAt: ts('updated_at').notNull(),
+}).enableRLS()
 
 export const playersRelations = relations(players, ({ many }) => ({
   standings: many(seasonStandings),
