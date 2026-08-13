@@ -24,7 +24,7 @@ import { syncGames } from './sync.server'
 
 /**
  * The app's RPC surface. Everything here executes on the server only — the
- * client bundle keeps just the fetch stubs, so `@libsql/client` and the
+ * client bundle keeps just the fetch stubs, so the Postgres driver and the
  * chess.com client never reach the browser.
  *
  * Note: this league board is deliberately unauthenticated (public club data).

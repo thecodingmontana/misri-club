@@ -1,21 +1,16 @@
-import { and, desc, eq, isNull, or, sql } from 'drizzle-orm'
-import { alias } from 'drizzle-orm/sqlite-core'
+import { asc, desc, eq, or, sql } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 import { db } from '#/db/client.server'
-import {
-  fixtures,
-  games,
-  players,
-  seasonStandings,
-  seasons,
-} from '#/db/schema'
+import { fixtures, games, players, seasonStandings, seasons } from '#/db/schema'
 import { matchdayCount } from '#/lib/round-robin'
 import { CLUB_ID, clubUrl } from './chesscom.server'
 import {
-  getMeta,
+  DEFAULT_MATCHDAY_DAYS,
+  getManyMeta,
   getOrCreateCurrentSeason,
-  hasFixtures,
   isSeasonLocked,
   listAllPlayers,
+  recomputeStandingsIfStale,
   unscheduledPlayers,
 } from './league.server'
 
@@ -25,17 +20,8 @@ const home = alias(players, 'home')
 const away = alias(players, 'away')
 const bye = alias(players, 'bye')
 
-export interface StandingRow {
-  playerId: number
-  username: string
-  displayName: string | null
-  avatar: string | null
-  points: number
-  wins: number
-  draws: number
-  losses: number
-  played: number
-}
+export type FixtureStatus = 'upcoming' | 'live' | 'played' | 'expired' | 'bye'
+export type Outcome = 'win' | 'draw' | 'loss' | 'forfeit'
 
 export interface GameRow {
   id: number
@@ -46,39 +32,15 @@ export interface GameRow {
   timeClass: string | null
   endedAt: number
   matchday: number | null
-  source: 'auto' | 'manual'
+  /** Unlinked games are friendlies — shown, but they do not score. */
+  counts: boolean
 }
 
-async function standingsFor(seasonId: number): Promise<Array<StandingRow>> {
-  const rows = await db
-    .select({
-      playerId: seasonStandings.playerId,
-      username: players.username,
-      displayName: players.displayName,
-      avatar: players.avatar,
-      points: seasonStandings.points,
-      wins: seasonStandings.wins,
-      draws: seasonStandings.draws,
-      losses: seasonStandings.losses,
-    })
-    .from(seasonStandings)
-    .innerJoin(players, eq(players.id, seasonStandings.playerId))
-    .where(eq(seasonStandings.seasonId, seasonId))
-    .orderBy(
-      desc(seasonStandings.points),
-      desc(seasonStandings.wins),
-      players.username,
-    )
-    .all()
-
-  return rows.map((row) => ({ ...row, played: row.wins + row.draws + row.losses }))
-}
-
-async function gamesFor(
+async function recentGames(
   seasonId: number,
-  limit?: number,
+  limit: number,
 ): Promise<Array<GameRow>> {
-  const query = db
+  const rows = await db
     .select({
       id: games.id,
       chessComUrl: games.chessComUrl,
@@ -88,7 +50,6 @@ async function gamesFor(
       timeClass: games.timeClass,
       endedAt: games.endedAt,
       matchday: fixtures.matchday,
-      source: games.source,
     })
     .from(games)
     .innerJoin(white, eq(white.id, games.whitePlayerId))
@@ -96,178 +57,342 @@ async function gamesFor(
     .leftJoin(fixtures, eq(fixtures.id, games.fixtureId))
     .where(eq(games.seasonId, seasonId))
     .orderBy(desc(games.endedAt))
+    .limit(limit)
 
-  const rows = limit ? await query.limit(limit).all() : await query.all()
-
-  return rows.map((row) => ({ ...row, endedAt: row.endedAt.getTime() }))
+  return rows.map((row) => ({
+    ...row,
+    endedAt: row.endedAt.getTime(),
+    counts: row.matchday !== null,
+  }))
 }
 
-// ---------------------------------------------------------------------------
-// Leaderboard (`/`)
-// ---------------------------------------------------------------------------
-
-export async function getLeaderboard() {
-  const season = await getOrCreateCurrentSeason()
-  const standings = await standingsFor(season.id)
-  const recentGames = await gamesFor(season.id, 12)
-
-  const totalGames =
-    (
-      await db
-        .select({ n: sql<number>`count(*)` })
-        .from(games)
-        .where(eq(games.seasonId, season.id))
-        .get()
-    )?.n ?? 0
-
-  const scheduled =
-    (
-      await db
-        .select({ n: sql<number>`count(*)` })
-        .from(fixtures)
-        .where(
-          and(
-            eq(fixtures.seasonId, season.id),
-            isNull(fixtures.byePlayerId),
-          ),
-        )
-        .get()
-    )?.n ?? 0
-
-  const played =
-    (
-      await db
-        .select({ n: sql<number>`count(*)` })
-        .from(games)
-        .where(
-          and(eq(games.seasonId, season.id), sql`${games.fixtureId} is not null`),
-        )
-        .get()
-    )?.n ?? 0
-
-  const visibility = await getMeta('club:visibility')
-
-  return {
-    club: {
-      id: CLUB_ID,
-      url: clubUrl(),
-      name: (await getMeta('club:name')) ?? 'Misri',
-      visibility,
-      /** chess.com only enumerates members of public clubs */
-      membersListable: visibility === 'public',
-      membersCount: Number((await getMeta('club:membersCount')) ?? 0),
-    },
-    roster: (await listAllPlayers()).map((p) => ({
-      username: p.username,
-      active: p.active,
-    })),
-    season: {
-      id: season.id,
-      label: season.label,
-      startedAt: season.startedAt.getTime(),
-    },
-    standings,
-    recentGames,
-    stats: {
-      players: standings.length,
-      totalGames,
-      scheduledFixtures: scheduled,
-      playedFixtures: played,
-    },
-    lastSyncAt: await getMeta('sync:lastRunAt'),
-  }
-}
-
-export type LeaderboardData = ReturnType<typeof getLeaderboard>
-
-// ---------------------------------------------------------------------------
-// Fixtures (`/fixtures`)
-// ---------------------------------------------------------------------------
-
-export interface FixtureRow {
+interface FixtureRecord {
   id: number
   matchday: number
-  leg: 1 | 2
+  leg: number
+  homeId: number | null
+  awayId: number | null
+  byeId: number | null
   home: string | null
   away: string | null
   bye: string | null
-  game: {
-    chessComUrl: string
-    result: 'white' | 'black' | 'draw'
-    whiteUsername: string
-    endedAt: number
-  } | null
+  opensAt: Date
+  dueAt: Date
+  gameUrl: string | null
+  gameResult: 'white' | 'black' | 'draw' | null
+  gameWhiteId: number | null
+  gameEndedAt: Date | null
 }
 
-export async function getFixtures() {
-  const season = await getOrCreateCurrentSeason()
-
-  const rows = await db
+async function seasonFixtures(seasonId: number): Promise<Array<FixtureRecord>> {
+  return db
     .select({
       id: fixtures.id,
       matchday: fixtures.matchday,
       leg: fixtures.leg,
+      homeId: fixtures.homePlayerId,
+      awayId: fixtures.awayPlayerId,
+      byeId: fixtures.byePlayerId,
       home: home.username,
       away: away.username,
       bye: bye.username,
+      opensAt: fixtures.opensAt,
+      dueAt: fixtures.dueAt,
       gameUrl: games.chessComUrl,
       gameResult: games.result,
+      gameWhiteId: games.whitePlayerId,
       gameEndedAt: games.endedAt,
-      gameWhite: white.username,
     })
     .from(fixtures)
     .leftJoin(home, eq(home.id, fixtures.homePlayerId))
     .leftJoin(away, eq(away.id, fixtures.awayPlayerId))
     .leftJoin(bye, eq(bye.id, fixtures.byePlayerId))
     .leftJoin(games, eq(games.fixtureId, fixtures.id))
-    .leftJoin(white, eq(white.id, games.whitePlayerId))
-    .where(eq(fixtures.seasonId, season.id))
-    .orderBy(fixtures.matchday, fixtures.id)
-    .all()
+    .where(eq(fixtures.seasonId, seasonId))
+    .orderBy(asc(fixtures.matchday), asc(fixtures.id))
+}
 
-  const list: Array<FixtureRow> = rows.map((row) => ({
-    id: row.id,
-    matchday: row.matchday,
-    leg: row.leg as 1 | 2,
-    home: row.home,
-    away: row.away,
-    bye: row.bye,
+function statusOf(fixture: FixtureRecord, now: Date): FixtureStatus {
+  if (fixture.byeId) return 'bye'
+  if (fixture.gameUrl) return 'played'
+  if (now < fixture.opensAt) return 'upcoming'
+  if (now < fixture.dueAt) return 'live'
+  return 'expired'
+}
+
+export interface FixtureView {
+  id: number
+  matchday: number
+  leg: number
+  home: string | null
+  away: string | null
+  bye: string | null
+  opensAt: number
+  dueAt: number
+  status: FixtureStatus
+  game: {
+    chessComUrl: string
+    result: 'white' | 'black' | 'draw'
+    homeWon: boolean
+    endedAt: number
+  } | null
+}
+
+function toView(fixture: FixtureRecord, now: Date): FixtureView {
+  const homeWon =
+    fixture.gameResult !== null &&
+    fixture.gameResult !== 'draw' &&
+    (fixture.gameResult === 'white') === (fixture.gameWhiteId === fixture.homeId)
+
+  return {
+    id: fixture.id,
+    matchday: fixture.matchday,
+    leg: fixture.leg,
+    home: fixture.home,
+    away: fixture.away,
+    bye: fixture.bye,
+    opensAt: fixture.opensAt.getTime(),
+    dueAt: fixture.dueAt.getTime(),
+    status: statusOf(fixture, now),
     game:
-      row.gameUrl && row.gameResult && row.gameEndedAt && row.gameWhite
+      fixture.gameUrl && fixture.gameResult && fixture.gameEndedAt
         ? {
-            chessComUrl: row.gameUrl,
-            result: row.gameResult,
-            whiteUsername: row.gameWhite,
-            endedAt: row.gameEndedAt.getTime(),
+            chessComUrl: fixture.gameUrl,
+            result: fixture.gameResult,
+            homeWon,
+            endedAt: fixture.gameEndedAt.getTime(),
           }
         : null,
-  }))
+  }
+}
 
-  const activeCount =
-    (
-      await db
-        .select({ n: sql<number>`count(*)` })
-        .from(players)
-        .where(eq(players.active, true))
-        .get()
-    )?.n ?? 0
+// ---------------------------------------------------------------------------
+// Leaderboard (`/`)
+// ---------------------------------------------------------------------------
+
+export interface StandingRow {
+  playerId: number
+  username: string
+  avatar: string | null
+  points: number
+  wins: number
+  draws: number
+  losses: number
+  forfeits: number
+  played: number
+  /** Per-matchday cell, ordered by matchday — drives the grid on the table. */
+  cells: Array<{ matchday: number; outcome: Outcome | null; status: FixtureStatus }>
+}
+
+export async function getLeaderboard() {
+  const season = await getOrCreateCurrentSeason()
+  const now = new Date()
+
+  // Standings move with the clock: a fixture can expire without anything being
+  // written. Checking on read is what lets this app run with no cron — and the
+  // check short-circuits unless a window has actually closed since last time.
+  await recomputeStandingsIfStale(season.id, now)
+
+  // All five are independent. Kicking them off before the first await runs them
+  // concurrently, so the page costs one round trip's latency rather than five.
+  const standingsQuery = db
+    .select({
+      playerId: seasonStandings.playerId,
+      username: players.username,
+      avatar: players.avatar,
+      points: seasonStandings.points,
+      wins: seasonStandings.wins,
+      draws: seasonStandings.draws,
+      losses: seasonStandings.losses,
+      forfeits: seasonStandings.forfeits,
+    })
+    .from(seasonStandings)
+    .innerJoin(players, eq(players.id, seasonStandings.playerId))
+    .where(eq(seasonStandings.seasonId, season.id))
+    .orderBy(
+      desc(seasonStandings.points),
+      desc(seasonStandings.wins),
+      asc(players.username),
+    )
+
+  const fixturesQuery = seasonFixtures(season.id)
+  const rosterQuery = listAllPlayers()
+  const gamesQuery = recentGames(season.id, 10)
+  const metaQuery = getManyMeta([
+    'club:name',
+    'club:visibility',
+    'club:membersCount',
+    'sync:lastRunAt',
+  ])
+
+  const standingRows = await standingsQuery
+  const allFixtures = await fixturesQuery
+  const roster = await rosterQuery
+  const recent = await gamesQuery
+  const meta = await metaQuery
+
+  const matchdays = [...new Set(allFixtures.map((f) => f.matchday))].sort(
+    (a, b) => a - b,
+  )
+
+  const standings: Array<StandingRow> = standingRows.map((row) => {
+    const cells = matchdays.map((matchday) => {
+      const fixture = allFixtures.find(
+        (f) =>
+          f.matchday === matchday &&
+          (f.homeId === row.playerId ||
+            f.awayId === row.playerId ||
+            f.byeId === row.playerId),
+      )
+
+      if (!fixture) return { matchday, outcome: null, status: 'bye' as const }
+
+      const status = statusOf(fixture, now)
+      let outcome: Outcome | null = null
+
+      if (status === 'played' && fixture.gameResult) {
+        if (fixture.gameResult === 'draw') outcome = 'draw'
+        else {
+          const playedWhite = fixture.gameWhiteId === row.playerId
+          outcome =
+            (fixture.gameResult === 'white') === playedWhite ? 'win' : 'loss'
+        }
+      } else if (status === 'expired') {
+        outcome = 'forfeit'
+      }
+
+      return { matchday, outcome, status }
+    })
+
+    return {
+      ...row,
+      played: row.wins + row.draws + row.losses,
+      cells,
+    }
+  })
+
+  const current = currentMatchday(allFixtures, now)
+
+  return {
+    club: {
+      id: CLUB_ID,
+      url: clubUrl(),
+      name: meta['club:name'] ?? 'Misri',
+      visibility: meta['club:visibility'],
+      membersListable: meta['club:visibility'] === 'public',
+      membersCount: Number(meta['club:membersCount'] ?? 0),
+    },
+    roster: roster.map((p) => ({
+      username: p.username,
+      avatar: p.avatar,
+      active: p.active,
+    })),
+    season: {
+      id: season.id,
+      label: season.label,
+      startedAt: season.startedAt.getTime(),
+      matchdayDays: season.matchdayDays,
+    },
+    matchdays,
+    current,
+    standings,
+    recentGames: recent,
+    lastSyncAt: meta['sync:lastRunAt'],
+    now: now.getTime(),
+  }
+}
+
+export type LeaderboardData = Awaited<ReturnType<typeof getLeaderboard>>
+
+/** The matchday whose window contains `now`, or the next one to open. */
+function currentMatchday(all: Array<FixtureRecord>, now: Date) {
+  if (all.length === 0) return null
+
+  const byMatchday = new Map<number, { opensAt: Date; dueAt: Date }>()
+  for (const f of all) {
+    if (!byMatchday.has(f.matchday)) {
+      byMatchday.set(f.matchday, { opensAt: f.opensAt, dueAt: f.dueAt })
+    }
+  }
+
+  const ordered = [...byMatchday.entries()].sort(([a], [b]) => a - b)
+
+  const live = ordered.find(
+    ([, w]) => now >= w.opensAt && now < w.dueAt,
+  )
+  const next = ordered.find(([, w]) => now < w.opensAt)
+  const chosen = live ?? next
+
+  if (!chosen) {
+    const [matchday, window] = ordered[ordered.length - 1]
+    return {
+      matchday,
+      opensAt: window.opensAt.getTime(),
+      dueAt: window.dueAt.getTime(),
+      state: 'finished' as const,
+      fixtures: all
+        .filter((f) => f.matchday === matchday)
+        .map((f) => toView(f, now)),
+    }
+  }
+
+  const [matchday, window] = chosen
+  return {
+    matchday,
+    opensAt: window.opensAt.getTime(),
+    dueAt: window.dueAt.getTime(),
+    state: (live ? 'live' : 'upcoming') as 'live' | 'upcoming',
+    fixtures: all
+      .filter((f) => f.matchday === matchday)
+      .map((f) => toView(f, now)),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fixtures (`/fixtures`)
+// ---------------------------------------------------------------------------
+
+export async function getFixtures() {
+  const season = await getOrCreateCurrentSeason()
+  const now = new Date()
+
+  await recomputeStandingsIfStale(season.id, now)
+
+  const fixturesQuery = seasonFixtures(season.id)
+  const countQuery = db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(players)
+    .where(eq(players.active, true))
+  const lockedQuery = isSeasonLocked(season.id)
+  const unscheduledQuery = unscheduledPlayers(season.id)
+
+  const all = await fixturesQuery
+  const [{ n: activeCount }] = await countQuery
+  const locked = await lockedQuery
+  const unscheduled = await unscheduledQuery
+
+  const list = all.map((f) => toView(f, now))
 
   return {
     season: {
       id: season.id,
       label: season.label,
       startedAt: season.startedAt.getTime(),
+      matchdayDays: season.matchdayDays,
     },
-    locked: await isSeasonLocked(season.id),
-    generated: await hasFixtures(season.id),
+    locked,
+    // Derived from the fixtures we already fetched — no extra round trip.
+    generated: all.length > 0,
     fixtures: list,
-    unscheduled: (await unscheduledPlayers(season.id)).map((p) => p.username),
+    unscheduled: unscheduled.map((p) => p.username),
     projectedMatchdays: matchdayCount(activeCount),
+    projectedDays: matchdayCount(activeCount) * (season.matchdayDays || DEFAULT_MATCHDAY_DAYS),
     activePlayers: activeCount,
+    now: now.getTime(),
   }
 }
 
-export type FixturesData = ReturnType<typeof getFixtures>
+export type FixturesData = Awaited<ReturnType<typeof getFixtures>>
 
 // ---------------------------------------------------------------------------
 // All-time (`/all-time`)
@@ -276,13 +401,14 @@ export type FixturesData = ReturnType<typeof getFixtures>
 export interface AllTimeRow {
   playerId: number
   username: string
+  avatar: string | null
   points: number
   wins: number
   draws: number
   losses: number
+  forfeits: number
   played: number
   seasonsPlayed: number
-  /** seasonId -> that season's line */
   perSeason: Record<
     number,
     { points: number; wins: number; draws: number; losses: number }
@@ -294,8 +420,11 @@ export interface AllTimeRow {
  * grouped by player. Adding a season needs no migration.
  */
 export async function getAllTime() {
+  const current = await getOrCreateCurrentSeason()
+  await recomputeStandingsIfStale(current.id)
+
   const seasonList = (
-    await db.select().from(seasons).orderBy(seasons.startedAt).all()
+    await db.select().from(seasons).orderBy(asc(seasons.startedAt))
   ).map((s) => ({
     id: s.id,
     label: s.label,
@@ -307,18 +436,19 @@ export async function getAllTime() {
     .select({
       playerId: seasonStandings.playerId,
       username: players.username,
-      points: sql<number>`sum(${seasonStandings.points})`,
-      wins: sql<number>`sum(${seasonStandings.wins})`,
-      draws: sql<number>`sum(${seasonStandings.draws})`,
-      losses: sql<number>`sum(${seasonStandings.losses})`,
-      seasonsPlayed: sql<number>`count(distinct ${seasonStandings.seasonId})`,
+      avatar: players.avatar,
+      points: sql<number>`sum(${seasonStandings.points})::int`,
+      wins: sql<number>`sum(${seasonStandings.wins})::int`,
+      draws: sql<number>`sum(${seasonStandings.draws})::int`,
+      losses: sql<number>`sum(${seasonStandings.losses})::int`,
+      forfeits: sql<number>`sum(${seasonStandings.forfeits})::int`,
+      seasonsPlayed: sql<number>`count(distinct ${seasonStandings.seasonId})::int`,
     })
     .from(seasonStandings)
     .innerJoin(players, eq(players.id, seasonStandings.playerId))
-    .groupBy(seasonStandings.playerId)
-    .all()
+    .groupBy(seasonStandings.playerId, players.username, players.avatar)
 
-  const breakdown = await db.select().from(seasonStandings).all()
+  const breakdown = await db.select().from(seasonStandings)
 
   const perPlayer = new Map<number, AllTimeRow['perSeason']>()
   for (const row of breakdown) {
@@ -343,20 +473,24 @@ export async function getAllTime() {
   return { seasons: seasonList, rows }
 }
 
-export type AllTimeData = ReturnType<typeof getAllTime>
+export type AllTimeData = Awaited<ReturnType<typeof getAllTime>>
 
 // ---------------------------------------------------------------------------
 // Player profile (`/players/$username`)
 // ---------------------------------------------------------------------------
 
 export async function getPlayer(username: string) {
-  const player = await db
+  const [player] = await db
     .select()
     .from(players)
     .where(eq(players.username, username.toLowerCase()))
-    .get()
+    .limit(1)
 
   if (!player) return null
+
+  const current = await getOrCreateCurrentSeason()
+  const now = new Date()
+  await recomputeStandingsIfStale(current.id, now)
 
   const history = (
     await db
@@ -369,12 +503,12 @@ export async function getPlayer(username: string) {
         wins: seasonStandings.wins,
         draws: seasonStandings.draws,
         losses: seasonStandings.losses,
+        forfeits: seasonStandings.forfeits,
       })
       .from(seasonStandings)
       .innerJoin(seasons, eq(seasons.id, seasonStandings.seasonId))
       .where(eq(seasonStandings.playerId, player.id))
       .orderBy(desc(seasons.startedAt))
-      .all()
   ).map((row) => ({
     ...row,
     startedAt: row.startedAt.getTime(),
@@ -407,7 +541,6 @@ export async function getPlayer(username: string) {
         ),
       )
       .orderBy(desc(games.endedAt))
-      .all()
   ).map((row) => {
     const playedWhite = row.white === player.username
     const outcome =
@@ -423,8 +556,18 @@ export async function getPlayer(username: string) {
       colour: playedWhite ? ('white' as const) : ('black' as const),
       opponent: playedWhite ? row.black : row.white,
       outcome,
+      counts: row.matchday !== null,
     }
   })
+
+  // The player's own fixtures this season, so their profile doubles as a
+  // personal schedule.
+  const mine = (await seasonFixtures(current.id))
+    .filter(
+      (f) =>
+        f.homeId === player.id || f.awayId === player.id || f.byeId === player.id,
+    )
+    .map((f) => toView(f, now))
 
   const totals = history.reduce(
     (acc, season) => ({
@@ -432,8 +575,9 @@ export async function getPlayer(username: string) {
       wins: acc.wins + season.wins,
       draws: acc.draws + season.draws,
       losses: acc.losses + season.losses,
+      forfeits: acc.forfeits + season.forfeits,
     }),
-    { points: 0, wins: 0, draws: 0, losses: 0 },
+    { points: 0, wins: 0, draws: 0, losses: 0, forfeits: 0 },
   )
 
   return {
@@ -447,8 +591,10 @@ export async function getPlayer(username: string) {
     },
     history,
     games: gameRows,
+    fixtures: mine,
     totals: { ...totals, played: totals.wins + totals.draws + totals.losses },
+    now: now.getTime(),
   }
 }
 
-export type PlayerData = NonNullable<ReturnType<typeof getPlayer>>
+export type PlayerData = NonNullable<Awaited<ReturnType<typeof getPlayer>>>

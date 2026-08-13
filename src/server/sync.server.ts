@@ -123,7 +123,9 @@ async function runSync({
       try {
         archive = await fetchArchive(url)
       } catch (error) {
-        errors.push(`Archive fetch failed for ${url}: ${(error as Error).message}`)
+        errors.push(
+          `Archive fetch failed for ${url}: ${(error as Error).message}`,
+        )
         return
       }
 
@@ -141,9 +143,9 @@ async function runSync({
         const endedAt = new Date((game.end_time ?? 0) * 1000)
         // A game only counts once both players were actually in the club.
         if (
+          Number.isNaN(endedAt.getTime()) ||
           endedAt <= white.joinedAt ||
-          endedAt <= black.joinedAt ||
-          Number.isNaN(endedAt.getTime())
+          endedAt <= black.joinedAt
         ) {
           continue
         }
@@ -164,32 +166,31 @@ async function runSync({
 
   if (candidates.size > 0) {
     const urls = [...candidates.keys()]
-    const known = new Set(
-      (
-        await db
-          .select({ url: games.chessComUrl })
-          .from(games)
-          .where(inArray(games.chessComUrl, urls))
-          .all()
-      ).map((row) => row.url),
-    )
+    const knownRows = await db
+      .select({ url: games.chessComUrl })
+      .from(games)
+      .where(inArray(games.chessComUrl, urls))
 
+    const known = new Set(knownRows.map((row) => row.url))
     const fresh = [...candidates.values()].filter(
       (game) => !known.has(game.chessComUrl),
     )
 
     if (fresh.length > 0) {
-      await db.transaction(async (tx) => {
-        for (const game of fresh) {
-          // `chess_com_url` is unique, so a racing sync can't double-insert.
-          const inserted = await tx
-            .insert(games)
-            .values({ seasonId: season.id, source: 'auto', ...game })
-            .onConflictDoNothing({ target: games.chessComUrl })
-            .run()
-          gamesAdded += inserted.rowsAffected
-        }
-      })
+      // `chess_com_url` is unique, so a racing sync can't double-insert.
+      const inserted = await db
+        .insert(games)
+        .values(
+          fresh.map((game) => ({
+            seasonId: season.id,
+            source: 'auto' as const,
+            ...game,
+          })),
+        )
+        .onConflictDoNothing({ target: games.chessComUrl })
+        .returning({ id: games.id })
+
+      gamesAdded = inserted.length
     }
   }
 
@@ -198,10 +199,6 @@ async function runSync({
 
   const finishedAt = new Date()
   await setMeta('sync:lastRunAt', finishedAt.toISOString())
-  await setMeta(
-    'sync:lastResult',
-    JSON.stringify({ gamesAdded, gamesLinked, errors: errors.length }),
-  )
 
   return {
     startedAt: startedAt.toISOString(),
@@ -231,16 +228,17 @@ export async function recordManualGame(input: {
 }) {
   const season = await getOrCreateCurrentSeason()
 
-  const white = await db
+  const [white] = await db
     .select()
     .from(players)
     .where(eq(players.username, input.whiteUsername.toLowerCase()))
-    .get()
-  const black = await db
+    .limit(1)
+
+  const [black] = await db
     .select()
     .from(players)
     .where(eq(players.username, input.blackUsername.toLowerCase()))
-    .get()
+    .limit(1)
 
   if (!white || !black) throw new Error('Both players must be on the roster.')
   if (white.id === black.id) throw new Error('A player cannot play themselves.')
@@ -257,9 +255,9 @@ export async function recordManualGame(input: {
       source: 'manual',
     })
     .onConflictDoNothing({ target: games.chessComUrl })
-    .run()
+    .returning({ id: games.id })
 
-  if (inserted.rowsAffected === 0) {
+  if (inserted.length === 0) {
     throw new Error('That game URL has already been recorded.')
   }
 
