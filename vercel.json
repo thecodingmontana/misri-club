@@ -1,9 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["dub1"],
-  "functions": {
-    "**": {
-      "maxDuration": 30
-    }
-  }
+  "regions": ["dub1"]
 }
