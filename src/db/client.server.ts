@@ -31,7 +31,21 @@ function createDb() {
      * depth, which is how requests end up exceeding the statement timeout.
      */
     max: process.env.VERCEL ? 3 : 5,
-    idle_timeout: 20,
+    /**
+     * Deliberately short, and the reason is Fluid Compute rather than the
+     * database. Vercel freezes a warm isolate between requests; the TCP sockets
+     * this pool is holding do not survive that, but the pool has no way to know
+     * — it hands out a dead socket, writes a query into it and waits for a
+     * reply that cannot arrive. postgres-js has no client-side query timeout,
+     * so that wait is unbounded and the request hangs until Vercel kills it at
+     * 300s. Postgres shows these as `active` + `ClientRead`: the query is long
+     * finished and the server is waiting on a client that is never coming back.
+     *
+     * Closing idle connections quickly means a frozen isolate almost never has
+     * one left to poison, and reconnecting is cheap because the functions run
+     * in the same region as the database.
+     */
+    idle_timeout: 5,
     connect_timeout: 15,
     /**
      * Recycle connections rather than holding them for the life of the process.
@@ -41,16 +55,11 @@ function createDb() {
      */
     max_lifetime: 60 * 30,
     ssl: isLocal ? false : 'require',
-    connection: {
-      /**
-       * Without this a query that stalls — a lock, a pooler hiccup — hangs the
-       * request forever, which shows up as a page that spins and never
-       * resolves. Ten seconds is far longer than any query here should take,
-       * so hitting it means something is wrong and failing loudly beats
-       * hanging silently.
-       */
-      statement_timeout: 10_000,
-    },
+    /**
+     * Probe idle sockets aggressively so the OS surfaces a dead peer as a
+     * connection error the pool can react to, instead of a silent black hole.
+     */
+    keep_alive: 10,
   })
 
   return drizzle(client, { schema, casing: 'snake_case' })

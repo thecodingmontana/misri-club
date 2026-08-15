@@ -36,16 +36,43 @@ import { syncGames } from './sync.server'
 
 // --- Reads -----------------------------------------------------------------
 
+/**
+ * Nothing here is allowed to wait forever.
+ *
+ * A page read is a handful of indexed queries against a database in the same
+ * region; if it has not finished in a few seconds it is not slow, it is stuck,
+ * and the only stuck state we have actually seen is a pooled socket that died
+ * while the isolate was frozen. Without a bound, that becomes a request Vercel
+ * eventually kills at 300s, and the visitor stares at a page that never
+ * resolves. Failing at eight seconds turns that into an ordinary error the
+ * router can render and the visitor can retry — and a retry lands on a fresh
+ * connection, so it succeeds.
+ *
+ * This is a backstop, not the fix: the short idle timeout in the db client is
+ * what stops sockets going stale in the first place.
+ */
+const READ_BUDGET_MS = 8_000
+
+function budgeted<T>(label: string, work: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${READ_BUDGET_MS}ms`))
+    }, READ_BUDGET_MS)
+
+    work().then(resolve, reject).finally(() => clearTimeout(timer))
+  })
+}
+
 export const getLeaderboardFn = createServerFn({ method: 'GET' }).handler(
-  async () => getLeaderboard(),
+  async () => budgeted('leaderboard', getLeaderboard),
 )
 
 export const getFixturesFn = createServerFn({ method: 'GET' }).handler(
-  async () => getFixtures(),
+  async () => budgeted('fixtures', getFixtures),
 )
 
 export const getAllTimeFn = createServerFn({ method: 'GET' }).handler(
-  async () => getAllTime(),
+  async () => budgeted('all-time', getAllTime),
 )
 
 export const getPlayerFn = createServerFn({ method: 'GET' })
