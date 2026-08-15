@@ -32,34 +32,23 @@ function createDb() {
      *
      * This is why the app only broke when two requests overlapped — a single
      * request in isolation never had anything to pipeline against.
+     *
+     * The option is read at runtime (`src/index.js` parses it as an int and
+     * defaults it to 100) but is missing from the shipped type definitions,
+     * hence the cast below.
      */
-    max_pipeline: 1,
-    /**
-     * A big `max` multiplies across instances and exhausts the pooler's client
-     * slots, so this stays small. It cannot be 1 on Vercel, though: Fluid
-     * Compute runs concurrent requests inside a shared isolate, so a single
-     * connection serialises every query of every in-flight request behind one
-     * another. A page that issues five queries then waits five times its own
-     * depth, which is how requests end up exceeding the statement timeout.
-     */
+    ...({ max_pipeline: 1 } as object),
     /**
      * With pipelining off, a connection serves one query at a time, so this is
      * the number of requests an isolate can have in flight before they queue.
      */
     max: process.env.VERCEL ? 6 : 5,
     /**
-     * Deliberately short, and the reason is Fluid Compute rather than the
-     * database. Vercel freezes a warm isolate between requests; the TCP sockets
-     * this pool is holding do not survive that, but the pool has no way to know
-     * — it hands out a dead socket, writes a query into it and waits for a
-     * reply that cannot arrive. postgres-js has no client-side query timeout,
-     * so that wait is unbounded and the request hangs until Vercel kills it at
-     * 300s. Postgres shows these as `active` + `ClientRead`: the query is long
-     * finished and the server is waiting on a client that is never coming back.
-     *
-     * Closing idle connections quickly means a frozen isolate almost never has
-     * one left to poison, and reconnecting is cheap because the functions run
-     * in the same region as the database.
+     * Short because Vercel freezes warm isolates between requests, and a socket
+     * this pool is holding may not survive that. Dropping idle connections
+     * quickly means a thawed isolate reconnects instead of reusing something
+     * that may be dead, and reconnecting is cheap when the functions run in the
+     * database's own region.
      */
     idle_timeout: 5,
     connect_timeout: 15,
