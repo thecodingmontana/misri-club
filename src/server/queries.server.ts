@@ -193,8 +193,11 @@ export async function getLeaderboard() {
   // check short-circuits unless a window has actually closed since last time.
   await recomputeStandingsIfStale(season.id, now)
 
-  // All five are independent. Kicking them off before the first await runs them
-  // concurrently, so the page costs one round trip's latency rather than five.
+  // All five are independent, so they go out together rather than in a chain.
+  // Note the `.execute()`: a Drizzle query builder is lazy and only sends its
+  // statement when it's awaited, so assigning one to a variable starts nothing.
+  // `.execute()` returns a real Promise, which is what actually puts the five
+  // queries on the wire at once — one round trip's latency instead of five.
   const standingsQuery = db
     .select({
       playerId: seasonStandings.playerId,
@@ -214,22 +217,20 @@ export async function getLeaderboard() {
       desc(seasonStandings.wins),
       asc(players.username),
     )
+    .execute()
 
-  const fixturesQuery = seasonFixtures(season.id)
-  const rosterQuery = listAllPlayers()
-  const gamesQuery = recentGames(season.id, 10)
-  const metaQuery = getManyMeta([
-    'club:name',
-    'club:visibility',
-    'club:membersCount',
-    'sync:lastRunAt',
+  const [standingRows, allFixtures, roster, recent, meta] = await Promise.all([
+    standingsQuery,
+    seasonFixtures(season.id),
+    listAllPlayers(),
+    recentGames(season.id, 10),
+    getManyMeta([
+      'club:name',
+      'club:visibility',
+      'club:membersCount',
+      'sync:lastRunAt',
+    ]),
   ])
-
-  const standingRows = await standingsQuery
-  const allFixtures = await fixturesQuery
-  const roster = await rosterQuery
-  const recent = await gamesQuery
-  const meta = await metaQuery
 
   const matchdays = [...new Set(allFixtures.map((f) => f.matchday))].sort(
     (a, b) => a - b,
@@ -358,18 +359,18 @@ export async function getFixtures() {
 
   await recomputeStandingsIfStale(season.id, now)
 
-  const fixturesQuery = seasonFixtures(season.id)
-  const countQuery = db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(players)
-    .where(eq(players.active, true))
-  const lockedQuery = isSeasonLocked(season.id)
-  const unscheduledQuery = unscheduledPlayers(season.id)
-
-  const all = await fixturesQuery
-  const [{ n: activeCount }] = await countQuery
-  const locked = await lockedQuery
-  const unscheduled = await unscheduledQuery
+  // `.execute()` turns the lazy builder into a real Promise so Promise.all can
+  // actually dispatch all four at once — see the note in getLeaderboard.
+  const [all, [{ n: activeCount }], locked, unscheduled] = await Promise.all([
+    seasonFixtures(season.id),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(players)
+      .where(eq(players.active, true))
+      .execute(),
+    isSeasonLocked(season.id),
+    unscheduledPlayers(season.id),
+  ])
 
   const list = all.map((f) => toView(f, now))
 

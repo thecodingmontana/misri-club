@@ -3,11 +3,9 @@ import {
   asc,
   desc,
   eq,
-  gt,
   inArray,
   isNotNull,
   isNull,
-  lte,
   sql,
 } from 'drizzle-orm'
 import { generateDoubleRoundRobin } from '#/lib/round-robin'
@@ -673,23 +671,27 @@ export async function recomputeStandingsIfStale(
   now = new Date(),
 ): Promise<boolean> {
   const key = `standings:computedAt:${seasonId}`
-  const last = await getMeta(key)
 
-  if (last) {
-    const since = new Date(last)
-    const [{ n }] = await db
-      .select({ n: sql<number>`count(*)::int` })
-      .from(fixtures)
-      .where(
-        and(
-          eq(fixtures.seasonId, seasonId),
-          gt(fixtures.dueAt, since),
-          lte(fixtures.dueAt, now),
-        ),
+  // The watermark lookup and the "did anything expire since then" test are one
+  // statement on purpose. Split across two queries they cost two round trips of
+  // pooler latency on every single page render, which is the dominant cost of a
+  // read when the database is a couple of hundred milliseconds away.
+  // `db.execute` binds parameters through postgres-js's `unsafe` path, which
+  // does not serialise a JS Date the way the tagged-template path does — it
+  // throws "must be of type string". Hence the ISO string plus an explicit cast.
+  const rows = await db.execute<{ stale: boolean }>(sql`
+    select (
+      (select value from app_meta where key = ${key}) is null
+      or exists (
+        select 1 from fixtures
+        where season_id = ${seasonId}
+          and due_at <= ${now.toISOString()}::timestamptz
+          and due_at > (select value from app_meta where key = ${key})::timestamptz
       )
+    ) as stale
+  `)
 
-    if (n === 0) return false
-  }
+  if (!rows[0]?.stale) return false
 
   await recomputeStandings(seasonId, now)
   return true

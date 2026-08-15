@@ -31,7 +31,24 @@ function createDb() {
     max: process.env.VERCEL ? 1 : 5,
     idle_timeout: 20,
     connect_timeout: 15,
+    /**
+     * Recycle connections rather than holding them for the life of the process.
+     * The shared pooler has a finite number of client slots across all its
+     * tenants, and a dev server that reloads all day will otherwise sit on
+     * slots it is no longer using.
+     */
+    max_lifetime: 60 * 30,
     ssl: isLocal ? false : 'require',
+    connection: {
+      /**
+       * Without this a query that stalls — a lock, a pooler hiccup — hangs the
+       * request forever, which shows up as a page that spins and never
+       * resolves. Ten seconds is far longer than any query here should take,
+       * so hitting it means something is wrong and failing loudly beats
+       * hanging silently.
+       */
+      statement_timeout: 10_000,
+    },
   })
 
   return drizzle(client, { schema, casing: 'snake_case' })
