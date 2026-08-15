@@ -596,23 +596,50 @@ export async function recomputeStandings(
     loser.points += POINTS.loss
   }
 
-  await db.transaction(async (tx) => {
+  const wrote = await db.transaction(async (tx) => {
+    /**
+     * Only one rebuild at a time, per season.
+     *
+     * This runs on every read, so a burst of concurrent requests all see stale
+     * standings at once — none of them has committed a new watermark yet — and
+     * each tries to delete and reinsert the same rows. They then serialise on
+     * row locks, and with enough of them queued the wait exceeds the statement
+     * timeout and the whole batch fails. A single request never sees this,
+     * which is why it only shows up under real concurrency.
+     *
+     * `pg_try_advisory_xact_lock` returns rather than waits, and is released
+     * with the transaction — safe on a transaction-mode pooler, where anything
+     * session-scoped would leak onto whichever backend we happen to land on.
+     * Losing the race is not an error: the winner is computing the very same
+     * numbers from the very same rows, so we skip and read its result.
+     */
+    const [lock] = await tx.execute<{ acquired: boolean }>(
+      sql`select pg_try_advisory_xact_lock(${seasonId}) as acquired`,
+    )
+    if (!lock?.acquired) return false
+
     await tx
       .delete(seasonStandings)
       .where(eq(seasonStandings.seasonId, seasonId))
 
-    if (tally.size === 0) return
+    if (tally.size > 0) {
+      await tx.insert(seasonStandings).values(
+        [...tally.entries()].map(([playerId, stats]) => ({
+          seasonId,
+          playerId,
+          ...stats,
+        })),
+      )
+    }
 
-    await tx.insert(seasonStandings).values(
-      [...tally.entries()].map(([playerId, stats]) => ({
-        seasonId,
-        playerId,
-        ...stats,
-      })),
-    )
+    return true
   })
 
-  await setMeta(`standings:computedAt:${seasonId}`, now.toISOString())
+  // Only the writer moves the watermark, so a skipped rebuild does not mark
+  // standings fresh before the winner has actually committed them.
+  if (wrote) {
+    await setMeta(`standings:computedAt:${seasonId}`, now.toISOString())
+  }
 }
 
 // ---------------------------------------------------------------------------
