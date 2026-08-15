@@ -15,27 +15,32 @@ import {
 } from './league.server'
 
 /**
- * `Promise.all` for query batches, minus the footgun.
+ * Runs a page's queries one after another, and takes thunks rather than
+ * promises so that nothing starts before its turn.
  *
- * Promise.all settles as soon as the *first* promise rejects and never looks at
- * the rest. Anything still in flight then rejects with nobody listening, and an
- * unhandled rejection takes down the whole Node process by default — on Vercel
- * that kills the isolate mid-request, so the client gets no response at all and
- * hangs until the platform's 300s ceiling rather than seeing an error.
+ * Firing them concurrently is the obvious optimisation and it is the wrong one
+ * here. There are more queries in a batch than the pool has connections, so
+ * some of them share, and postgres-js pipelines whatever shares a connection.
+ * Pipelined extended-protocol queries do not survive pgBouncer's transaction
+ * mode: the pooler loses track of where one transaction ends and the next
+ * begins, and the backend parks in `active` + `ClientRead` waiting for a client
+ * message that never comes. The request then hangs until the platform kills it.
  *
- * That is not hypothetical here: these batches share one connection pool, so a
- * statement timeout or a dropped connection fails every query in the batch at
- * once, not just one. Attaching a no-op catch up front keeps the rejections
- * "handled" — the real error still surfaces, because Promise.all rejects with
- * the first one regardless.
+ * Sequential costs one round trip per query, which is only expensive when the
+ * database is far away — in production the functions run in the database's own
+ * region, where this is single-digit milliseconds. Correctness in production is
+ * worth more than a faster page load on a developer machine in another country.
  */
-function all<T extends ReadonlyArray<unknown>>(
-  promises: readonly [...T],
-): Promise<{ -readonly [K in keyof T]: Awaited<T[K]> }> {
-  for (const p of promises) {
-    if (p instanceof Promise) p.catch(() => {})
-  }
-  return Promise.all(promises) as never
+type Thunks<T extends ReadonlyArray<unknown>> = {
+  [K in keyof T]: () => PromiseLike<T[K]>
+}
+
+async function inOrder<T extends ReadonlyArray<unknown>>(
+  tasks: readonly [...Thunks<T>],
+): Promise<T> {
+  const out: Array<unknown> = []
+  for (const task of tasks) out.push(await task())
+  return out as unknown as T
 }
 
 const white = alias(players, 'white')
@@ -217,43 +222,37 @@ export async function getLeaderboard() {
   // check short-circuits unless a window has actually closed since last time.
   await recomputeStandingsIfStale(season.id, now)
 
-  // All five are independent, so they go out together rather than in a chain.
-  // Note the `.execute()`: a Drizzle query builder is lazy and only sends its
-  // statement when it's awaited, so assigning one to a variable starts nothing.
-  // `.execute()` returns a real Promise, which is what actually puts the five
-  // queries on the wire at once — one round trip's latency instead of five.
-  const standingsQuery = db
-    .select({
-      playerId: seasonStandings.playerId,
-      username: players.username,
-      avatar: players.avatar,
-      points: seasonStandings.points,
-      wins: seasonStandings.wins,
-      draws: seasonStandings.draws,
-      losses: seasonStandings.losses,
-      forfeits: seasonStandings.forfeits,
-    })
-    .from(seasonStandings)
-    .innerJoin(players, eq(players.id, seasonStandings.playerId))
-    .where(eq(seasonStandings.seasonId, season.id))
-    .orderBy(
-      desc(seasonStandings.points),
-      desc(seasonStandings.wins),
-      asc(players.username),
-    )
-    .execute()
-
-  const [standingRows, allFixtures, roster, recent, meta] = await all([
-    standingsQuery,
-    seasonFixtures(season.id),
-    listAllPlayers(),
-    recentGames(season.id, 10),
-    getManyMeta([
-      'club:name',
-      'club:visibility',
-      'club:membersCount',
-      'sync:lastRunAt',
-    ]),
+  const [standingRows, allFixtures, roster, recent, meta] = await inOrder([
+    () =>
+      db
+        .select({
+          playerId: seasonStandings.playerId,
+          username: players.username,
+          avatar: players.avatar,
+          points: seasonStandings.points,
+          wins: seasonStandings.wins,
+          draws: seasonStandings.draws,
+          losses: seasonStandings.losses,
+          forfeits: seasonStandings.forfeits,
+        })
+        .from(seasonStandings)
+        .innerJoin(players, eq(players.id, seasonStandings.playerId))
+        .where(eq(seasonStandings.seasonId, season.id))
+        .orderBy(
+          desc(seasonStandings.points),
+          desc(seasonStandings.wins),
+          asc(players.username),
+        ),
+    () => seasonFixtures(season.id),
+    () => listAllPlayers(),
+    () => recentGames(season.id, 10),
+    () =>
+      getManyMeta([
+        'club:name',
+        'club:visibility',
+        'club:membersCount',
+        'sync:lastRunAt',
+      ]),
   ])
 
   const matchdays = [...new Set(allFixtures.map((f) => f.matchday))].sort(
@@ -383,18 +382,18 @@ export async function getFixtures() {
 
   await recomputeStandingsIfStale(season.id, now)
 
-  // `.execute()` turns the lazy builder into a real Promise so Promise.all can
-  // actually dispatch all four at once — see the note in getLeaderboard.
-  const [allFixtures, [{ n: activeCount }], locked, unscheduled] = await all([
-    seasonFixtures(season.id),
-    db
-      .select({ n: sql<number>`count(*)::int` })
-      .from(players)
-      .where(eq(players.active, true))
-      .execute(),
-    isSeasonLocked(season.id),
-    unscheduledPlayers(season.id),
-  ])
+  const [allFixtures, [{ n: activeCount }], locked, unscheduled] = await inOrder(
+    [
+      () => seasonFixtures(season.id),
+      () =>
+        db
+          .select({ n: sql<number>`count(*)::int` })
+          .from(players)
+          .where(eq(players.active, true)),
+      () => isSeasonLocked(season.id),
+      () => unscheduledPlayers(season.id),
+    ],
+  )
 
   const list = allFixtures.map((f) => toView(f, now))
 
