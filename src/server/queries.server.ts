@@ -14,6 +14,30 @@ import {
   unscheduledPlayers,
 } from './league.server'
 
+/**
+ * `Promise.all` for query batches, minus the footgun.
+ *
+ * Promise.all settles as soon as the *first* promise rejects and never looks at
+ * the rest. Anything still in flight then rejects with nobody listening, and an
+ * unhandled rejection takes down the whole Node process by default — on Vercel
+ * that kills the isolate mid-request, so the client gets no response at all and
+ * hangs until the platform's 300s ceiling rather than seeing an error.
+ *
+ * That is not hypothetical here: these batches share one connection pool, so a
+ * statement timeout or a dropped connection fails every query in the batch at
+ * once, not just one. Attaching a no-op catch up front keeps the rejections
+ * "handled" — the real error still surfaces, because Promise.all rejects with
+ * the first one regardless.
+ */
+function all<T extends ReadonlyArray<unknown>>(
+  promises: readonly [...T],
+): Promise<{ -readonly [K in keyof T]: Awaited<T[K]> }> {
+  for (const p of promises) {
+    if (p instanceof Promise) p.catch(() => {})
+  }
+  return Promise.all(promises) as never
+}
+
 const white = alias(players, 'white')
 const black = alias(players, 'black')
 const home = alias(players, 'home')
@@ -219,7 +243,7 @@ export async function getLeaderboard() {
     )
     .execute()
 
-  const [standingRows, allFixtures, roster, recent, meta] = await Promise.all([
+  const [standingRows, allFixtures, roster, recent, meta] = await all([
     standingsQuery,
     seasonFixtures(season.id),
     listAllPlayers(),
@@ -361,7 +385,7 @@ export async function getFixtures() {
 
   // `.execute()` turns the lazy builder into a real Promise so Promise.all can
   // actually dispatch all four at once — see the note in getLeaderboard.
-  const [all, [{ n: activeCount }], locked, unscheduled] = await Promise.all([
+  const [allFixtures, [{ n: activeCount }], locked, unscheduled] = await all([
     seasonFixtures(season.id),
     db
       .select({ n: sql<number>`count(*)::int` })
@@ -372,7 +396,7 @@ export async function getFixtures() {
     unscheduledPlayers(season.id),
   ])
 
-  const list = all.map((f) => toView(f, now))
+  const list = allFixtures.map((f) => toView(f, now))
 
   return {
     season: {
@@ -383,7 +407,7 @@ export async function getFixtures() {
     },
     locked,
     // Derived from the fixtures we already fetched — no extra round trip.
-    generated: all.length > 0,
+    generated: allFixtures.length > 0,
     fixtures: list,
     unscheduled: unscheduled.map((p) => p.username),
     projectedMatchdays: matchdayCount(activeCount),

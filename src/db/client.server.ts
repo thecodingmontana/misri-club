@@ -23,12 +23,14 @@ function createDb() {
      */
     prepare: false,
     /**
-     * On Vercel each concurrent invocation is its own isolate with its own pool,
-     * so a generous `max` multiplies across instances and exhausts the pooler's
-     * client slots under any real traffic. One connection per isolate is the
-     * right shape when something upstream is already doing the pooling.
+     * A big `max` multiplies across instances and exhausts the pooler's client
+     * slots, so this stays small. It cannot be 1 on Vercel, though: Fluid
+     * Compute runs concurrent requests inside a shared isolate, so a single
+     * connection serialises every query of every in-flight request behind one
+     * another. A page that issues five queries then waits five times its own
+     * depth, which is how requests end up exceeding the statement timeout.
      */
-    max: process.env.VERCEL ? 1 : 5,
+    max: process.env.VERCEL ? 3 : 5,
     idle_timeout: 20,
     connect_timeout: 15,
     /**
