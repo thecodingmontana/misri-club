@@ -23,6 +23,18 @@ function createDb() {
      */
     prepare: false,
     /**
+     * One in-flight query per connection. postgres-js otherwise stacks up to
+     * 100 queries onto a single connection, and pgBouncer in transaction mode
+     * cannot follow a pipelined extended-protocol exchange: it loses track of
+     * where each transaction ends, and the backend is left `active` on
+     * `ClientRead`, waiting for a message the client already believes it sent.
+     * The request never completes.
+     *
+     * This is why the app only broke when two requests overlapped — a single
+     * request in isolation never had anything to pipeline against.
+     */
+    max_pipeline: 1,
+    /**
      * A big `max` multiplies across instances and exhausts the pooler's client
      * slots, so this stays small. It cannot be 1 on Vercel, though: Fluid
      * Compute runs concurrent requests inside a shared isolate, so a single
@@ -30,7 +42,11 @@ function createDb() {
      * another. A page that issues five queries then waits five times its own
      * depth, which is how requests end up exceeding the statement timeout.
      */
-    max: process.env.VERCEL ? 3 : 5,
+    /**
+     * With pipelining off, a connection serves one query at a time, so this is
+     * the number of requests an isolate can have in flight before they queue.
+     */
+    max: process.env.VERCEL ? 6 : 5,
     /**
      * Deliberately short, and the reason is Fluid Compute rather than the
      * database. Vercel freezes a warm isolate between requests; the TCP sockets
