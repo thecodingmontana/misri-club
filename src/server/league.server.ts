@@ -25,15 +25,7 @@ import {
   fetchPlayerProfile,
 } from './chesscom.server'
 import { KNOWN_MEMBERS } from './club-roster'
-
-/**
- * Scoring. A fixture that expires unplayed costs **both** players a point —
- * chess.com's public API carries no challenge or decline data, so there is no
- * honest way to decide which of the two failed to arrange it. Punishing both is
- * the only rule the available data supports, and it still makes ducking a game
- * strictly worse than losing one.
- */
-export const POINTS = { win: 3, draw: 1, loss: 0, forfeit: -1 } as const
+import { tallyStandings } from './standings'
 
 export const DEFAULT_MATCHDAY_DAYS = 2
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -123,7 +115,10 @@ export interface RosterRefreshResult {
   total: number
 }
 
-async function insertPlayer(username: string, joinedAt: Date): Promise<boolean> {
+async function insertPlayer(
+  username: string,
+  joinedAt: Date,
+): Promise<boolean> {
   const profile = await fetchPlayerProfile(username).catch(() => null)
 
   const inserted = await db
@@ -325,16 +320,24 @@ export async function listAllPlayers() {
 // ---------------------------------------------------------------------------
 
 /**
- * A season locks as soon as one of its fixtures has a game attached — fixtures
- * are immutable once anyone has actually played.
+ * A season locks as soon as one of its fixtures has a result — a game attached
+ * or a walkover awarded. Fixtures are immutable once anything has been decided.
  */
 export async function isSeasonLocked(seasonId: number): Promise<boolean> {
-  const [row] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(games)
-    .where(and(eq(games.seasonId, seasonId), isNotNull(games.fixtureId)))
+  const [row] = await db.execute<{ locked: boolean }>(sql`
+    select (
+      exists (
+        select 1 from games
+        where season_id = ${seasonId} and fixture_id is not null
+      )
+      or exists (
+        select 1 from fixtures
+        where season_id = ${seasonId} and walkover_winner_id is not null
+      )
+    ) as locked
+  `)
 
-  return (row?.n ?? 0) > 0
+  return row?.locked ?? false
 }
 
 export async function hasFixtures(seasonId: number): Promise<boolean> {
@@ -413,7 +416,7 @@ export async function generateFixtures(): Promise<GenerateFixturesResult> {
   })
 
   await linkGamesToFixtures(season.id)
-  await recomputeStandings(season.id)
+  await recomputeStandings(season.id, new Date(), { wait: true })
 
   const matchdays = schedule.reduce((max, f) => Math.max(max, f.matchday), 0)
 
@@ -487,6 +490,59 @@ export async function linkGamesToFixtures(seasonId: number): Promise<number> {
   return linked
 }
 
+/**
+ * Awards (or, with `winner: null`, clears) a walkover on a current-season
+ * fixture that has no game. The winner must be one of its two players.
+ */
+export async function setWalkover(fixtureId: number, winner: string | null) {
+  const season = await getOrCreateCurrentSeason()
+
+  const [fixture] = await db
+    .select()
+    .from(fixtures)
+    .where(and(eq(fixtures.id, fixtureId), eq(fixtures.seasonId, season.id)))
+    .limit(1)
+
+  if (!fixture?.homePlayerId || !fixture.awayPlayerId) {
+    throw new Error('That fixture is not a pairing in the current season.')
+  }
+
+  const [played] = await db
+    .select({ id: games.id })
+    .from(games)
+    .where(eq(games.fixtureId, fixture.id))
+    .limit(1)
+  if (played) throw new Error('That fixture has already been played.')
+
+  let winnerId: number | null = null
+  if (winner) {
+    const [player] = await db
+      .select({ id: players.id })
+      .from(players)
+      .where(eq(players.username, winner.trim().toLowerCase()))
+      .limit(1)
+
+    if (
+      !player ||
+      (player.id !== fixture.homePlayerId && player.id !== fixture.awayPlayerId)
+    ) {
+      throw new Error(`${winner} is not playing in that fixture.`)
+    }
+    winnerId = player.id
+  }
+
+  await db
+    .update(fixtures)
+    .set({ walkoverWinnerId: winnerId })
+    .where(eq(fixtures.id, fixture.id))
+
+  await recomputeStandings(season.id, new Date(), { wait: true })
+  return {
+    fixtureId: fixture.id,
+    winner: winner?.trim().toLowerCase() ?? null,
+  }
+}
+
 /** Active players with no fixture in this season (joined after the draw). */
 export async function unscheduledPlayers(seasonId: number) {
   const rows = await db
@@ -521,6 +577,12 @@ export async function unscheduledPlayers(seasonId: number) {
 export async function recomputeStandings(
   seasonId: number,
   now = new Date(),
+  /**
+   * Writers (sync, walkovers, a new draw) wait for the lock instead of
+   * skipping: they hold data a concurrent page read may have missed, so their
+   * rebuild must land after it, never be dropped.
+   */
+  { wait = false }: { wait?: boolean } = {},
 ): Promise<void> {
   const seasonFixtures = await db
     .select()
@@ -532,69 +594,12 @@ export async function recomputeStandings(
     .from(games)
     .where(and(eq(games.seasonId, seasonId), isNotNull(games.fixtureId)))
 
-  const gameByFixture = new Map(
-    seasonGames.map((game) => [game.fixtureId as number, game]),
+  const tally = tallyStandings(
+    seasonFixtures,
+    seasonGames,
+    (await listActivePlayers()).map((player) => player.id),
+    now,
   )
-
-  const tally = new Map<
-    number,
-    {
-      points: number
-      wins: number
-      draws: number
-      losses: number
-      forfeits: number
-    }
-  >()
-
-  const row = (playerId: number) => {
-    let entry = tally.get(playerId)
-    if (!entry) {
-      entry = { points: 0, wins: 0, draws: 0, losses: 0, forfeits: 0 }
-      tally.set(playerId, entry)
-    }
-    return entry
-  }
-
-  // Everyone active starts on zero so the board shows the whole field.
-  for (const player of await listActivePlayers()) row(player.id)
-
-  for (const fixture of seasonFixtures) {
-    if (!fixture.homePlayerId || !fixture.awayPlayerId) continue
-
-    const home = row(fixture.homePlayerId)
-    const away = row(fixture.awayPlayerId)
-    const game = gameByFixture.get(fixture.id)
-
-    if (!game) {
-      // Still open, or not yet started — no consequence until the window shuts.
-      if (fixture.dueAt > now) continue
-
-      home.forfeits++
-      away.forfeits++
-      home.points += POINTS.forfeit
-      away.points += POINTS.forfeit
-      continue
-    }
-
-    const white = game.whitePlayerId === fixture.homePlayerId ? home : away
-    const black = white === home ? away : home
-
-    if (game.result === 'draw') {
-      white.draws++
-      black.draws++
-      white.points += POINTS.draw
-      black.points += POINTS.draw
-      continue
-    }
-
-    const [winner, loser] =
-      game.result === 'white' ? [white, black] : [black, white]
-    winner.wins++
-    winner.points += POINTS.win
-    loser.losses++
-    loser.points += POINTS.loss
-  }
 
   const wrote = await db.transaction(async (tx) => {
     /**
@@ -610,13 +615,17 @@ export async function recomputeStandings(
      * `pg_try_advisory_xact_lock` returns rather than waits, and is released
      * with the transaction — safe on a transaction-mode pooler, where anything
      * session-scoped would leak onto whichever backend we happen to land on.
-     * Losing the race is not an error: the winner is computing the very same
-     * numbers from the very same rows, so we skip and read its result.
+     * A page read that loses the race skips: the winner computed from rows at
+     * least as fresh. Writers pass `wait` and queue behind it instead.
      */
-    const [lock] = await tx.execute<{ acquired: boolean }>(
-      sql`select pg_try_advisory_xact_lock(${seasonId}) as acquired`,
-    )
-    if (!lock?.acquired) return false
+    if (wait) {
+      await tx.execute(sql`select pg_advisory_xact_lock(${seasonId})`)
+    } else {
+      const [lock] = await tx.execute<{ acquired: boolean }>(
+        sql`select pg_try_advisory_xact_lock(${seasonId}) as acquired`,
+      )
+      if (!lock?.acquired) return false
+    }
 
     await tx
       .delete(seasonStandings)
@@ -674,10 +683,7 @@ export async function getMeta(key: string): Promise<string | null> {
 export async function getManyMeta(
   keys: Array<string>,
 ): Promise<Record<string, string | null>> {
-  const rows = await db
-    .select()
-    .from(appMeta)
-    .where(inArray(appMeta.key, keys))
+  const rows = await db.select().from(appMeta).where(inArray(appMeta.key, keys))
 
   const found = new Map(rows.map((row) => [row.key, row.value]))
   return Object.fromEntries(keys.map((key) => [key, found.get(key) ?? null]))

@@ -1,7 +1,14 @@
 import { asc, desc, eq, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { db } from '#/db/client.server'
-import { fixtures, games, players, seasonStandings, seasons } from '#/db/schema'
+import {
+  fixtures,
+  games,
+  playerGames,
+  players,
+  seasonStandings,
+  seasons,
+} from '#/db/schema'
 import { matchdayCount } from '#/lib/round-robin'
 import { CLUB_ID, clubUrl } from './chesscom.server'
 import {
@@ -49,7 +56,13 @@ const home = alias(players, 'home')
 const away = alias(players, 'away')
 const bye = alias(players, 'bye')
 
-export type FixtureStatus = 'upcoming' | 'live' | 'played' | 'expired' | 'bye'
+export type FixtureStatus =
+  | 'upcoming'
+  | 'live'
+  | 'played'
+  | 'walkover'
+  | 'expired'
+  | 'bye'
 export type Outcome = 'win' | 'draw' | 'loss' | 'forfeit'
 
 export interface GameRow {
@@ -102,6 +115,7 @@ interface FixtureRecord {
   homeId: number | null
   awayId: number | null
   byeId: number | null
+  walkoverWinnerId: number | null
   home: string | null
   away: string | null
   bye: string | null
@@ -122,6 +136,7 @@ async function seasonFixtures(seasonId: number): Promise<Array<FixtureRecord>> {
       homeId: fixtures.homePlayerId,
       awayId: fixtures.awayPlayerId,
       byeId: fixtures.byePlayerId,
+      walkoverWinnerId: fixtures.walkoverWinnerId,
       home: home.username,
       away: away.username,
       bye: bye.username,
@@ -144,6 +159,7 @@ async function seasonFixtures(seasonId: number): Promise<Array<FixtureRecord>> {
 function statusOf(fixture: FixtureRecord, now: Date): FixtureStatus {
   if (fixture.byeId) return 'bye'
   if (fixture.gameUrl) return 'played'
+  if (fixture.walkoverWinnerId) return 'walkover'
   if (now < fixture.opensAt) return 'upcoming'
   if (now < fixture.dueAt) return 'live'
   return 'expired'
@@ -156,6 +172,8 @@ export interface FixtureView {
   home: string | null
   away: string | null
   bye: string | null
+  /** Username of whoever was awarded the walkover, if one was. */
+  walkoverWinner: string | null
   opensAt: number
   dueAt: number
   status: FixtureStatus
@@ -171,7 +189,8 @@ function toView(fixture: FixtureRecord, now: Date): FixtureView {
   const homeWon =
     fixture.gameResult !== null &&
     fixture.gameResult !== 'draw' &&
-    (fixture.gameResult === 'white') === (fixture.gameWhiteId === fixture.homeId)
+    (fixture.gameResult === 'white') ===
+      (fixture.gameWhiteId === fixture.homeId)
 
   return {
     id: fixture.id,
@@ -180,6 +199,12 @@ function toView(fixture: FixtureRecord, now: Date): FixtureView {
     home: fixture.home,
     away: fixture.away,
     bye: fixture.bye,
+    walkoverWinner:
+      fixture.walkoverWinnerId === null
+        ? null
+        : fixture.walkoverWinnerId === fixture.homeId
+          ? fixture.home
+          : fixture.away,
     opensAt: fixture.opensAt.getTime(),
     dueAt: fixture.dueAt.getTime(),
     status: statusOf(fixture, now),
@@ -210,7 +235,11 @@ export interface StandingRow {
   forfeits: number
   played: number
   /** Per-matchday cell, ordered by matchday — drives the grid on the table. */
-  cells: Array<{ matchday: number; outcome: Outcome | null; status: FixtureStatus }>
+  cells: Array<{
+    matchday: number
+    outcome: Outcome | null
+    status: FixtureStatus
+  }>
 }
 
 export async function getLeaderboard() {
@@ -281,6 +310,8 @@ export async function getLeaderboard() {
           outcome =
             (fixture.gameResult === 'white') === playedWhite ? 'win' : 'loss'
         }
+      } else if (status === 'walkover') {
+        outcome = fixture.walkoverWinnerId === row.playerId ? 'win' : 'forfeit'
       } else if (status === 'expired') {
         outcome = 'forfeit'
       }
@@ -341,9 +372,7 @@ function currentMatchday(all: Array<FixtureRecord>, now: Date) {
 
   const ordered = [...byMatchday.entries()].sort(([a], [b]) => a - b)
 
-  const live = ordered.find(
-    ([, w]) => now >= w.opensAt && now < w.dueAt,
-  )
+  const live = ordered.find(([, w]) => now >= w.opensAt && now < w.dueAt)
   const next = ordered.find(([, w]) => now < w.opensAt)
   const chosen = live ?? next
 
@@ -382,8 +411,8 @@ export async function getFixtures() {
 
   await recomputeStandingsIfStale(season.id, now)
 
-  const [allFixtures, [{ n: activeCount }], locked, unscheduled] = await inOrder(
-    [
+  const [allFixtures, [{ n: activeCount }], locked, unscheduled] =
+    await inOrder([
       () => seasonFixtures(season.id),
       () =>
         db
@@ -392,8 +421,7 @@ export async function getFixtures() {
           .where(eq(players.active, true)),
       () => isSeasonLocked(season.id),
       () => unscheduledPlayers(season.id),
-    ],
-  )
+    ])
 
   const list = allFixtures.map((f) => toView(f, now))
 
@@ -410,7 +438,9 @@ export async function getFixtures() {
     fixtures: list,
     unscheduled: unscheduled.map((p) => p.username),
     projectedMatchdays: matchdayCount(activeCount),
-    projectedDays: matchdayCount(activeCount) * (season.matchdayDays || DEFAULT_MATCHDAY_DAYS),
+    projectedDays:
+      matchdayCount(activeCount) *
+      (season.matchdayDays || DEFAULT_MATCHDAY_DAYS),
     activePlayers: activeCount,
     now: now.getTime(),
   }
@@ -589,7 +619,9 @@ export async function getPlayer(username: string) {
   const mine = (await seasonFixtures(current.id))
     .filter(
       (f) =>
-        f.homeId === player.id || f.awayId === player.id || f.byeId === player.id,
+        f.homeId === player.id ||
+        f.awayId === player.id ||
+        f.byeId === player.id,
     )
     .map((f) => toView(f, now))
 
@@ -622,3 +654,70 @@ export async function getPlayer(username: string) {
 }
 
 export type PlayerData = NonNullable<Awaited<ReturnType<typeof getPlayer>>>
+
+// ---------------------------------------------------------------------------
+// Player games (`/players/$username` analysis section)
+// ---------------------------------------------------------------------------
+
+/** How many recent games ship with their PGN for in-browser analysis. */
+const ANALYSABLE_GAMES = 30
+
+/**
+ * Every stored chess.com game of one member, against anyone. Rating points go
+ * to the chart; only the most recent games carry a PGN, since those are the
+ * only ones the browser will analyse.
+ */
+export async function getPlayerGames(username: string) {
+  const [player] = await db
+    .select({ id: players.id })
+    .from(players)
+    .where(eq(players.username, username.toLowerCase()))
+    .limit(1)
+
+  if (!player) return null
+
+  const rows = await db
+    .select({
+      chessComUrl: playerGames.chessComUrl,
+      endedAt: playerGames.endedAt,
+      timeClass: playerGames.timeClass,
+      rated: playerGames.rated,
+      colour: playerGames.colour,
+      outcome: playerGames.outcome,
+      rating: playerGames.rating,
+      opponent: playerGames.opponent,
+      opponentRating: playerGames.opponentRating,
+      opening: playerGames.opening,
+      pgn: playerGames.pgn,
+    })
+    .from(playerGames)
+    .where(eq(playerGames.playerId, player.id))
+    .orderBy(desc(playerGames.endedAt))
+
+  const tally = { games: rows.length, wins: 0, draws: 0, losses: 0 }
+  for (const row of rows) {
+    if (row.outcome === 'win') tally.wins++
+    else if (row.outcome === 'draw') tally.draws++
+    else tally.losses++
+  }
+
+  return {
+    tally,
+    ratings: rows
+      .filter((row) => row.rated && row.rating !== null)
+      .map((row) => ({
+        endedAt: row.endedAt.getTime(),
+        timeClass: row.timeClass,
+        rating: row.rating as number,
+      }))
+      .reverse(),
+    recent: rows.slice(0, ANALYSABLE_GAMES).map(({ rated, ...row }) => ({
+      ...row,
+      endedAt: row.endedAt.getTime(),
+    })),
+  }
+}
+
+export type PlayerGamesData = NonNullable<
+  Awaited<ReturnType<typeof getPlayerGames>>
+>

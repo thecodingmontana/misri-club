@@ -1,6 +1,6 @@
 import { eq, inArray } from 'drizzle-orm'
 import { db } from '#/db/client.server'
-import { games, players } from '#/db/schema'
+import { games, playerGames, players } from '#/db/schema'
 import type { ArchivedGame } from './chesscom.server'
 import { fetchArchive, fetchArchiveUrls } from './chesscom.server'
 import {
@@ -25,6 +25,8 @@ export interface SyncResult {
   gamesInspected: number
   gamesAdded: number
   gamesLinked: number
+  /** New rows for the player pages: every member's games, against anyone. */
+  playerGamesAdded: number
   roster: {
     added: Array<string>
     deactivated: Array<string>
@@ -85,16 +87,18 @@ async function runSync({
   const roster = await listActivePlayers()
   const byUsername = new Map(roster.map((p) => [p.username, p]))
 
-  // Collect the recent archive URLs for every active member. Archives are
-  // per-player, but two members' games against each other appear in both, so
-  // the set below keeps us from fetching or inserting anything twice.
-  const archiveUrls = new Set<string>()
+  // Recent archive URLs for every active member, keyed to whose archive it is.
+  // Two members' games against each other appear in both archives; the
+  // `candidates` map below keeps the league game from being inserted twice.
+  const archiveOwners = new Map<string, (typeof roster)[number]>()
 
   await Promise.all(
     roster.map(async (player) => {
       try {
         const urls = await fetchArchiveUrls(player.username)
-        for (const url of urls.slice(-ARCHIVE_MONTHS)) archiveUrls.add(url)
+        for (const url of urls.slice(-ARCHIVE_MONTHS)) {
+          archiveOwners.set(url, player)
+        }
       } catch (error) {
         errors.push(
           `Archive list failed for ${player.username}: ${(error as Error).message}`,
@@ -115,10 +119,12 @@ async function runSync({
     }
   >()
 
+  const ownGames: Array<typeof playerGames.$inferInsert> = []
+
   let gamesInspected = 0
 
   await Promise.all(
-    [...archiveUrls].map(async (url) => {
+    [...archiveOwners].map(async ([url, owner]) => {
       let archive: Array<ArchivedGame>
       try {
         archive = await fetchArchive(url)
@@ -134,7 +140,11 @@ async function runSync({
 
         // Standard chess only — variants aren't part of the league.
         if (game.rules && game.rules !== 'chess') continue
-        if (!game.url || !game.white?.username || !game.black?.username) continue
+        if (!game.url || !game.white?.username || !game.black?.username)
+          continue
+
+        const own = ownGameRow(owner.id, owner.username, game)
+        if (own) ownGames.push(own)
 
         const white = byUsername.get(game.white.username.toLowerCase())
         const black = byUsername.get(game.black.username.toLowerCase())
@@ -194,8 +204,9 @@ async function runSync({
     }
   }
 
+  const playerGamesAdded = await insertPlayerGames(ownGames)
   const gamesLinked = await linkGamesToFixtures(season.id)
-  await recomputeStandings(season.id)
+  await recomputeStandings(season.id, new Date(), { wait: true })
 
   const finishedAt = new Date()
   await setMeta('sync:lastRunAt', finishedAt.toISOString())
@@ -206,13 +217,98 @@ async function runSync({
     durationMs: finishedAt.getTime() - startedAt.getTime(),
     seasonId: season.id,
     playersScanned: roster.length,
-    archivesFetched: archiveUrls.size,
+    archivesFetched: archiveOwners.size,
     gamesInspected,
     gamesAdded,
     gamesLinked,
+    playerGamesAdded,
     roster: rosterChanges,
     errors,
   }
+}
+
+/** The archive owner's side of a game, or null if the archive isn't theirs. */
+function ownGameRow(
+  playerId: number,
+  username: string,
+  game: ArchivedGame,
+): typeof playerGames.$inferInsert | null {
+  const colour =
+    game.white.username.toLowerCase() === username
+      ? 'white'
+      : game.black.username.toLowerCase() === username
+        ? 'black'
+        : null
+  if (!colour || !game.pgn || !game.end_time) return null
+
+  const me = game[colour]
+  const them = game[colour === 'white' ? 'black' : 'white']
+  const result = resultOf(game)
+
+  return {
+    playerId,
+    chessComUrl: game.url,
+    endedAt: new Date(game.end_time * 1000),
+    timeClass: game.time_class ?? 'unknown',
+    rated: game.rated ?? false,
+    colour,
+    outcome: result === 'draw' ? 'draw' : result === colour ? 'win' : 'loss',
+    rating: me.rating ?? null,
+    opponent: them.username,
+    opponentRating: them.rating ?? null,
+    opening: openingName(game.eco),
+    pgn: game.pgn,
+  }
+}
+
+/** `…/openings/Queens-Pawn-Opening-2.Bf4-d6` → `Queens Pawn Opening 2.Bf4 d6` */
+function openingName(ecoUrl: string | undefined): string | null {
+  const slug = ecoUrl?.split('/openings/')[1]
+  return slug ? decodeURIComponent(slug).replaceAll('-', ' ') : null
+}
+
+/**
+ * Archives are re-read every sync, so most rows are already stored. Asking
+ * which ones first keeps us from shipping every PGN back to the database each
+ * time just to have it ignored.
+ */
+async function insertPlayerGames(
+  rows: Array<typeof playerGames.$inferInsert>,
+): Promise<number> {
+  if (rows.length === 0) return 0
+
+  const known = new Set(
+    (
+      await db
+        .select({
+          playerId: playerGames.playerId,
+          url: playerGames.chessComUrl,
+        })
+        .from(playerGames)
+        .where(
+          inArray(
+            playerGames.chessComUrl,
+            rows.map((row) => row.chessComUrl),
+          ),
+        )
+    ).map((row) => `${row.playerId} ${row.url}`),
+  )
+
+  const fresh = rows.filter(
+    (row) => !known.has(`${row.playerId} ${row.chessComUrl}`),
+  )
+
+  let added = 0
+  // Chunked to stay well under Postgres's 65k bind-parameter limit.
+  for (let i = 0; i < fresh.length; i += 500) {
+    const inserted = await db
+      .insert(playerGames)
+      .values(fresh.slice(i, i + 500))
+      .onConflictDoNothing()
+      .returning({ url: playerGames.chessComUrl })
+    added += inserted.length
+  }
+  return added
 }
 
 /**
@@ -262,5 +358,5 @@ export async function recordManualGame(input: {
   }
 
   await linkGamesToFixtures(season.id)
-  await recomputeStandings(season.id)
+  await recomputeStandings(season.id, new Date(), { wait: true })
 }

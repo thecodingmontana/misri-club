@@ -72,6 +72,14 @@ export const fixtures = pgTable(
      */
     opensAt: ts('opens_at').notNull(),
     dueAt: ts('due_at').notNull(),
+    /**
+     * Set by an admin when one player turned up and the other did not: the
+     * winner takes a win's points and the other takes a forfeit. A played game
+     * always overrides it.
+     */
+    walkoverWinnerId: integer('walkover_winner_id').references(
+      () => players.id,
+    ),
   },
   (t) => [
     index('fixtures_season_idx').on(t.seasonId, t.matchday),
@@ -136,6 +144,36 @@ export const seasonStandings = pgTable(
     primaryKey({ columns: [t.seasonId, t.playerId] }),
     // The composite PK covers season-first lookups; all-time rolls up by player.
     index('standings_player_idx').on(t.playerId),
+  ],
+).enableRLS()
+
+/**
+ * Every recent chess.com game of a member, against anyone — the raw material
+ * for the player page's stats, rating chart and in-browser engine analysis.
+ * Stored from the member's point of view, so a game between two members is
+ * here twice, once for each of them.
+ */
+export const playerGames = pgTable(
+  'player_games',
+  {
+    playerId: integer('player_id')
+      .notNull()
+      .references(() => players.id),
+    chessComUrl: text('chess_com_url').notNull(),
+    endedAt: ts('ended_at').notNull(),
+    timeClass: text('time_class').notNull(),
+    rated: boolean('rated').notNull(),
+    colour: text('colour', { enum: ['white', 'black'] }).notNull(),
+    outcome: text('outcome', { enum: ['win', 'draw', 'loss'] }).notNull(),
+    rating: integer('rating'),
+    opponent: text('opponent').notNull(),
+    opponentRating: integer('opponent_rating'),
+    opening: text('opening'),
+    pgn: text('pgn').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.playerId, t.chessComUrl] }),
+    index('player_games_recent_idx').on(t.playerId, t.endedAt.desc()),
   ],
 ).enableRLS()
 
@@ -218,3 +256,4 @@ export type Season = typeof seasons.$inferSelect
 export type Fixture = typeof fixtures.$inferSelect
 export type Game = typeof games.$inferSelect
 export type SeasonStanding = typeof seasonStandings.$inferSelect
+export type PlayerGame = typeof playerGames.$inferSelect

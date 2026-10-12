@@ -12,6 +12,7 @@ import {
   generateFixtures,
   refreshRoster,
   setPlayerActive,
+  setWalkover,
   startNewSeason,
 } from './league.server'
 import {
@@ -19,6 +20,7 @@ import {
   getFixtures,
   getLeaderboard,
   getPlayer,
+  getPlayerGames,
 } from './queries.server'
 import { syncGames } from './sync.server'
 
@@ -59,7 +61,9 @@ function budgeted<T>(label: string, work: () => Promise<T>): Promise<T> {
       reject(new Error(`${label} timed out after ${READ_BUDGET_MS}ms`))
     }, READ_BUDGET_MS)
 
-    work().then(resolve, reject).finally(() => clearTimeout(timer))
+    work()
+      .then(resolve, reject)
+      .finally(() => clearTimeout(timer))
   })
 }
 
@@ -81,6 +85,16 @@ export const getPlayerFn = createServerFn({ method: 'GET' })
     const player = await getPlayer(data.username)
     if (!player) throw notFound()
     return player
+  })
+
+export const getPlayerGamesFn = createServerFn({ method: 'GET' })
+  .validator(z.object({ username: z.string().min(1).max(64) }))
+  .handler(async ({ data }) => {
+    const result = await budgeted('player games', () =>
+      getPlayerGames(data.username),
+    )
+    if (!result) throw notFound()
+    return result
   })
 
 /**
@@ -173,3 +187,14 @@ export const startNewSeasonFn = createServerFn({ method: 'POST' })
       startedAt: season.startedAt.getTime(),
     }
   })
+
+/** Awards a walkover to `winner`, or clears it when `winner` is null. */
+export const setWalkoverFn = createServerFn({ method: 'POST' })
+  .middleware([adminMiddleware])
+  .validator(
+    z.object({
+      fixtureId: z.number().int().positive(),
+      winner: z.string().trim().min(1).max(64).nullable(),
+    }),
+  )
+  .handler(async ({ data }) => setWalkover(data.fixtureId, data.winner))

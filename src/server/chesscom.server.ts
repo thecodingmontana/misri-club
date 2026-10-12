@@ -142,6 +142,9 @@ export interface ArchivedGame {
   rated?: boolean
   rules?: string
   time_class?: string
+  pgn?: string
+  /** URL of the opening's page, e.g. `…/openings/Queens-Pawn-Opening-2.Bf4` */
+  eco?: string
   white: { username: string; result: string; rating?: number }
   black: { username: string; result: string; rating?: number }
 }
