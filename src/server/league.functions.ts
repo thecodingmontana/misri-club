@@ -81,6 +81,15 @@ export const getPlayerFn = createServerFn({ method: 'GET' })
     return player
   })
 
+/** Every member's avatar, so each face renders the same on every screen. */
+export const getRosterAvatarsFn = createServerFn({ method: 'GET' }).handler(
+  async () =>
+    (await listAllPlayers()).map((p) => ({
+      username: p.username,
+      avatar: p.avatar,
+    })),
+)
+
 export const getPlayerGamesFn = createServerFn({ method: 'GET' })
   .validator(z.object({ username: z.string().min(1).max(64) }))
   .handler(async ({ data }) => {

@@ -11,6 +11,8 @@ export function getRouter() {
     routeTree,
     context,
     scrollRestoration: true,
+    // The page never scrolls; the app's content area does, so reset that.
+    scrollToTopSelectors: ['#app-main'],
     defaultPreload: 'intent',
     defaultPreloadStaleTime: 0,
   })

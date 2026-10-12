@@ -6,8 +6,7 @@ import { LiveRating, RatingsProvider } from '#/components/live-ratings'
 import { PlayerAnalysis } from '#/components/player-analysis'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
-import { avatarUrl } from '#/lib/avatar'
-import { playerGamesQuery, playerQuery } from '#/lib/queries'
+import { playerGamesQuery, playerQuery, useAvatarUrl } from '#/lib/queries'
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar'
 import { Badge } from '#/components/ui/badge'
 import { Card } from '#/components/ui/card'
@@ -43,6 +42,7 @@ function PlayerScreen() {
   const { data } = useSuspenseQuery(playerQuery(username))
   const analysis = useQuery(playerGamesQuery(username))
   const { player, totals, history, games, fixtures, now } = data
+  const avatar = useAvatarUrl(player.username)
 
   const open = fixtures.filter(
     (f) => f.status === 'live' || f.status === 'upcoming',
@@ -54,7 +54,7 @@ function PlayerScreen() {
         <section className="flex flex-col items-center pt-2 text-center">
           <Avatar className="size-24 border-[3px] border-primary bg-card dark:shadow-[0_0_24px_-4px_var(--primary)]">
             <AvatarImage
-              src={avatarUrl(player.username, player.avatar)}
+              src={avatar}
               alt=""
             />
             <AvatarFallback className="display bg-secondary text-2xl text-primary">
@@ -112,7 +112,7 @@ function PlayerScreen() {
 
           <TabsContent value="analysis" className="pt-3">
             {analysis.data ? (
-              <PlayerAnalysis data={analysis.data} />
+              <PlayerAnalysis username={player.username} data={analysis.data} />
             ) : analysis.isError ? (
               <Empty>Could not load this player&apos;s games.</Empty>
             ) : (

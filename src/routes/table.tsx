@@ -7,6 +7,7 @@ import { PlayerChip } from '#/components/player-chip'
 import { Podium } from '#/components/podium'
 import { leaderboardQuery } from '#/lib/queries'
 import { Card } from '#/components/ui/card'
+import { ScrollArea } from '#/components/ui/scroll-area'
 import { countdown, relativeTime } from '#/lib/format'
 import { cn } from '#/lib/utils'
 
@@ -87,7 +88,7 @@ function Ranking({ rows, from }: { rows: Data['standings']; from: number }) {
               {from + index}
             </span>
             <div className="min-w-0 flex-1">
-              <PlayerChip username={row.username} avatar={row.avatar} />
+              <PlayerChip username={row.username} />
               <p className="numeric mt-0.5 pl-10 text-[0.68rem] text-muted-foreground">
                 {row.wins}W {row.draws}D {row.losses}L
                 {row.forfeits > 0 && (
@@ -112,7 +113,7 @@ function Board({ data }: { data: Data }) {
   const { matchdays } = data
 
   return (
-    <div className="overflow-x-auto">
+    <ScrollArea horizontal>
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-border/60 text-[0.6rem] uppercase tracking-wider text-muted-foreground">
@@ -143,7 +144,6 @@ function Board({ data }: { data: Data }) {
                   </span>
                   <PlayerChip
                     username={row.username}
-                    avatar={row.avatar}
                     size="sm"
                   />
                 </div>
@@ -168,7 +168,7 @@ function Board({ data }: { data: Data }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollArea>
   )
 }
 

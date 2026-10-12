@@ -1,11 +1,10 @@
 import { Link } from '@tanstack/react-router'
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar'
-import { avatarUrl } from '#/lib/avatar'
+import { useAvatarUrl } from '#/lib/queries'
 import { cn } from '#/lib/utils'
 
 interface PodiumEntry {
   username: string
-  avatar: string | null
   points: number
 }
 
@@ -24,6 +23,7 @@ export function Podium({ entries }: { entries: Array<PodiumEntry> }) {
 }
 
 function Place({ entry, rank }: { entry?: PodiumEntry; rank: 1 | 2 | 3 }) {
+  const src = useAvatarUrl(entry?.username ?? '')
   if (!entry) return <div />
   const leader = rank === 1
 
@@ -43,7 +43,7 @@ function Place({ entry, rank }: { entry?: PodiumEntry; rank: 1 | 2 | 3 }) {
             leader ? 'size-24 border-flame' : 'size-[4.5rem] border-primary',
           )}
         >
-          <AvatarImage src={avatarUrl(entry.username, entry.avatar)} alt="" />
+          <AvatarImage src={src} alt="" />
           <AvatarFallback
             className={cn(
               'display bg-secondary',

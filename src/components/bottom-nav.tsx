@@ -11,8 +11,8 @@ const TABS = [
 /** Tab bar along the bottom of the phone column; the active tab burns orange. */
 export function BottomNav() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-[27rem] border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md sm:rounded-b-[2rem]">
-      <div className="grid grid-cols-4">
+    <nav className="shrink-0 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]">
+      <div className="mx-auto grid w-full max-w-[27rem] grid-cols-4">
         {TABS.map((tab) => (
           <Link
             key={tab.to}

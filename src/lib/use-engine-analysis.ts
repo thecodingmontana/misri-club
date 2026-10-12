@@ -14,7 +14,8 @@ import { positionsOf } from './analysis'
 /** Per position. ~80 positions a game makes this about 10 s per game. */
 const MOVETIME_MS = 120
 
-const storageKey = (url: string) => `misri:scores:v1:${url}`
+// v2 added Stockfish's best move per position; v1 entries are simply ignored.
+const storageKey = (url: string) => `misri:scores:v2:${url}`
 const queryKey = (url: string) => ['engine-scores', url] as const
 
 function readStored(url: string): Array<Score> | null {

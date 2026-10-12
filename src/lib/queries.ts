@@ -1,15 +1,17 @@
-import { queryOptions, useQueryClient } from '@tanstack/react-query'
+import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { useMutation } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
+import { avatarUrl } from '#/lib/avatar'
 import {
   getAllTimeFn,
   getFixturesFn,
   getLeaderboardFn,
   getPlayerFn,
   getPlayerGamesFn,
+  getRosterAvatarsFn,
   autoSyncFn,
   syncNowFn,
 } from '#/server/league.functions'
@@ -53,6 +55,23 @@ export const playerGamesQuery = (username: string) =>
     queryFn: () => getPlayerGamesFn({ data: { username } }),
     staleTime: 5 * 60_000,
   })
+
+/** Small and slow-changing; the root loader warms it for every page. */
+export const rosterAvatarsQuery = queryOptions({
+  queryKey: ['league', 'roster-avatars'],
+  queryFn: () => getRosterAvatarsFn(),
+  staleTime: 10 * 60_000,
+})
+
+/**
+ * The one avatar for a username, wherever it is drawn: the member's chess.com
+ * picture if they are in the club, else a DiceBear face seeded by the name.
+ */
+export function useAvatarUrl(username: string) {
+  const { data } = useQuery(rosterAvatarsQuery)
+  const key = username.toLowerCase()
+  return avatarUrl(username, data?.find((p) => p.username === key)?.avatar)
+}
 
 /** After any league write: drop cached reads and rerun the route loaders. */
 export function useRefreshLeague() {

@@ -159,7 +159,7 @@ function MatchdayCard({ data }: { data: Data }) {
 
         <div className="space-y-1.5 border-t border-border/60 bg-background/40 p-2">
           {current.fixtures.map((fixture) => (
-            <FixtureRow key={fixture.id} fixture={fixture} data={data} />
+            <FixtureRow key={fixture.id} fixture={fixture} />
           ))}
         </div>
       </Card>
@@ -223,18 +223,12 @@ function CountdownRing({
   )
 }
 
-function avatarFor(data: Data, username: string | null) {
-  if (!username) return null
-  return data.roster.find((p) => p.username === username)?.avatar ?? null
-}
-
-function FixtureRow({ fixture, data }: { fixture: FixtureView; data: Data }) {
+function FixtureRow({ fixture }: { fixture: FixtureView }) {
   if (fixture.bye) {
     return (
       <div className="flex items-center justify-between rounded-xl px-3 py-2">
         <PlayerChip
           username={fixture.bye}
-          avatar={avatarFor(data, fixture.bye)}
           size="sm"
           muted
         />
@@ -249,7 +243,6 @@ function FixtureRow({ fixture, data }: { fixture: FixtureView; data: Data }) {
     <div className="flex items-center gap-2 rounded-xl bg-card px-3 py-2">
       <PlayerChip
         username={fixture.home}
-        avatar={avatarFor(data, fixture.home)}
         size="sm"
         className={cn('flex-1', wonFixture(fixture, 'home') && 'font-bold')}
       />
@@ -257,7 +250,6 @@ function FixtureRow({ fixture, data }: { fixture: FixtureView; data: Data }) {
       <div className="flex flex-1 justify-end">
         <PlayerChip
           username={fixture.away}
-          avatar={avatarFor(data, fixture.away)}
           size="sm"
           className={cn(
             'flex-row-reverse',

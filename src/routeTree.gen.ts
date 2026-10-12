@@ -16,6 +16,7 @@ import { Route as FixturesRouteImport } from './routes/fixtures'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as TableRouteImport } from './routes/table'
 import { Route as PlayersUsernameRouteImport } from './routes/players.$username'
+import { Route as PlayersUsernameLessonRouteImport } from './routes/players.$username_.lesson'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,6 +53,11 @@ const PlayersUsernameRoute = PlayersUsernameRouteImport.update({
   path: '/players/$username',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlayersUsernameLessonRoute = PlayersUsernameLessonRouteImport.update({
+  id: '/players/$username_/lesson',
+  path: '/players/$username/lesson',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/table': typeof TableRoute
   '/players/$username': typeof PlayersUsernameRoute
+  '/players/$username/lesson': typeof PlayersUsernameLessonRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/table': typeof TableRoute
   '/players/$username': typeof PlayersUsernameRoute
+  '/players/$username/lesson': typeof PlayersUsernameLessonRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/table': typeof TableRoute
   '/players/$username': typeof PlayersUsernameRoute
+  '/players/$username_/lesson': typeof PlayersUsernameLessonRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/table'
     | '/players/$username'
+    | '/players/$username/lesson'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/table'
     | '/players/$username'
+    | '/players/$username/lesson'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/table'
     | '/players/$username'
+    | '/players/$username_/lesson'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   TableRoute: typeof TableRoute
   PlayersUsernameRoute: typeof PlayersUsernameRoute
+  PlayersUsernameLessonRoute: typeof PlayersUsernameLessonRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -172,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlayersUsernameRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/players/$username_/lesson': {
+      id: '/players/$username_/lesson'
+      path: '/players/$username/lesson'
+      fullPath: '/players/$username/lesson'
+      preLoaderRoute: typeof PlayersUsernameLessonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   TableRoute: TableRoute,
   PlayersUsernameRoute: PlayersUsernameRoute,
+  PlayersUsernameLessonRoute: PlayersUsernameLessonRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -11,9 +11,10 @@ import { ThemeProvider } from 'next-themes'
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import { BottomNav } from '#/components/bottom-nav'
 import { TopBar } from '#/components/top-bar'
+import { ScrollArea } from '#/components/ui/scroll-area'
 import { Toaster } from '#/components/ui/sonner'
 import { getSessionFn } from '#/server/auth.functions'
-import { useAutoSync } from '#/lib/queries'
+import { rosterAvatarsQuery, useAutoSync } from '#/lib/queries'
 
 import appCss from '../styles.css?url'
 
@@ -47,7 +48,11 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       },
     ],
   }),
-  loader: async () => ({ auth: await getSessionFn() }),
+  loader: async ({ context }) => {
+    // Avatars are looked up by username on every screen; warm them once.
+    void context.queryClient.prefetchQuery(rosterAvatarsQuery)
+    return { auth: await getSessionFn() }
+  },
   shellComponent: RootDocument,
   component: RootLayout,
   notFoundComponent: NotFound,
@@ -55,17 +60,30 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 
 /**
  * The whole app lives in a phone-width column, centred on wider screens, so it
- * reads as a mobile app rather than stretching across a desktop monitor.
+ * reads as a mobile app. The window itself never scrolls: the header and tab
+ * bar stay put and only `#app-main` scrolls.
  */
 function RootLayout() {
   useAutoSync()
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[27rem] flex-col bg-background shadow-card sm:my-6 sm:min-h-[calc(100vh-3rem)] sm:rounded-[2rem]">
+    // Pinned to the window (fixed, inset 0), which every browser sizes the
+    // same, so the tab bar is always on screen. The scroll area spans the full
+    // width so the wheel works anywhere; only its content is phone-width.
+    <div className="fixed inset-0 flex flex-col bg-background">
       <TopBar />
-      <main className="flex-1 px-4 pb-28 pt-2">
-        <Outlet />
-      </main>
+      <ScrollArea
+        className="min-h-0 flex-1"
+        viewportProps={{
+          id: 'app-main',
+          'data-scroll-restoration-id': 'app-main',
+          className: 'overscroll-contain',
+        }}
+      >
+        <main className="mx-auto w-full max-w-[27rem] px-4 pb-6 pt-2">
+          <Outlet />
+        </main>
+      </ScrollArea>
       <BottomNav />
     </div>
   )

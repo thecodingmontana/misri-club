@@ -6,8 +6,11 @@
 
 const ENGINE_URL = '/stockfish/stockfish-19-lite-single.js'
 
-/** Engine score, always from White's point of view. */
-export type Score = { cp: number } | { mate: number }
+/**
+ * Engine verdict on a position: the score, always from White's point of view,
+ * and the move Stockfish would play there (UCI, e.g. `e2e4`), if any.
+ */
+export type Score = ({ cp: number } | { mate: number }) & { best?: string }
 
 export class Engine {
   private worker = new Worker(ENGINE_URL)
@@ -62,7 +65,8 @@ export class Engine {
         }
         if (line.startsWith('bestmove')) {
           cleanup()
-          resolve(score)
+          const best = line.split(' ')[1]
+          resolve(best && best !== '(none)' ? { ...score, best } : score)
         }
       }
 

@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar'
-import { avatarUrl } from '#/lib/avatar'
+import { useAvatarUrl } from '#/lib/queries'
 import { cn } from '#/lib/utils'
 
 /**
@@ -9,20 +9,19 @@ import { cn } from '#/lib/utils'
  */
 export function PlayerChip({
   username,
-  avatar,
   size = 'md',
   className,
   muted,
   stacked,
 }: {
   username: string
-  avatar?: string | null
   size?: 'sm' | 'md' | 'lg'
   className?: string
   muted?: boolean
   /** Avatar above the name, as on the "upcoming match" card. */
   stacked?: boolean
 }) {
+  const src = useAvatarUrl(username)
   const avatarSize =
     size === 'lg' ? 'size-14' : size === 'sm' ? 'size-6' : 'size-8'
 
@@ -37,7 +36,7 @@ export function PlayerChip({
       )}
     >
       <Avatar className={cn(avatarSize, 'border border-border/70')}>
-        <AvatarImage src={avatarUrl(username, avatar)} alt="" />
+        <AvatarImage src={src} alt="" />
         <AvatarFallback className="bg-secondary text-[0.65rem] font-semibold text-primary">
           {username.slice(0, 2).toUpperCase()}
         </AvatarFallback>
