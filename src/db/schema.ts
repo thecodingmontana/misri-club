@@ -1,4 +1,4 @@
-import { relations } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 import {
   boolean,
   index,
@@ -41,7 +41,9 @@ export const players = pgTable('players', {
   active: boolean('active').notNull().default(true),
 }).enableRLS()
 
-export const seasons = pgTable('seasons', {
+export const seasons = pgTable(
+  'seasons',
+  {
   id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
   label: text('label').notNull(), // e.g. "Season 1"
   startedAt: ts('started_at').notNull(),
@@ -51,7 +53,15 @@ export const seasons = pgTable('seasons', {
    * and finish their fixture before it expires against both of them.
    */
   matchdayDays: integer('matchday_days').notNull().default(2),
-}).enableRLS()
+  },
+  (t) => [
+    // At most one open season: every open row indexes the same constant, so
+    // two concurrent "create Season 1" requests cannot both succeed.
+    uniqueIndex('seasons_one_open_idx')
+      .on(sql`(${t.endedAt} is null)`)
+      .where(sql`${t.endedAt} is null`),
+  ],
+).enableRLS()
 
 export const fixtures = pgTable(
   'fixtures',

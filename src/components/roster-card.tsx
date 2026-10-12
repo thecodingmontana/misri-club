@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { useMutation } from '@tanstack/react-query'
-import { Lock, Plus, UserMinus, UserPlus } from 'lucide-react'
+import { Lock, Plus, UserMinus, UserPlus } from '#/components/icons'
 import { toast } from 'sonner'
 
 import { addPlayerFn, setPlayerActiveFn } from '#/server/league.functions'
@@ -10,6 +9,7 @@ import { PlayerLink } from '#/components/player-link'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
+import { useRefreshLeague } from '#/lib/queries'
 import { useAdmin } from '#/lib/use-admin'
 
 interface RosterEntry {
@@ -34,7 +34,7 @@ export function RosterCard({
   clubUrl: string
 }) {
   const { isAdmin } = useAdmin()
-  const router = useRouter()
+  const refresh = useRefreshLeague()
   const [username, setUsername] = useState('')
 
   const addPlayer = useServerFn(addPlayerFn)
@@ -44,7 +44,7 @@ export function RosterCard({
     mutationFn: (value: string) => addPlayer({ data: { username: value } }),
     onSuccess: async (result) => {
       setUsername('')
-      await router.invalidate()
+      await refresh()
       toast.success(
         result.status === 'added'
           ? `${result.username} added to the roster`
@@ -59,7 +59,7 @@ export function RosterCard({
     mutationFn: (entry: RosterEntry) =>
       setActive({ data: { username: entry.username, active: !entry.active } }),
     onSuccess: async (result) => {
-      await router.invalidate()
+      await refresh()
       toast.success(
         result.active
           ? `${result.username} is active again`
@@ -84,14 +84,14 @@ export function RosterCard({
       </CardHeader>
       <CardContent className="space-y-4">
         {!membersListable && (
-          <div className="flex items-start gap-3 rounded-lg border border-brass/25 bg-brass/5 px-3 py-2.5 text-xs text-muted-foreground">
-            <Lock className="mt-0.5 size-3.5 shrink-0 text-brass" />
+          <div className="flex items-start gap-3 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 text-xs text-muted-foreground">
+            <Lock className="mt-0.5 size-3.5 shrink-0 text-primary" />
             <p>
               <a
                 href={clubUrl}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="font-medium text-foreground hover:text-brass"
+                className="font-medium text-foreground hover:text-primary"
               >
                 This club is private
               </a>
@@ -156,7 +156,7 @@ export function RosterCard({
                     type="button"
                     size="sm"
                     variant="ghost"
-                    className="h-7 shrink-0 px-2 text-xs text-muted-foreground hover:text-brass"
+                    className="h-7 shrink-0 px-2 text-xs text-muted-foreground hover:text-primary"
                     disabled={toggle.isPending}
                     onClick={() => toggle.mutate(entry)}
                     title={

@@ -84,3 +84,9 @@ test('a played game overrides a walkover', () => {
   assert.equal(tally.get(1)?.points, POINTS.win)
   assert.equal(tally.get(2)?.forfeits, 0)
 })
+
+test('an expired fixture against a player who left costs nobody', () => {
+  const tally = tallyStandings([fixture(10)], [], [1], now)
+  assert.equal(tally.get(1)?.points, 0)
+  assert.equal(tally.get(1)?.forfeits, 0)
+})

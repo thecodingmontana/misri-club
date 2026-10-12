@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { useMutation } from '@tanstack/react-query'
-import { KeyRound, ShieldCheck } from 'lucide-react'
+import { KeyRound, ShieldCheck } from '#/components/icons'
 import { toast } from 'sonner'
 
 import { loginFn } from '#/server/auth.functions'
@@ -38,14 +38,14 @@ function LoginPage() {
       <Card className="rise-in">
         <CardHeader>
           <CardTitle className="display flex items-center gap-2 text-2xl">
-            <KeyRound className="size-5 text-brass" />
+            <KeyRound className="size-5 text-primary" />
             Club admin
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           {auth.isAdmin ? (
-            <p className="flex items-center gap-2 rounded-lg border border-brass/25 bg-brass/5 px-4 py-3 text-sm">
-              <ShieldCheck className="size-4 shrink-0 text-brass" />
+            <p className="flex items-center gap-2 rounded-lg border border-primary/25 bg-primary/5 px-4 py-3 text-sm">
+              <ShieldCheck className="size-4 shrink-0 text-primary" />
               You&apos;re already signed in as an admin.
             </p>
           ) : (

@@ -51,3 +51,12 @@ test('thresholds and phases', () => {
     'opening',
   )
 })
+
+test('the mating move is not a blunder', () => {
+  const positions = positionsOf('1. f3 e5 2. g4 Qh4# 0-1')
+  // What the engine reports after the "mate 0" fix: Black mates in 1, then mated.
+  const scores = [{ cp: 0 }, { cp: -60 }, { cp: -60 }, { mate: -1 }, { mate: -1 }]
+  const black = reviewFor('black', positions, scores)
+  assert.equal(black.moves.at(-1)?.san, 'Qh4#')
+  assert.equal(black.moves.at(-1)?.kind, 'good')
+})

@@ -49,23 +49,21 @@ export async function getOrCreateCurrentSeason() {
     .select({ n: sql<number>`count(*)::int` })
     .from(seasons)
 
+  // `seasons_one_open_idx` lets only one concurrent creator win; the rest
+  // read back the season it made.
   const [created] = await db
     .insert(seasons)
     .values({ label: `Season ${n + 1}`, startedAt: new Date() })
+    .onConflictDoNothing()
     .returning()
+  if (created) return created
 
-  return created
-}
-
-export async function getCurrentSeason() {
-  const [open] = await db
+  const [winner] = await db
     .select()
     .from(seasons)
     .where(isNull(seasons.endedAt))
-    .orderBy(desc(seasons.startedAt))
     .limit(1)
-
-  return open ?? null
+  return winner
 }
 
 /**
@@ -113,27 +111,49 @@ export interface RosterRefreshResult {
   clubVisibility: string
   membersCount: number
   total: number
+  /** Listed usernames chess.com does not know — skipped, never inserted. */
+  notOnChessCom: Array<string>
 }
 
 async function insertPlayer(
   username: string,
   joinedAt: Date,
-): Promise<boolean> {
-  const profile = await fetchPlayerProfile(username).catch(() => null)
+): Promise<'added' | 'exists' | 'not-on-chess-com'> {
+  // The league is built on chess.com data, so a player chess.com has never
+  // heard of (a typo in the roster, a closed account) is never inserted.
+  // Network errors propagate rather than letting an unverified row through.
+  const profile = await fetchPlayerProfile(username)
+  if (!profile) return 'not-on-chess-com'
 
   const inserted = await db
     .insert(players)
     .values({
       username,
-      displayName: profile?.url?.split('/').pop() ?? username,
-      avatar: profile?.avatar ?? null,
+      displayName: profile.url?.split('/').pop() ?? username,
+      avatar: profile.avatar ?? null,
       joinedAt,
       active: true,
     })
     .onConflictDoNothing()
     .returning({ id: players.id })
 
-  return inserted.length > 0
+  return inserted.length > 0 ? 'added' : 'exists'
+}
+
+/**
+ * Members whose avatar is missing (they had none, or chess.com was down when
+ * they were added) get another look. One profile request per such member.
+ */
+async function backfillAvatars(existing: Array<typeof players.$inferSelect>) {
+  for (const player of existing) {
+    if (player.avatar) continue
+    const profile = await fetchPlayerProfile(player.username).catch(() => null)
+    if (!profile?.avatar) continue
+    await db
+      .update(players)
+      .set({ avatar: profile.avatar })
+      .where(eq(players.id, player.id))
+  }
 }
 
 /**
@@ -166,6 +186,14 @@ export async function refreshRoster(): Promise<RosterRefreshResult> {
 
   const added: Array<string> = []
   const reactivated: Array<string> = []
+  const notOnChessCom: Array<string> = []
+  const insert = async (username: string, joinedAt: Date) => {
+    const outcome = await insertPlayer(username, joinedAt)
+    if (outcome === 'added') added.push(username)
+    if (outcome === 'not-on-chess-com') notOnChessCom.push(username)
+  }
+
+  await backfillAvatars(existing)
 
   if (!visible) {
     // Private club: fall back to the membership we maintain by hand, plus the
@@ -182,21 +210,10 @@ export async function refreshRoster(): Promise<RosterRefreshResult> {
       }
     }
 
+    // Insert-only: an admin who marks someone inactive must not have the next
+    // sync quietly switch them back on.
     for (const [username, joinedAt] of fallback) {
-      const current = byUsername.get(username)
-
-      if (!current) {
-        if (await insertPlayer(username, joinedAt)) added.push(username)
-        continue
-      }
-
-      if (!current.active) {
-        await db
-          .update(players)
-          .set({ active: true })
-          .where(eq(players.id, current.id))
-        reactivated.push(username)
-      }
+      if (!byUsername.has(username)) await insert(username, joinedAt)
     }
 
     return {
@@ -207,6 +224,7 @@ export async function refreshRoster(): Promise<RosterRefreshResult> {
       clubVisibility: club.visibility,
       membersCount: club.membersCount,
       total: existing.length + added.length,
+      notOnChessCom,
     }
   }
 
@@ -214,9 +232,7 @@ export async function refreshRoster(): Promise<RosterRefreshResult> {
     const current = byUsername.get(member.username)
 
     if (!current) {
-      if (await insertPlayer(member.username, member.joinedAt)) {
-        added.push(member.username)
-      }
+      await insert(member.username, member.joinedAt)
       continue
     }
 
@@ -249,6 +265,7 @@ export async function refreshRoster(): Promise<RosterRefreshResult> {
     clubVisibility: club.visibility,
     membersCount: club.membersCount,
     total: members.length,
+    notOnChessCom,
   }
 }
 
@@ -278,13 +295,14 @@ export async function addPlayerByUsername(rawUsername: string) {
     throw new Error(`${username} is already on the roster.`)
   }
 
-  const profile = await fetchPlayerProfile(username)
-  if (!profile) {
+  const clubCreated = await getMeta('club:createdAt')
+  const outcome = await insertPlayer(
+    username,
+    clubCreated ? new Date(clubCreated) : new Date(),
+  )
+  if (outcome === 'not-on-chess-com') {
     throw new Error(`No chess.com account called "${username}".`)
   }
-
-  const clubCreated = await getMeta('club:createdAt')
-  await insertPlayer(username, clubCreated ? new Date(clubCreated) : new Date())
 
   return { username, status: 'added' as const }
 }
@@ -338,15 +356,6 @@ export async function isSeasonLocked(seasonId: number): Promise<boolean> {
   `)
 
   return row?.locked ?? false
-}
-
-export async function hasFixtures(seasonId: number): Promise<boolean> {
-  const [row] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(fixtures)
-    .where(eq(fixtures.seasonId, seasonId))
-
-  return (row?.n ?? 0) > 0
 }
 
 export class SeasonLockedError extends Error {
@@ -584,39 +593,18 @@ export async function recomputeStandings(
    */
   { wait = false }: { wait?: boolean } = {},
 ): Promise<void> {
-  const seasonFixtures = await db
-    .select()
-    .from(fixtures)
-    .where(eq(fixtures.seasonId, seasonId))
-
-  const seasonGames = await db
-    .select()
-    .from(games)
-    .where(and(eq(games.seasonId, seasonId), isNotNull(games.fixtureId)))
-
-  const tally = tallyStandings(
-    seasonFixtures,
-    seasonGames,
-    (await listActivePlayers()).map((player) => player.id),
-    now,
-  )
-
-  const wrote = await db.transaction(async (tx) => {
+  await db.transaction(async (tx) => {
     /**
-     * Only one rebuild at a time, per season.
+     * Only one rebuild at a time, per season, and every read happens after the
+     * lock: a rebuild that read its rows first could otherwise commit older
+     * numbers over a newer rebuild that slipped in between.
      *
      * This runs on every read, so a burst of concurrent requests all see stale
-     * standings at once — none of them has committed a new watermark yet — and
-     * each tries to delete and reinsert the same rows. They then serialise on
-     * row locks, and with enough of them queued the wait exceeds the statement
-     * timeout and the whole batch fails. A single request never sees this,
-     * which is why it only shows up under real concurrency.
-     *
-     * `pg_try_advisory_xact_lock` returns rather than waits, and is released
-     * with the transaction — safe on a transaction-mode pooler, where anything
-     * session-scoped would leak onto whichever backend we happen to land on.
-     * A page read that loses the race skips: the winner computed from rows at
-     * least as fresh. Writers pass `wait` and queue behind it instead.
+     * standings at once. `pg_try_advisory_xact_lock` returns rather than waits,
+     * and is released with the transaction — safe on a transaction-mode pooler,
+     * where anything session-scoped would leak onto whichever backend we happen
+     * to land on. A page read that loses the race skips: the winner reads rows
+     * at least as fresh. Writers pass `wait` and queue behind it instead.
      */
     if (wait) {
       await tx.execute(sql`select pg_advisory_xact_lock(${seasonId})`)
@@ -624,8 +612,30 @@ export async function recomputeStandings(
       const [lock] = await tx.execute<{ acquired: boolean }>(
         sql`select pg_try_advisory_xact_lock(${seasonId}) as acquired`,
       )
-      if (!lock?.acquired) return false
+      if (!lock?.acquired) return
     }
+
+    const seasonFixtures = await tx
+      .select()
+      .from(fixtures)
+      .where(eq(fixtures.seasonId, seasonId))
+
+    const seasonGames = await tx
+      .select()
+      .from(games)
+      .where(and(eq(games.seasonId, seasonId), isNotNull(games.fixtureId)))
+
+    const active = await tx
+      .select({ id: players.id })
+      .from(players)
+      .where(eq(players.active, true))
+
+    const tally = tallyStandings(
+      seasonFixtures,
+      seasonGames,
+      active.map((player) => player.id),
+      now,
+    )
 
     await tx
       .delete(seasonStandings)
@@ -641,14 +651,17 @@ export async function recomputeStandings(
       )
     }
 
-    return true
+    // The watermark commits with the rows it describes.
+    const key = `standings:computedAt:${seasonId}`
+    const value = now.toISOString()
+    await tx
+      .insert(appMeta)
+      .values({ key, value, updatedAt: new Date() })
+      .onConflictDoUpdate({
+        target: appMeta.key,
+        set: { value, updatedAt: new Date() },
+      })
   })
-
-  // Only the writer moves the watermark, so a skipped rebuild does not mark
-  // standings fresh before the winner has actually committed them.
-  if (wrote) {
-    await setMeta(`standings:computedAt:${seasonId}`, now.toISOString())
-  }
 }
 
 // ---------------------------------------------------------------------------

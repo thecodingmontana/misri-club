@@ -676,12 +676,25 @@ export async function getPlayerGames(username: string) {
 
   if (!player) return null
 
+  // The whole history is small without PGNs (they are ~3 KB each); only the
+  // games the browser may analyse fetch theirs.
   const rows = await db
+    .select({
+      endedAt: playerGames.endedAt,
+      timeClass: playerGames.timeClass,
+      rated: playerGames.rated,
+      outcome: playerGames.outcome,
+      rating: playerGames.rating,
+    })
+    .from(playerGames)
+    .where(eq(playerGames.playerId, player.id))
+    .orderBy(desc(playerGames.endedAt))
+
+  const recent = await db
     .select({
       chessComUrl: playerGames.chessComUrl,
       endedAt: playerGames.endedAt,
       timeClass: playerGames.timeClass,
-      rated: playerGames.rated,
       colour: playerGames.colour,
       outcome: playerGames.outcome,
       rating: playerGames.rating,
@@ -693,6 +706,7 @@ export async function getPlayerGames(username: string) {
     .from(playerGames)
     .where(eq(playerGames.playerId, player.id))
     .orderBy(desc(playerGames.endedAt))
+    .limit(ANALYSABLE_GAMES)
 
   const tally = { games: rows.length, wins: 0, draws: 0, losses: 0 }
   for (const row of rows) {
@@ -711,10 +725,7 @@ export async function getPlayerGames(username: string) {
         rating: row.rating as number,
       }))
       .reverse(),
-    recent: rows.slice(0, ANALYSABLE_GAMES).map(({ rated, ...row }) => ({
-      ...row,
-      endedAt: row.endedAt.getTime(),
-    })),
+    recent: recent.map((row) => ({ ...row, endedAt: row.endedAt.getTime() })),
   }
 }
 

@@ -61,6 +61,7 @@ export function useEngineAnalysis() {
   const queryClient = useQueryClient()
   const engine = useRef<Engine | null>(null)
   const [progress, setProgress] = useState<AnalysisProgress | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const stop = useCallback(() => {
     engine.current?.terminate()
@@ -74,33 +75,48 @@ export function useEngineAnalysis() {
   const start = useCallback(
     async (games: Array<{ chessComUrl: string; pgn: string }>) => {
       stop()
+      setError(null)
       const current = new Engine()
       engine.current = current
+      let skipped = 0
 
-      for (const [index, game] of games.entries()) {
-        const { fens } = positionsOf(game.pgn)
-        const scores: Array<Score> = []
+      try {
+        for (const [index, game] of games.entries()) {
+          let fens: Array<string>
+          try {
+            fens = positionsOf(game.pgn).fens
+          } catch {
+            skipped++ // A PGN chess.js cannot read; the rest still count.
+            continue
+          }
+          const scores: Array<Score> = []
 
-        for (const fen of fens) {
+          for (const fen of fens) {
+            if (engine.current !== current) return
+            setProgress({
+              game: index + 1,
+              games: games.length,
+              position: scores.length + 1,
+              positions: fens.length,
+            })
+            scores.push(await current.evaluate(fen, MOVETIME_MS))
+          }
+
           if (engine.current !== current) return
-          setProgress({
-            game: index + 1,
-            games: games.length,
-            position: scores.length + 1,
-            positions: fens.length,
-          })
-          scores.push(await current.evaluate(fen, MOVETIME_MS))
+          writeStored(game.chessComUrl, scores)
+          queryClient.setQueryData(queryKey(game.chessComUrl), scores)
         }
-
-        if (engine.current !== current) return
-        writeStored(game.chessComUrl, scores)
-        queryClient.setQueryData(queryKey(game.chessComUrl), scores)
+        if (skipped > 0) {
+          setError(`${skipped} game${skipped === 1 ? '' : 's'} could not be read.`)
+        }
+      } catch (failure) {
+        if (engine.current === current) setError((failure as Error).message)
+      } finally {
+        if (engine.current === current) stop()
       }
-
-      stop()
     },
     [queryClient, stop],
   )
 
-  return { progress, start, stop }
+  return { progress, error, start, stop }
 }

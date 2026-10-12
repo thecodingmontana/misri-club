@@ -1,31 +1,31 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { ChevronRight, ExternalLink, Trophy } from 'lucide-react'
+import { useSuspenseQuery } from '@tanstack/react-query'
+import { ChevronRight, ExternalLink, Trophy } from '#/components/icons'
 
-import { getLeaderboardFn } from '#/server/league.functions'
 import { RosterCard } from '#/components/roster-card'
 import { Card, CardContent } from '#/components/ui/card'
 import { formatDate, relativeTime } from '#/lib/format'
+import { leaderboardQuery } from '#/lib/queries'
 
 export const Route = createFileRoute('/club')({
-  loader: () => getLeaderboardFn(),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(leaderboardQuery),
   component: ClubScreen,
 })
 
 function ClubScreen() {
-  const data = Route.useLoaderData()
+  const { data } = useSuspenseQuery(leaderboardQuery)
 
   return (
     <div className="space-y-5">
-      <header>
+      <header className="pt-2 text-center">
         <p className="kicker">chess.com club</p>
-        <h1 className="display mt-1 text-3xl font-semibold tracking-tight">
-          {data.club.name}
-        </h1>
+        <h1 className="display mt-1 text-3xl">{data.club.name}</h1>
         <a
           href={data.club.url}
           target="_blank"
           rel="noreferrer noopener"
-          className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-brass"
+          className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary"
         >
           chess.com/club/{data.club.id}
           <ExternalLink className="size-3" />
@@ -40,9 +40,9 @@ function ClubScreen() {
 
       <Link
         to="/all-time"
-        className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/60 px-4 py-3 transition-colors hover:border-brass/30"
+        className="flex items-center gap-3 rounded-2xl bg-card px-4 py-3 shadow-card transition-colors hover:bg-secondary"
       >
-        <Trophy className="size-4 text-brass" />
+        <Trophy className="size-6 text-flame" />
         <span className="flex-1">
           <span className="block text-sm font-medium">All-time records</span>
           <span className="block text-[0.68rem] text-muted-foreground">
@@ -66,7 +66,8 @@ function ClubScreen() {
             Win +3, draw +1, loss 0. A fixture left unplayed when its{' '}
             {data.season.matchdayDays}-day window closes costs{' '}
             <span className="font-medium text-foreground">both</span> players a
-            point.
+            point, unless an admin awards a walkover: +3 to whoever turned up,
+            −1 to the other.
           </p>
           <p>
             Only games played inside a fixture&apos;s window count towards the
@@ -86,8 +87,8 @@ function ClubScreen() {
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-card/60 px-3 py-2.5 text-center">
-      <div className="numeric text-lg font-semibold text-brass">{value}</div>
+    <div className="rounded-2xl bg-card px-3 py-3 text-center shadow-card">
+      <div className="display numeric text-xl text-primary">{value}</div>
       <div className="text-[0.6rem] uppercase tracking-wider text-muted-foreground">
         {label}
       </div>

@@ -15,7 +15,7 @@ export function PlayerLink({
       to="/players/$username"
       params={{ username }}
       className={cn(
-        'font-medium underline-offset-4 transition-colors hover:text-brass hover:underline',
+        'font-medium underline-offset-4 transition-colors hover:text-primary hover:underline',
         muted ? 'text-muted-foreground' : 'text-foreground',
         className,
       )}

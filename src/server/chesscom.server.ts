@@ -291,6 +291,3 @@ export async function fetchArchive(url: string): Promise<Array<ArchivedGame>> {
 /** The chess.com club page for a given club id. */
 export const clubUrl = (clubId = CLUB_ID) =>
   `https://www.chess.com/club/${clubId}`
-
-export const profileUrl = (username: string) =>
-  `https://www.chess.com/member/${username}`

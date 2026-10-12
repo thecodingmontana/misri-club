@@ -6,6 +6,7 @@ import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { nitro } from 'nitro/vite'
+import Icons from 'unplugin-icons/vite'
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
@@ -19,6 +20,9 @@ const config = defineConfig({
     tailwindcss(),
     tanstackStart(),
     viteReact(),
+    // Icons compile to inline SVG components at build time: no runtime fetch,
+    // and they render on the server.
+    Icons({ compiler: 'jsx', jsx: 'react' }),
   ],
 })
 

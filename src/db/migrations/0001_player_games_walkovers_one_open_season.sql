@@ -18,4 +18,5 @@ ALTER TABLE "player_games" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "fixtures" ADD COLUMN "walkover_winner_id" integer;--> statement-breakpoint
 ALTER TABLE "player_games" ADD CONSTRAINT "player_games_player_id_players_id_fk" FOREIGN KEY ("player_id") REFERENCES "public"."players"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "player_games_recent_idx" ON "player_games" USING btree ("player_id","ended_at" DESC NULLS LAST);--> statement-breakpoint
-ALTER TABLE "fixtures" ADD CONSTRAINT "fixtures_walkover_winner_id_players_id_fk" FOREIGN KEY ("walkover_winner_id") REFERENCES "public"."players"("id") ON DELETE no action ON UPDATE no action;
+ALTER TABLE "fixtures" ADD CONSTRAINT "fixtures_walkover_winner_id_players_id_fk" FOREIGN KEY ("walkover_winner_id") REFERENCES "public"."players"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "seasons_one_open_idx" ON "seasons" USING btree (("ended_at" is null)) WHERE "seasons"."ended_at" is null;

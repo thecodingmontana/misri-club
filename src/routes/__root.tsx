@@ -6,12 +6,14 @@ import {
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
+import { ThemeProvider } from 'next-themes'
 
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import { BottomNav } from '#/components/bottom-nav'
 import { TopBar } from '#/components/top-bar'
 import { Toaster } from '#/components/ui/sonner'
 import { getSessionFn } from '#/server/auth.functions'
+import { useAutoSync } from '#/lib/queries'
 
 import appCss from '../styles.css?url'
 
@@ -35,7 +37,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         content:
           'Season standings, fixtures and all-time records for the Misri chess.com club.',
       },
-      { name: 'theme-color', content: '#241d16' },
+      { name: 'theme-color', content: '#fbf8e6' },
     ],
     links: [
       { rel: 'stylesheet', href: appCss },
@@ -56,10 +58,12 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
  * reads as a mobile app rather than stretching across a desktop monitor.
  */
 function RootLayout() {
+  useAutoSync()
+
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[27rem] flex-col border-x border-border/40 bg-background/30 shadow-[0_0_60px_rgba(0,0,0,0.35)]">
+    <div className="mx-auto flex min-h-screen w-full max-w-[27rem] flex-col bg-background shadow-card sm:my-6 sm:min-h-[calc(100vh-3rem)] sm:rounded-[2rem]">
       <TopBar />
-      <main className="flex-1 px-4 pb-32 pt-4">
+      <main className="flex-1 px-4 pb-28 pt-2">
         <Outlet />
       </main>
       <BottomNav />
@@ -81,13 +85,20 @@ function NotFound() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body>
-        {children}
-        <Toaster position="top-center" />
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+          <Toaster position="top-center" />
+        </ThemeProvider>
         <TanStackDevtools
           config={{ position: 'bottom-left' }}
           plugins={[

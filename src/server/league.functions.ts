@@ -2,15 +2,12 @@ import { createServerFn } from '@tanstack/react-start'
 import { notFound } from '@tanstack/react-router'
 import { z } from 'zod'
 import { adminMiddleware } from './auth.functions'
-import {
-  fetchClubMembers,
-  fetchPlayerProfile,
-  fetchPlayerRating,
-} from './chesscom.server'
+import { fetchPlayerProfile, fetchPlayerRating } from './chesscom.server'
 import {
   addPlayerByUsername,
   generateFixtures,
-  refreshRoster,
+  getMeta,
+  listAllPlayers,
   setPlayerActive,
   setWalkover,
   startNewSeason,
@@ -29,11 +26,8 @@ import { syncGames } from './sync.server'
  * client bundle keeps just the fetch stubs, so the Postgres driver and the
  * chess.com client never reach the browser.
  *
- * Note: this league board is deliberately unauthenticated (public club data).
- * The mutations below are therefore reachable by anyone who can reach the app;
- * each is either idempotent (`syncNow`) or non-destructive (`startNewSeason`
- * archives rather than deletes), and `generateFixtures` is refused outright once
- * a scheduled game has been played.
+ * Reads and `syncNow` are public (club data). Every other mutation goes
+ * through `adminMiddleware`, which is the actual security boundary.
  */
 
 // --- Reads -----------------------------------------------------------------
@@ -82,7 +76,7 @@ export const getAllTimeFn = createServerFn({ method: 'GET' }).handler(
 export const getPlayerFn = createServerFn({ method: 'GET' })
   .validator(z.object({ username: z.string().min(1) }))
   .handler(async ({ data }) => {
-    const player = await getPlayer(data.username)
+    const player = await budgeted('player', () => getPlayer(data.username))
     if (!player) throw notFound()
     return player
   })
@@ -104,14 +98,18 @@ export const getPlayerGamesFn = createServerFn({ method: 'GET' })
 export const getPlayerRatingsFn = createServerFn({ method: 'GET' })
   .validator(z.object({ usernames: z.array(z.string().min(1)).max(64) }))
   .handler(async ({ data }) => {
+    // Only club members: otherwise this is an open proxy to chess.com.
+    const members = new Set((await listAllPlayers()).map((p) => p.username))
     const ratings = await Promise.all(
-      data.usernames.map((username) =>
-        fetchPlayerRating(username).catch(() => ({
-          username,
-          rating: null,
-          timeClass: null,
-        })),
-      ),
+      data.usernames
+        .filter((username) => members.has(username.toLowerCase()))
+        .map((username) =>
+          fetchPlayerRating(username).catch(() => ({
+            username,
+            rating: null,
+            timeClass: null,
+          })),
+        ),
     )
 
     return Object.fromEntries(
@@ -119,20 +117,6 @@ export const getPlayerRatingsFn = createServerFn({ method: 'GET' })
     )
   })
 
-export const getClubMembersFn = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    const { visible, members } = await fetchClubMembers()
-    return {
-      visible,
-      members: members.map((m) => ({
-        username: m.username,
-        joinedAt: m.joinedAt.getTime(),
-      })),
-    }
-  },
-)
-
-/** 404 from chess.com means the username doesn't exist. */
 export const verifyUsernameFn = createServerFn({ method: 'GET' })
   .validator(z.object({ username: z.string().min(1) }))
   .handler(async ({ data }) => {
@@ -144,18 +128,47 @@ export const verifyUsernameFn = createServerFn({ method: 'GET' })
 
 // --- Mutations -------------------------------------------------------------
 
+/** A sync is ~25 chess.com requests; once a minute is plenty for a club. */
+const SYNC_COOLDOWN_MS = 60_000
+
 /**
  * Deliberately public: syncing is idempotent and only ever reads from
  * chess.com, so anyone can pull the latest games and the board never goes
- * stale waiting for an admin.
+ * stale waiting for an admin. The cooldown is read from the database, so it
+ * holds across every server instance, not just this one.
  */
-export const syncNowFn = createServerFn({ method: 'POST' }).handler(async () =>
-  syncGames(),
+export const syncNowFn = createServerFn({ method: 'POST' }).handler(
+  async () => {
+    const last = await getMeta('sync:lastRunAt')
+    const wait = last ? SYNC_COOLDOWN_MS - (Date.now() - Date.parse(last)) : 0
+    if (wait > 0) {
+      throw new Error(
+        `Synced moments ago. Try again in ${Math.ceil(wait / 1000)}s.`,
+      )
+    }
+    return syncGames()
+  },
 )
 
-export const refreshRosterFn = createServerFn({ method: 'POST' })
-  .middleware([adminMiddleware])
-  .handler(async () => refreshRoster())
+/**
+ * Auto-sync grace period. Matchday windows run for days, so a game showing up
+ * within ten minutes is plenty fresh, and it caps chess.com at ~6 syncs an hour
+ * however many people have the site open.
+ */
+const AUTO_SYNC_MS = 10 * 60_000
+
+/**
+ * Called by every open page on a timer. Syncs only when the last sync (from
+ * anyone, on any server instance) is older than the grace period; otherwise it
+ * is one cheap read and returns null.
+ */
+export const autoSyncFn = createServerFn({ method: 'POST' }).handler(
+  async () => {
+    const last = await getMeta('sync:lastRunAt')
+    if (last && Date.now() - Date.parse(last) < AUTO_SYNC_MS) return null
+    return syncGames()
+  },
+)
 
 export const generateFixturesFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
@@ -180,6 +193,9 @@ export const setPlayerActiveFn = createServerFn({ method: 'POST' })
 export const startNewSeasonFn = createServerFn({ method: 'POST' })
   .middleware([adminMiddleware])
   .handler(async () => {
+    // Pull in games finished just before the close, so they score in the
+    // season they were played in rather than being lost at the boundary.
+    await syncGames({ refreshRoster: false })
     const season = await startNewSeason()
     return {
       id: season.id,

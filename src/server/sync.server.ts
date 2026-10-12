@@ -1,6 +1,6 @@
-import { eq, inArray } from 'drizzle-orm'
+import { inArray } from 'drizzle-orm'
 import { db } from '#/db/client.server'
-import { games, playerGames, players } from '#/db/schema'
+import { games, playerGames } from '#/db/schema'
 import type { ArchivedGame } from './chesscom.server'
 import { fetchArchive, fetchArchiveUrls } from './chesscom.server'
 import {
@@ -77,6 +77,9 @@ async function runSync({
         added: refreshed.added,
         deactivated: refreshed.deactivated,
         membersVisible: refreshed.membersVisible,
+      }
+      for (const username of refreshed.notOnChessCom) {
+        errors.push(`${username} is not a chess.com account; skipped.`)
       }
     } catch (error) {
       errors.push(`Roster refresh failed: ${(error as Error).message}`)
@@ -155,7 +158,9 @@ async function runSync({
         if (
           Number.isNaN(endedAt.getTime()) ||
           endedAt <= white.joinedAt ||
-          endedAt <= black.joinedAt
+          endedAt <= black.joinedAt ||
+          // Older than this season: it belongs to one already closed.
+          endedAt < season.startedAt
         ) {
           continue
         }
@@ -309,54 +314,4 @@ async function insertPlayerGames(
     added += inserted.length
   }
   return added
-}
-
-/**
- * Records a game by hand — for club games the API can't see, or corrections.
- * Shares the `chessComUrl` dedup key with the automatic path.
- */
-export async function recordManualGame(input: {
-  whiteUsername: string
-  blackUsername: string
-  result: 'white' | 'black' | 'draw'
-  chessComUrl: string
-  endedAt?: Date
-}) {
-  const season = await getOrCreateCurrentSeason()
-
-  const [white] = await db
-    .select()
-    .from(players)
-    .where(eq(players.username, input.whiteUsername.toLowerCase()))
-    .limit(1)
-
-  const [black] = await db
-    .select()
-    .from(players)
-    .where(eq(players.username, input.blackUsername.toLowerCase()))
-    .limit(1)
-
-  if (!white || !black) throw new Error('Both players must be on the roster.')
-  if (white.id === black.id) throw new Error('A player cannot play themselves.')
-
-  const inserted = await db
-    .insert(games)
-    .values({
-      seasonId: season.id,
-      chessComUrl: input.chessComUrl,
-      whitePlayerId: white.id,
-      blackPlayerId: black.id,
-      result: input.result,
-      endedAt: input.endedAt ?? new Date(),
-      source: 'manual',
-    })
-    .onConflictDoNothing({ target: games.chessComUrl })
-    .returning({ id: games.id })
-
-  if (inserted.length === 0) {
-    throw new Error('That game URL has already been recorded.')
-  }
-
-  await linkGamesToFixtures(season.id)
-  await recomputeStandings(season.id, new Date(), { wait: true })
 }

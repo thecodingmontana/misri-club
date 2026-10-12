@@ -1,19 +1,26 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Clock } from 'lucide-react'
+import { useSuspenseQuery } from '@tanstack/react-query'
+import { Clock } from '#/components/icons'
 
-import { getLeaderboardFn } from '#/server/league.functions'
 import type { FixtureStatus, Outcome } from '#/server/queries.server'
 import { PlayerChip } from '#/components/player-chip'
+import { Podium } from '#/components/podium'
+import { leaderboardQuery } from '#/lib/queries'
 import { Card } from '#/components/ui/card'
 import { countdown, relativeTime } from '#/lib/format'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/table')({
-  loader: () => getLeaderboardFn(),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(leaderboardQuery),
   component: TableScreen,
 })
 
-type Data = Awaited<ReturnType<typeof getLeaderboardFn>>
+type Data = NonNullable<ReturnType<typeof useLeaderboard>>
+
+function useLeaderboard() {
+  return useSuspenseQuery(leaderboardQuery).data
+}
 
 /**
  * Live-tournament style board: one row per player, one narrow column per
@@ -22,21 +29,20 @@ type Data = Awaited<ReturnType<typeof getLeaderboardFn>>
  * and who is bleeding forfeits.
  */
 function TableScreen() {
-  const data = Route.useLoaderData()
+  const data = useLeaderboard()
 
   return (
     <div className="space-y-4">
-      <header>
+      <header className="pt-2 text-center">
         <p className="kicker">{data.season.label}</p>
-        <h1 className="display mt-1 text-3xl font-semibold tracking-tight">
-          Leaderboard
-        </h1>
-        <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        <h1 className="display mt-1 text-3xl">Leaderboard</h1>
+        <p className="mt-1.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           <span>Synced {relativeTime(data.lastSyncAt)}</span>
           {data.current && data.current.state === 'live' && (
-            <span className="numeric flex items-center gap-1 rounded-full bg-brass/10 px-2 py-0.5 font-semibold text-brass">
+            <span className="numeric flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-semibold text-primary">
               <Clock className="size-3" />
-              MD{data.current.matchday} · {countdown(data.current.dueAt - data.now)}
+              MD{data.current.matchday} ·{' '}
+              {countdown(data.current.dueAt - data.now)}
             </span>
           )}
         </p>
@@ -47,13 +53,58 @@ function TableScreen() {
           No players tracked yet.
         </Card>
       ) : (
-        <Card className="overflow-hidden p-0">
-          <Board data={data} />
-        </Card>
+        <>
+          <Podium entries={data.standings.slice(0, 3)} />
+          <Ranking rows={data.standings.slice(3)} from={4} />
+          <h2 className="kicker px-1 pt-3">Matchday by matchday</h2>
+          <Card className="overflow-hidden py-0">
+            <Board data={data} />
+          </Card>
+        </>
       )}
 
       <Legend />
     </div>
+  )
+}
+
+function Ranking({ rows, from }: { rows: Data['standings']; from: number }) {
+  if (rows.length === 0) return null
+
+  return (
+    <section>
+      <div className="kicker flex justify-between px-1 pb-2">
+        <span>Ranking</span>
+        <span>Points</span>
+      </div>
+      <ol className="space-y-2">
+        {rows.map((row, index) => (
+          <li
+            key={row.playerId}
+            className="flex items-center gap-3 rounded-2xl bg-card px-3 py-2.5 shadow-card"
+          >
+            <span className="numeric w-5 text-center text-sm font-semibold text-muted-foreground">
+              {from + index}
+            </span>
+            <div className="min-w-0 flex-1">
+              <PlayerChip username={row.username} avatar={row.avatar} />
+              <p className="numeric mt-0.5 pl-10 text-[0.68rem] text-muted-foreground">
+                {row.wins}W {row.draws}D {row.losses}L
+                {row.forfeits > 0 && (
+                  <span className="text-destructive">
+                    {' '}
+                    · {row.forfeits} missed
+                  </span>
+                )}
+              </p>
+            </div>
+            <span className="display numeric text-xl text-primary">
+              {row.points}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
   )
 }
 
@@ -110,7 +161,7 @@ function Board({ data }: { data: Data }) {
                 </td>
               ))}
 
-              <td className="numeric px-3 py-2 text-right text-base font-semibold text-brass">
+              <td className="numeric px-3 py-2 text-right text-base font-semibold text-primary">
                 {row.points}
               </td>
             </tr>
@@ -147,20 +198,24 @@ function Cell({
     <span
       className={cn(
         'numeric mx-auto grid size-6 place-items-center rounded text-[0.68rem] font-bold',
-        outcome === 'win' && 'bg-felt/25 text-foreground',
+        outcome === 'win' && 'bg-win/25 text-foreground',
         outcome === 'draw' && 'bg-secondary text-muted-foreground',
         outcome === 'loss' && 'bg-destructive/15 text-destructive/90',
         outcome === 'forfeit' &&
           'bg-destructive/30 text-destructive ring-1 ring-destructive/50',
-        !outcome && status === 'live' && 'text-brass',
+        !outcome && status === 'live' && 'text-primary',
         !outcome && status !== 'live' && 'text-muted-foreground/35',
       )}
       title={
-        outcome === 'forfeit'
-          ? 'Window closed unplayed — 1 point deducted'
-          : status === 'live'
-            ? 'Window open now'
-            : undefined
+        status === 'walkover'
+          ? outcome === 'win'
+            ? 'Walkover won — 3 points'
+            : 'Walkover conceded — 1 point deducted'
+          : outcome === 'forfeit'
+            ? 'Window closed unplayed — 1 point deducted'
+            : status === 'live'
+              ? 'Window open now'
+              : undefined
       }
     >
       {label}
@@ -170,7 +225,7 @@ function Cell({
 
 function Legend() {
   const items = [
-    { label: 'W', text: 'Win +3', className: 'bg-felt/25' },
+    { label: 'W', text: 'Win +3', className: 'bg-win/25' },
     { label: '½', text: 'Draw +1', className: 'bg-secondary' },
     { label: 'L', text: 'Loss 0', className: 'bg-destructive/15' },
     {

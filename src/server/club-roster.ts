@@ -12,9 +12,9 @@
  *
  * Keeping the list here rather than as one-off database rows means the roster
  * survives a database reset and repopulates on the next sync. It is additive —
- * syncing adds and reactivates the people listed, but never deactivates anyone
- * missing from it, so a stale file can't silently wipe the roster. Use the
- * Roster panel to mark someone inactive when they leave.
+ * syncing only adds listed people who are missing and never changes anyone's
+ * active flag, so a stale file can't silently wipe or revive the roster. Use the
+ * Roster panel to mark someone inactive when they leave, and to bring them back.
  */
 
 export interface KnownMember {

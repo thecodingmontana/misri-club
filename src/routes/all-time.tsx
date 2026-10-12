@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import {
   createColumnHelper,
   createSortedRowModel,
@@ -9,10 +10,9 @@ import {
   tableFeatures,
   useTable,
 } from '@tanstack/react-table'
-import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronsUpDown } from '#/components/icons'
 
-import { getAllTimeFn } from '#/server/league.functions'
-import type { AllTimeRow } from '#/server/queries.server'
+import type { AllTimeData, AllTimeRow } from '#/server/queries.server'
 import { PlayerLink } from '#/components/player-link'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import {
@@ -24,10 +24,11 @@ import {
   TableRow,
 } from '#/components/ui/table'
 import { formatDate, record, winRate } from '#/lib/format'
+import { allTimeQuery } from '#/lib/queries'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/all-time')({
-  loader: () => getAllTimeFn(),
+  loader: ({ context }) => context.queryClient.ensureQueryData(allTimeQuery),
   component: AllTimePage,
 })
 
@@ -46,16 +47,16 @@ const helper = createColumnHelper<typeof features, AllTimeRow>()
 const EMPTY_ROWS: Array<AllTimeRow> = []
 
 function AllTimePage() {
-  const data = Route.useLoaderData()
+  const { data } = useSuspenseQuery(allTimeQuery)
 
   return (
     <div className="space-y-8">
-      <section className="rise-in">
+      <section className="rise-in pt-2 text-center">
         <p className="kicker">Across {data.seasons.length} season(s)</p>
-        <h1 className="display mt-2 text-4xl font-semibold tracking-tight sm:text-5xl">
+        <h1 className="display mt-1 text-3xl">
           All-time records
         </h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+        <p className="mx-auto mt-2 max-w-xs text-xs text-muted-foreground">
           Every season the club has played, summed per player. Nothing here is
           stored separately — it is a live roll-up of each season&apos;s final
           table, so archived seasons keep counting forever. Click a column to
@@ -69,7 +70,7 @@ function AllTimePage() {
   )
 }
 
-type Data = Awaited<ReturnType<typeof getAllTimeFn>>
+type Data = AllTimeData
 
 function AllTimeTable({ data }: { data: Data }) {
   const columns = useMemo(
@@ -167,7 +168,7 @@ function AllTimeTable({ data }: { data: Data }) {
                           key={header.id}
                           className={cn(
                             meta?.numeric && 'text-right',
-                            meta?.season && 'text-brass-dim',
+                            meta?.season && 'text-muted-foreground',
                           )}
                         >
                           {header.isPlaceholder ? null : canSort ? (
@@ -175,9 +176,9 @@ function AllTimeTable({ data }: { data: Data }) {
                               type="button"
                               onClick={header.column.getToggleSortingHandler()}
                               className={cn(
-                                'inline-flex items-center gap-1 rounded transition-colors hover:text-brass',
+                                'inline-flex items-center gap-1 rounded transition-colors hover:text-primary',
                                 meta?.numeric && 'flex-row-reverse',
-                                sorted && 'text-brass',
+                                sorted && 'text-primary',
                               )}
                             >
                               <table.FlexRender header={header} />
@@ -219,7 +220,7 @@ function AllTimeTable({ data }: { data: Data }) {
                           className={cn(
                             meta?.numeric && 'numeric text-right',
                             meta?.emphasis &&
-                              'text-base font-semibold text-brass',
+                              'text-base font-semibold text-primary',
                             meta?.season && 'text-muted-foreground',
                           )}
                         >
@@ -257,7 +258,7 @@ function SeasonList({ data }: { data: Data }) {
                 {season.endedAt ? (
                   formatDate(season.endedAt)
                 ) : (
-                  <span className="text-brass">in progress</span>
+                  <span className="text-primary">in progress</span>
                 )}
               </span>
             </li>

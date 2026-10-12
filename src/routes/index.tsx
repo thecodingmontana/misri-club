@@ -1,37 +1,51 @@
-import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
-import { useServerFn } from '@tanstack/react-start'
-import { useMutation } from '@tanstack/react-query'
-import {
-  AlertTriangle,
-  ChevronRight,
-  Clock,
-  ExternalLink,
-  RefreshCw,
-} from 'lucide-react'
-import { toast } from 'sonner'
+import { Link, createFileRoute } from '@tanstack/react-router'
+import { useSuspenseQuery } from '@tanstack/react-query'
 
-import { getLeaderboardFn, syncNowFn } from '#/server/league.functions'
 import type { FixtureView } from '#/server/queries.server'
+import { AlertTriangle, ChevronRight, RefreshCw } from '#/components/icons'
+import { FixtureScore, wonFixture } from '#/components/fixture-score'
 import { PlayerChip } from '#/components/player-chip'
+import { Podium } from '#/components/podium'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent } from '#/components/ui/card'
 import { countdown, relativeTime } from '#/lib/format'
+import { leaderboardQuery, useSyncNow } from '#/lib/queries'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/')({
-  loader: () => getLeaderboardFn(),
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(leaderboardQuery),
   component: HomeScreen,
 })
 
-type Data = Awaited<ReturnType<typeof getLeaderboardFn>>
+type Data = ReturnType<typeof useLeaderboard>
+
+function useLeaderboard() {
+  return useSuspenseQuery(leaderboardQuery).data
+}
 
 function HomeScreen() {
-  const data = Route.useLoaderData()
+  const data = useLeaderboard()
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
+      <header className="pt-2 text-center">
+        <p className="kicker">{data.season.label}</p>
+        <h1 className="display mt-1 text-3xl">{data.club.name} League</h1>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Synced {relativeTime(data.lastSyncAt)}
+        </p>
+      </header>
+
       <MatchdayCard data={data} />
-      <TopPlayers data={data} />
+
+      {data.standings.length > 0 && (
+        <section>
+          <SectionHeader title="Leaders" to="/table" />
+          <Podium entries={data.standings.slice(0, 3)} />
+        </section>
+      )}
+
       <RecentResults data={data} />
     </div>
   )
@@ -45,12 +59,12 @@ function SectionHeader({
   to?: '/table' | '/fixtures'
 }) {
   return (
-    <div className="mb-2.5 flex items-baseline justify-between">
-      <h2 className="display text-lg font-semibold">{title}</h2>
+    <div className="mb-2.5 flex items-center justify-between px-1">
+      <h2 className="display text-lg">{title}</h2>
       {to && (
         <Link
           to={to}
-          className="flex items-center gap-0.5 text-xs font-medium text-brass"
+          className="flex items-center gap-0.5 text-xs font-semibold text-primary"
         >
           See all
           <ChevronRight className="size-3.5" />
@@ -65,40 +79,20 @@ function SectionHeader({
  * is left before every unplayed fixture in it costs both players a point.
  */
 function MatchdayCard({ data }: { data: Data }) {
-  const router = useRouter()
-  const sync = useServerFn(syncNowFn)
+  const sync = useSyncNow()
   const current = data.current
-
-  const mutation = useMutation({
-    mutationFn: () => sync(),
-    onSuccess: async (result) => {
-      await router.invalidate()
-      toast.success(
-        result.gamesAdded === 0
-          ? 'No new games'
-          : `${result.gamesAdded} new game${result.gamesAdded === 1 ? '' : 's'}`,
-        {
-          description: result.errors.length
-            ? `${result.errors.length} endpoint(s) failed.`
-            : `${result.gamesLinked} counted towards fixtures.`,
-        },
-      )
-    },
-    onError: (error: Error) =>
-      toast.error('Sync failed', { description: error.message }),
-  })
 
   if (!current) {
     return (
       <Card>
         <CardContent className="py-8 text-center">
-          <h2 className="display text-lg font-semibold">No schedule yet</h2>
+          <h2 className="display text-lg">No schedule yet</h2>
           <p className="mx-auto mt-1.5 max-w-[16rem] text-xs text-muted-foreground">
             Once fixtures are drawn, each matchday opens for{' '}
             {data.season.matchdayDays} days and every pairing has to be played
             before it closes.
           </p>
-          <Button asChild size="sm" className="mt-4">
+          <Button asChild size="sm" className="mt-4 rounded-full">
             <Link to="/fixtures">Go to fixtures</Link>
           </Button>
         </CardContent>
@@ -106,72 +100,126 @@ function MatchdayCard({ data }: { data: Data }) {
     )
   }
 
+  const window = current.dueAt - current.opensAt
   const remaining = current.dueAt - data.now
-  const opensIn = current.opensAt - data.now
+  const left =
+    current.state === 'live' ? Math.min(1, Math.max(0, remaining / window)) : 1
   const urgent = current.state === 'live' && remaining < 12 * 60 * 60 * 1000
+  const pairings = current.fixtures.filter((f) => f.home && f.away)
+  const decided = pairings.filter(
+    (f) => f.status === 'played' || f.status === 'walkover',
+  )
 
   return (
     <section>
-      <div className="mb-2.5 flex items-baseline justify-between">
-        <h2 className="display text-lg font-semibold">
-          {current.state === 'upcoming' ? 'Next matchday' : 'This matchday'}
-        </h2>
-        <button
-          type="button"
-          onClick={() => mutation.mutate()}
-          disabled={mutation.isPending}
-          className="flex items-center gap-1 text-xs font-medium text-brass disabled:opacity-60"
-        >
-          <RefreshCw
-            className={cn('size-3.5', mutation.isPending && 'animate-spin')}
-          />
-          {mutation.isPending ? 'Syncing' : 'Sync'}
-        </button>
-      </div>
+      <SectionHeader
+        title={current.state === 'upcoming' ? 'Next matchday' : 'This matchday'}
+        to="/fixtures"
+      />
 
-      <Card className="overflow-hidden">
-        <div
-          className={cn(
-            'flex items-center justify-between gap-2 border-b border-border/60 px-4 py-2.5',
-            urgent ? 'bg-destructive/15' : 'bg-brass/10',
-          )}
-        >
-          <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
-            Matchday {current.matchday}
-          </span>
-          <span
-            className={cn(
-              'numeric flex items-center gap-1.5 text-xs font-semibold',
-              urgent ? 'text-destructive' : 'text-brass',
-            )}
+      <Card className="gap-0 overflow-hidden py-0">
+        <div className="flex items-center gap-4 px-4 py-4">
+          <CountdownRing fraction={left} urgent={urgent}>
+            <span className="kicker text-[0.55rem]">MD</span>
+            <span className="display numeric text-2xl leading-none">
+              {current.matchday}
+            </span>
+          </CountdownRing>
+
+          <div className="min-w-0 flex-1">
+            <p
+              className={cn(
+                'display numeric text-xl',
+                urgent && 'text-destructive',
+              )}
+            >
+              {current.state === 'upcoming'
+                ? `Opens in ${countdown(current.opensAt - data.now)}`
+                : current.state === 'finished'
+                  ? 'Season complete'
+                  : `${countdown(remaining)} left`}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {decided.length} of {pairings.length} decided
+            </p>
+          </div>
+
+          <Button
+            variant="secondary"
+            size="icon"
+            className="rounded-full"
+            onClick={() => sync.mutate()}
+            disabled={sync.isPending}
+            aria-label="Sync with chess.com"
+            title="Pull the latest games from chess.com"
           >
-            <Clock className="size-3.5" />
-            {current.state === 'upcoming'
-              ? `opens in ${countdown(opensIn)}`
-              : current.state === 'finished'
-                ? 'season complete'
-                : `${countdown(remaining)} left`}
-          </span>
+            <RefreshCw className={cn(sync.isPending && 'animate-spin')} />
+          </Button>
         </div>
 
-        <CardContent className="space-y-2 p-3">
+        <div className="space-y-1.5 border-t border-border/60 bg-background/40 p-2">
           {current.fixtures.map((fixture) => (
             <FixtureRow key={fixture.id} fixture={fixture} data={data} />
           ))}
-        </CardContent>
+        </div>
       </Card>
 
       {current.state === 'live' && (
-        <div className="mt-2 flex items-start gap-1.5 px-1">
-          <AlertTriangle className="mt-0.5 size-3 shrink-0 text-brass" />
-          <p className="text-[0.7rem] leading-snug text-muted-foreground">
+        <p className="mt-2 flex items-start gap-1.5 px-1 text-[0.7rem] leading-snug text-muted-foreground">
+          <AlertTriangle className="mt-px size-3.5 shrink-0 text-flame" />
+          <span>
             Any fixture still unplayed when the window closes costs{' '}
-            <span className="font-medium text-foreground">both</span> players a
-            point.
-          </p>
-        </div>
+            <span className="font-semibold text-foreground">both</span> players
+            a point.
+          </span>
+        </p>
       )}
     </section>
+  )
+}
+
+/** Time left in the window as a ring: full when it opens, empty at the deadline. */
+function CountdownRing({
+  fraction,
+  urgent,
+  children,
+}: {
+  fraction: number
+  urgent: boolean
+  children: React.ReactNode
+}) {
+  const radius = 28
+  const circumference = 2 * Math.PI * radius
+
+  return (
+    <div className="relative grid size-[4.5rem] shrink-0 place-items-center">
+      <svg
+        viewBox="0 0 64 64"
+        className="absolute inset-0 -rotate-90 dark:drop-shadow-[0_0_6px_var(--primary)]"
+        aria-hidden
+      >
+        <circle
+          cx="32"
+          cy="32"
+          r={radius}
+          fill="none"
+          strokeWidth="5"
+          className="stroke-secondary"
+        />
+        <circle
+          cx="32"
+          cy="32"
+          r={radius}
+          fill="none"
+          strokeWidth="5"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - fraction)}
+          className={urgent ? 'stroke-destructive' : 'stroke-primary'}
+        />
+      </svg>
+      <span className="relative flex flex-col items-center">{children}</span>
+    </div>
   )
 }
 
@@ -180,112 +228,44 @@ function avatarFor(data: Data, username: string | null) {
   return data.roster.find((p) => p.username === username)?.avatar ?? null
 }
 
-function FixtureRow({
-  fixture,
-  data,
-}: {
-  fixture: FixtureView
-  data: Data
-}) {
+function FixtureRow({ fixture, data }: { fixture: FixtureView; data: Data }) {
   if (fixture.bye) {
     return (
-      <div className="flex items-center justify-between rounded-xl border border-dashed border-border/60 px-3 py-2.5">
+      <div className="flex items-center justify-between rounded-xl px-3 py-2">
         <PlayerChip
           username={fixture.bye}
           avatar={avatarFor(data, fixture.bye)}
           size="sm"
           muted
         />
-        <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">
-          Bye
-        </span>
+        <span className="kicker">Bye</span>
       </div>
     )
   }
 
   if (!fixture.home || !fixture.away) return null
 
-  const game = fixture.game
-
   return (
-    <div className="rounded-xl border border-border/60 bg-background/40 px-3 py-2.5">
-      <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 rounded-xl bg-card px-3 py-2">
+      <PlayerChip
+        username={fixture.home}
+        avatar={avatarFor(data, fixture.home)}
+        size="sm"
+        className={cn('flex-1', wonFixture(fixture, 'home') && 'font-bold')}
+      />
+      <FixtureScore fixture={fixture} />
+      <div className="flex flex-1 justify-end">
         <PlayerChip
-          username={fixture.home}
-          avatar={avatarFor(data, fixture.home)}
+          username={fixture.away}
+          avatar={avatarFor(data, fixture.away)}
           size="sm"
-          className="flex-1"
+          className={cn(
+            'flex-row-reverse',
+            wonFixture(fixture, 'away') && 'font-bold',
+          )}
         />
-
-        {game ? (
-          <a
-            href={game.chessComUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="numeric shrink-0 rounded-md border border-brass/30 bg-brass/10 px-2 py-0.5 text-[0.7rem] font-semibold text-brass"
-          >
-            {game.result === 'draw' ? '½–½' : game.homeWon ? '1–0' : '0–1'}
-          </a>
-        ) : (
-          <span
-            className={cn(
-              'numeric shrink-0 rounded-md px-2 py-0.5 text-[0.65rem] font-semibold uppercase',
-              fixture.status === 'expired'
-                ? 'bg-destructive/15 text-destructive'
-                : 'text-muted-foreground/70',
-            )}
-          >
-            {fixture.status === 'expired' ? '−1 / −1' : 'vs'}
-          </span>
-        )}
-
-        <div className="flex flex-1 justify-end">
-          <PlayerChip
-            username={fixture.away}
-            avatar={avatarFor(data, fixture.away)}
-            size="sm"
-            className="flex-row-reverse"
-          />
-        </div>
       </div>
     </div>
-  )
-}
-
-function TopPlayers({ data }: { data: Data }) {
-  const top = data.standings.slice(0, 3)
-  if (top.length === 0) return null
-
-  const medal = ['border-brass/60 text-brass', 'border-border text-foreground', 'border-border text-muted-foreground']
-
-  return (
-    <section>
-      <SectionHeader title="Top players" to="/table" />
-      <Card>
-        <CardContent className="divide-y divide-border/50 p-0">
-          {top.map((row, index) => (
-            <div key={row.playerId} className="flex items-center gap-3 px-3 py-2.5">
-              <span
-                className={cn(
-                  'numeric grid size-6 shrink-0 place-items-center rounded-full border text-[0.7rem] font-bold',
-                  medal[index],
-                )}
-              >
-                {index + 1}
-              </span>
-              <PlayerChip
-                username={row.username}
-                avatar={row.avatar}
-                className="flex-1"
-              />
-              <span className="numeric text-sm font-semibold text-brass">
-                {row.points}
-              </span>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    </section>
   )
 }
 
@@ -294,7 +274,7 @@ function RecentResults({ data }: { data: Data }) {
 
   return (
     <section>
-      <SectionHeader title="Recent games" to="/fixtures" />
+      <SectionHeader title="Recent games" />
       <div className="space-y-2">
         {data.recentGames.slice(0, 6).map((game) => (
           <a
@@ -302,33 +282,42 @@ function RecentResults({ data }: { data: Data }) {
             href={game.chessComUrl}
             target="_blank"
             rel="noreferrer noopener"
-            className="flex items-center gap-2 rounded-xl border border-border/60 bg-card/60 px-3 py-2.5 transition-colors hover:border-brass/30"
+            className="flex items-center gap-2 rounded-2xl bg-card px-3 py-2.5 shadow-card transition-colors hover:bg-secondary"
           >
-            <span className="min-w-0 flex-1 truncate text-[0.8rem] font-medium">
+            <span
+              className={cn(
+                'min-w-0 flex-1 truncate text-[0.82rem]',
+                game.result === 'white' ? 'font-bold' : 'font-medium',
+              )}
+            >
               {game.white}
             </span>
-            <span className="numeric shrink-0 rounded border border-border/70 px-1.5 py-0.5 text-[0.7rem] text-brass">
+            <span className="numeric shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[0.7rem] font-bold text-primary">
               {game.result === 'white'
                 ? '1–0'
                 : game.result === 'black'
                   ? '0–1'
                   : '½–½'}
             </span>
-            <span className="min-w-0 flex-1 truncate text-right text-[0.8rem] font-medium">
+            <span
+              className={cn(
+                'min-w-0 flex-1 truncate text-right text-[0.82rem]',
+                game.result === 'black' ? 'font-bold' : 'font-medium',
+              )}
+            >
               {game.black}
             </span>
-            <span className="flex shrink-0 flex-col items-end gap-0.5 pl-1 text-[0.6rem] text-muted-foreground">
+            <span className="flex w-14 shrink-0 flex-col items-end gap-0.5 text-[0.62rem] text-muted-foreground">
               <span>{relativeTime(game.endedAt)}</span>
               <span
                 className={cn(
-                  'uppercase tracking-wide',
-                  game.counts ? 'text-brass/80' : 'text-muted-foreground/60',
+                  'font-semibold uppercase tracking-wide',
+                  game.counts ? 'text-primary' : 'text-muted-foreground/70',
                 )}
               >
                 {game.counts ? `MD${game.matchday}` : 'friendly'}
               </span>
             </span>
-            <ExternalLink className="size-3 shrink-0 text-muted-foreground/50" />
           </a>
         ))}
       </div>

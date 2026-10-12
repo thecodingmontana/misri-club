@@ -1,5 +1,5 @@
 {
-  "id": "5d20e60f-082d-4f00-92cf-fbedd07eca66",
+  "id": "f38a95e3-9419-4402-8ec3-78a878fa5dad",
   "prevId": "f27abedf-ea43-4ed3-afff-e979c1a7d455",
   "version": "7",
   "dialect": "postgresql",
@@ -829,7 +829,24 @@
           "default": 2
         }
       },
-      "indexes": {},
+      "indexes": {
+        "seasons_one_open_idx": {
+          "name": "seasons_one_open_idx",
+          "columns": [
+            {
+              "expression": "(\"ended_at\" is null)",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"seasons\".\"ended_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},

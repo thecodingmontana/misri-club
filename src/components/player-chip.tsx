@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar'
+import { avatarUrl } from '#/lib/avatar'
 import { cn } from '#/lib/utils'
 
 /**
@@ -36,14 +37,14 @@ export function PlayerChip({
       )}
     >
       <Avatar className={cn(avatarSize, 'border border-border/70')}>
-        {avatar && <AvatarImage src={avatar} alt="" />}
-        <AvatarFallback className="bg-secondary text-[0.65rem] font-semibold text-brass">
+        <AvatarImage src={avatarUrl(username, avatar)} alt="" />
+        <AvatarFallback className="bg-secondary text-[0.65rem] font-semibold text-primary">
           {username.slice(0, 2).toUpperCase()}
         </AvatarFallback>
       </Avatar>
       <span
         className={cn(
-          'min-w-0 truncate font-medium transition-colors group-hover:text-brass',
+          'min-w-0 truncate font-medium transition-colors group-hover:text-primary',
           size === 'lg' ? 'text-sm' : 'text-[0.82rem]',
           muted ? 'text-muted-foreground' : 'text-foreground',
           stacked && 'max-w-[6.5rem]',

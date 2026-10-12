@@ -1,16 +1,17 @@
-import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { CalendarPlus, Clock, Info, Lock, Shuffle } from 'lucide-react'
+import { CalendarPlus, Clock, Info, Lock, Shuffle } from '#/components/icons'
 import { toast } from 'sonner'
 
 import {
   generateFixturesFn,
-  getFixturesFn,
+  setWalkoverFn,
   startNewSeasonFn,
 } from '#/server/league.functions'
 import type { FixtureView } from '#/server/queries.server'
+import { FixtureScore, wonFixture } from '#/components/fixture-score'
 import { PlayerChip } from '#/components/player-chip'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent } from '#/components/ui/card'
@@ -26,26 +27,34 @@ import {
   AlertDialogTrigger,
 } from '#/components/ui/alert-dialog'
 import { countdown, formatDate } from '#/lib/format'
+import { fixturesQuery, useRefreshLeague } from '#/lib/queries'
 import { useAdmin } from '#/lib/use-admin'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/fixtures')({
-  loader: () => getFixturesFn(),
+  loader: ({ context }) => context.queryClient.ensureQueryData(fixturesQuery),
   component: FixturesScreen,
 })
 
-type Data = Awaited<ReturnType<typeof getFixturesFn>>
+type Data = ReturnType<typeof useFixtures>
+
+function useFixtures() {
+  return useSuspenseQuery(fixturesQuery).data
+}
 type Filter = 'all' | 'upcoming' | 'finished'
 
 function FixturesScreen() {
-  const data = Route.useLoaderData()
+  const data = useFixtures()
   const [filter, setFilter] = useState<Filter>('all')
 
   const matchdays = groupByMatchday(data.fixtures).filter((group) => {
     if (filter === 'all') return true
     if (filter === 'finished') {
       return group.fixtures.some(
-        (f) => f.status === 'played' || f.status === 'expired',
+        (f) =>
+          f.status === 'played' ||
+          f.status === 'walkover' ||
+          f.status === 'expired',
       )
     }
     return group.fixtures.some(
@@ -76,11 +85,7 @@ function FixturesScreen() {
           <Tabs filter={filter} onChange={setFilter} />
           <div className="space-y-3">
             {matchdays.map((group) => (
-              <MatchdayCard
-                key={group.matchday}
-                group={group}
-                now={data.now}
-              />
+              <MatchdayCard key={group.matchday} group={group} now={data.now} />
             ))}
           </div>
         </>
@@ -124,7 +129,7 @@ function Tabs({
           className={cn(
             'flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
             filter === tab.id
-              ? 'bg-brass/15 text-brass'
+              ? 'bg-primary/15 text-primary'
               : 'text-muted-foreground hover:text-foreground',
           )}
         >
@@ -137,26 +142,28 @@ function Tabs({
 
 function Header({ data }: { data: Data }) {
   const { isAdmin } = useAdmin()
-  const router = useRouter()
+  const refresh = useRefreshLeague()
   const generate = useServerFn(generateFixturesFn)
   const newSeason = useServerFn(startNewSeasonFn)
 
   const generateMutation = useMutation({
     mutationFn: () => generate(),
     onSuccess: async (result) => {
-      await router.invalidate()
+      await refresh()
       toast.success(`${result.fixtures} fixtures drawn`, {
         description: `${result.matchdays} matchdays · runs to ${formatDate(result.endsAt)}`,
       })
     },
     onError: (error: Error) =>
-      toast.error('Could not generate fixtures', { description: error.message }),
+      toast.error('Could not generate fixtures', {
+        description: error.message,
+      }),
   })
 
   const seasonMutation = useMutation({
     mutationFn: () => newSeason(),
     onSuccess: async (season) => {
-      await router.invalidate()
+      await refresh()
       toast.success(`${season.label} started`, {
         description: 'The previous season is archived, not deleted.',
       })
@@ -171,25 +178,23 @@ function Header({ data }: { data: Data }) {
 
   return (
     <header className="space-y-3">
-      <div>
+      <div className="pt-2 text-center">
         <p className="kicker">{data.season.label}</p>
-        <h1 className="display mt-1 text-3xl font-semibold tracking-tight">
-          Fixtures
-        </h1>
+        <h1 className="display mt-1 text-3xl">Fixtures</h1>
         <p className="mt-1 text-xs text-muted-foreground">
           Double round-robin · {data.season.matchdayDays}-day windows
         </p>
       </div>
 
       {data.locked && (
-        <Notice icon={<Lock className="size-3.5 text-brass" />}>
+        <Notice icon={<Lock className="size-3.5 text-primary" />}>
           The draw is locked — a scheduled game has been played, so fixtures are
           now immutable. Start a new season to redraw.
         </Notice>
       )}
 
       {data.unscheduled.length > 0 && (
-        <Notice icon={<Info className="size-3.5 text-brass" />}>
+        <Notice icon={<Info className="size-3.5 text-primary" />}>
           <span className="font-medium text-foreground">Not scheduled:</span>{' '}
           {data.unscheduled.join(', ')} — they joined after the draw, so they
           have no fixtures this season.
@@ -227,9 +232,7 @@ function Header({ data }: { data: Data }) {
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Close {data.season.label}?
-                </AlertDialogTitle>
+                <AlertDialogTitle>Close {data.season.label}?</AlertDialogTitle>
                 <AlertDialogDescription>
                   Nothing is deleted. This season&apos;s fixtures, games and
                   final table are kept and keep counting towards all-time
@@ -247,7 +250,7 @@ function Header({ data }: { data: Data }) {
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          <Link to="/login" className="text-brass">
+          <Link to="/login" className="text-primary">
             Sign in as admin
           </Link>{' '}
           to draw fixtures or start a season.
@@ -265,7 +268,7 @@ function Notice({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex items-start gap-2 rounded-xl border border-brass/25 bg-brass/5 px-3 py-2.5 text-[0.72rem] leading-relaxed text-muted-foreground">
+    <div className="flex items-start gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2.5 text-[0.72rem] leading-relaxed text-muted-foreground">
       <span className="mt-0.5 shrink-0">{icon}</span>
       <p>{children}</p>
     </div>
@@ -280,7 +283,9 @@ function MatchdayCard({
   now: number
 }) {
   const playable = group.fixtures.filter((f) => f.home && f.away)
-  const played = playable.filter((f) => f.status === 'played').length
+  const played = playable.filter(
+    (f) => f.status === 'played' || f.status === 'walkover',
+  ).length
   const window = group.fixtures[0]
   const live = now >= window.opensAt && now < window.dueAt
   const done = now >= window.dueAt
@@ -290,7 +295,7 @@ function MatchdayCard({
       <div
         className={cn(
           'flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2',
-          live ? 'bg-brass/10' : 'bg-secondary/40',
+          live ? 'bg-primary/10' : 'bg-secondary/40',
         )}
       >
         <span className="text-xs font-semibold">Matchday {group.matchday}</span>
@@ -301,7 +306,7 @@ function MatchdayCard({
           <span
             className={cn(
               'flex items-center gap-1 rounded-full px-1.5 py-0.5',
-              live && 'bg-brass/15 font-semibold text-brass',
+              live && 'bg-primary/15 font-semibold text-primary',
             )}
           >
             <Clock className="size-3" />
@@ -324,69 +329,97 @@ function MatchdayCard({
 }
 
 function FixtureLine({ fixture }: { fixture: FixtureView }) {
+  const { isAdmin } = useAdmin()
+
   if (fixture.bye) {
     return (
       <div className="flex items-center justify-between px-3 py-2">
         <PlayerChip username={fixture.bye} size="sm" muted />
-        <span className="text-[0.6rem] uppercase tracking-wider text-muted-foreground">
-          Bye
-        </span>
+        <span className="kicker">Bye</span>
       </div>
     )
   }
 
   if (!fixture.home || !fixture.away) return null
 
-  const game = fixture.game
-
   return (
-    <div className="flex items-center gap-2 px-3 py-2">
-      <span
-        className={cn(
-          'min-w-0 flex-1 truncate text-[0.8rem]',
-          game && game.homeWon && 'font-semibold',
-        )}
-      >
-        {fixture.home}
-      </span>
-
-      {game ? (
-        <a
-          href={game.chessComUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="numeric shrink-0 rounded border border-brass/30 bg-brass/10 px-1.5 py-0.5 text-[0.68rem] font-semibold text-brass"
-        >
-          {game.result === 'draw' ? '½–½' : game.homeWon ? '1–0' : '0–1'}
-        </a>
-      ) : fixture.status === 'expired' ? (
-        <span
-          className="numeric shrink-0 rounded bg-destructive/20 px-1.5 py-0.5 text-[0.65rem] font-semibold text-destructive"
-          title="Window closed unplayed — both players lost a point"
-        >
-          −1 / −1
-        </span>
-      ) : (
+    <div className="px-3 py-2">
+      <div className="flex items-center gap-2">
         <span
           className={cn(
-            'numeric shrink-0 px-1.5 text-[0.65rem] uppercase',
-            fixture.status === 'live'
-              ? 'font-semibold text-brass'
-              : 'text-muted-foreground/60',
+            'min-w-0 flex-1 truncate text-[0.82rem]',
+            wonFixture(fixture, 'home') ? 'font-bold' : 'font-medium',
           )}
         >
-          {fixture.status === 'live' ? 'play now' : 'vs'}
+          {fixture.home}
         </span>
+        <FixtureScore fixture={fixture} />
+        <span
+          className={cn(
+            'min-w-0 flex-1 truncate text-right text-[0.82rem]',
+            wonFixture(fixture, 'away') ? 'font-bold' : 'font-medium',
+          )}
+        >
+          {fixture.away}
+        </span>
+      </div>
+      {isAdmin && !fixture.game && fixture.status !== 'upcoming' && (
+        <WalkoverControl fixture={fixture} />
       )}
+    </div>
+  )
+}
 
-      <span
-        className={cn(
-          'min-w-0 flex-1 truncate text-right text-[0.8rem]',
-          game && !game.homeWon && game.result !== 'draw' && 'font-semibold',
-        )}
-      >
-        {fixture.away}
-      </span>
+/**
+ * Admin only: when one player turned up and the other did not, award the
+ * walkover (+3 / −1) instead of the default −1 for both.
+ */
+function WalkoverControl({ fixture }: { fixture: FixtureView }) {
+  const refresh = useRefreshLeague()
+  const setWalkover = useServerFn(setWalkoverFn)
+  const mutation = useMutation({
+    mutationFn: (winner: string | null) =>
+      setWalkover({ data: { fixtureId: fixture.id, winner } }),
+    onSuccess: async (result) => {
+      await refresh()
+      toast.success(
+        result.winner ? `Walkover to ${result.winner}` : 'Walkover cleared',
+      )
+    },
+    onError: (error: Error) =>
+      toast.error('Could not set the walkover', { description: error.message }),
+  })
+
+  const sides = [fixture.home, fixture.away].filter((name): name is string =>
+    Boolean(name),
+  )
+
+  return (
+    <div className="mt-1.5 flex items-center gap-1.5 text-[0.65rem] text-muted-foreground">
+      <span className="kicker text-[0.6rem]">Walkover</span>
+      {sides.map((name) => (
+        <Button
+          key={name}
+          size="xs"
+          variant={fixture.walkoverWinner === name ? 'default' : 'outline'}
+          className="max-w-[7rem] truncate rounded-full"
+          disabled={mutation.isPending || fixture.walkoverWinner === name}
+          onClick={() => mutation.mutate(name)}
+        >
+          {name}
+        </Button>
+      ))}
+      {fixture.walkoverWinner && (
+        <Button
+          size="xs"
+          variant="ghost"
+          className="rounded-full"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate(null)}
+        >
+          Clear
+        </Button>
+      )}
     </div>
   )
 }

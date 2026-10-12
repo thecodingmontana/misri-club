@@ -32,6 +32,7 @@ export function tallyStandings(
 ): Map<number, Tally> {
   const gameByFixture = new Map(games.map((game) => [game.fixtureId, game]))
   const tally = new Map<number, Tally>()
+  const active = new Set(activePlayerIds)
 
   const row = (playerId: number) => {
     let entry = tally.get(playerId)
@@ -67,6 +68,10 @@ export function tallyStandings(
     if (!game) {
       // Still open, or not yet started — no consequence until the window shuts.
       if (fixture.dueAt > now) continue
+      // Someone who left the club can't play; their opponent isn't to blame.
+      if (!active.has(fixture.homePlayerId) || !active.has(fixture.awayPlayerId)) {
+        continue
+      }
 
       home.forfeits++
       away.forfeits++

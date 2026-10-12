@@ -185,7 +185,9 @@ function clearRateLimit(key: string) {
 export async function signIn(password: string): Promise<void> {
   if (!isAuthConfigured()) throw new NotConfiguredError()
 
-  const key = getRequestIP() ?? 'unknown'
+  // Behind Vercel's proxy the socket address is the proxy's, not the visitor's;
+  // Vercel sets x-forwarded-for itself, so it is the address to trust.
+  const key = getRequestIP({ xForwardedFor: true }) ?? 'unknown'
   checkRateLimit(key)
 
   if (!verifyPassword(password, adminHash())) {

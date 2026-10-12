@@ -11,6 +11,8 @@ export type Score = { cp: number } | { mate: number }
 
 export class Engine {
   private worker = new Worker(ENGINE_URL)
+  /** Set once the worker dies; every search after that fails fast. */
+  private failure: Error | null = null
   /** One search at a time; UCI has no request ids to match replies to. */
   private chain: Promise<unknown> = Promise.resolve()
 
@@ -29,8 +31,22 @@ export class Engine {
   private search(fen: string, movetime: number): Promise<Score> {
     const whiteToMove = fen.split(' ')[1] === 'w'
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+      if (this.failure) return reject(this.failure)
       let score: Score = { cp: 0 }
+
+      // A worker that cannot load its script or wasm never answers at all.
+      const onError = (event: ErrorEvent) => {
+        this.failure = new Error(
+          `The chess engine failed to load${event.message ? `: ${event.message}` : '.'}`,
+        )
+        cleanup()
+        reject(this.failure)
+      }
+      const cleanup = () => {
+        this.worker.removeEventListener('message', onMessage)
+        this.worker.removeEventListener('error', onError)
+      }
 
       const onMessage = (event: MessageEvent<string>) => {
         const line = String(event.data)
@@ -38,15 +54,20 @@ export class Engine {
         if (line.startsWith('info') && match) {
           // UCI scores are from the side to move; flip to White's view.
           const value = Number(match[2]) * (whiteToMove ? 1 : -1)
-          score = match[1] === 'cp' ? { cp: value } : { mate: value }
+          score =
+            match[1] === 'cp'
+              ? { cp: value }
+              : // "mate 0": the side to move is already checkmated.
+                { mate: value !== 0 ? value : whiteToMove ? -1 : 1 }
         }
         if (line.startsWith('bestmove')) {
-          this.worker.removeEventListener('message', onMessage)
+          cleanup()
           resolve(score)
         }
       }
 
       this.worker.addEventListener('message', onMessage)
+      this.worker.addEventListener('error', onError)
       this.worker.postMessage(`position fen ${fen}`)
       this.worker.postMessage(`go movetime ${movetime}`)
     })

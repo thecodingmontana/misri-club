@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito:wght@600;700;800&display=swap');
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
@@ -7,71 +7,100 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Misri Chess Club — dark walnut board, brass fittings.
- * Serif display for headings, monospace for anything numeric (ratings, points).
- * The palette is committed to one dark look, so `:root` and `.dark` match.
+ * Misri Chess Club. Light: cream board, deep-green ink, an orange flame for
+ * whoever leads. Dark: charcoal with a green glow. Both themes are their own
+ * picks, not one inverted into the other.
  */
 
 :root {
-  --brass: oklch(0.79 0.121 82.5);
-  --brass-deep: oklch(0.65 0.108 76);
-  --brass-dim: oklch(0.52 0.072 74);
-  --walnut-900: oklch(0.16 0.014 55);
-  --walnut-800: oklch(0.2 0.017 52);
-  --walnut-700: oklch(0.24 0.019 50);
-  --walnut-600: oklch(0.29 0.02 48);
-  --parchment: oklch(0.93 0.014 82);
-  --felt: oklch(0.45 0.055 152);
-
-  --background: var(--walnut-900);
-  --foreground: var(--parchment);
-  --card: var(--walnut-800);
-  --card-foreground: var(--parchment);
-  --popover: var(--walnut-800);
-  --popover-foreground: var(--parchment);
-  --primary: var(--brass);
-  --primary-foreground: oklch(0.18 0.02 58);
-  --secondary: var(--walnut-700);
-  --secondary-foreground: var(--parchment);
-  --muted: var(--walnut-700);
-  --muted-foreground: oklch(0.7 0.022 74);
-  --accent: var(--walnut-600);
-  --accent-foreground: var(--brass);
-  --destructive: oklch(0.62 0.19 25);
-  --destructive-foreground: oklch(0.97 0.01 80);
-  --border: oklch(0.32 0.024 58);
-  --input: oklch(0.3 0.022 58);
-  --ring: var(--brass-deep);
-  --chart-1: var(--brass);
-  --chart-2: var(--felt);
-  --chart-3: oklch(0.6 0.09 45);
-  --chart-4: oklch(0.7 0.06 200);
-  --chart-5: oklch(0.55 0.13 20);
-  --radius: 0.5rem;
-  --sidebar: var(--walnut-800);
-  --sidebar-foreground: var(--parchment);
-  --sidebar-primary: var(--brass);
-  --sidebar-primary-foreground: var(--walnut-900);
-  --sidebar-accent: var(--walnut-700);
-  --sidebar-accent-foreground: var(--brass);
-  --sidebar-border: oklch(0.32 0.024 58);
-  --sidebar-ring: var(--brass-deep);
+  --background: #fbf8e6;
+  --foreground: #1f4d3a;
+  --card: #f0f2e1;
+  --card-foreground: #1f4d3a;
+  --popover: #fffdf2;
+  --popover-foreground: #1f4d3a;
+  --primary: #2b7350;
+  --primary-foreground: #ffffff;
+  --secondary: #e6ebd5;
+  --secondary-foreground: #1f4d3a;
+  --muted: #e6ebd5;
+  --muted-foreground: #587463;
+  --accent: #e6ebd5;
+  --accent-foreground: #1f4d3a;
+  --destructive: #c2412f;
+  --destructive-foreground: #ffffff;
+  --border: #dfe3cc;
+  --input: #d6dbc2;
+  --ring: #2b7350;
+  /* The leader's colour: rank 1, the live matchday, the active tab. */
+  --flame: #c2410c;
+  --flame-foreground: #ffffff;
+  --win: #2b7350;
+  --silver: #6b7d73;
+  --bronze: #9a5b2e;
+  --page: #b9e4c9;
+  --chart-1: #2b7350;
+  --chart-2: #c2410c;
+  --chart-3: #6b7d73;
+  --chart-4: #3b82a0;
+  --chart-5: #9a5b2e;
+  --radius: 1rem;
+  --shadow-card: 0 1px 0 rgb(31 77 58 / 0.04), 0 8px 24px -12px rgb(31 77 58 / 0.18);
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 }
 
 .dark {
   color-scheme: dark;
+  --background: #0e100e;
+  --foreground: #eceeea;
+  --card: #191c19;
+  --card-foreground: #eceeea;
+  --popover: #1d211d;
+  --popover-foreground: #eceeea;
+  --primary: #5fbf6a;
+  --primary-foreground: #0e100e;
+  --secondary: #232823;
+  --secondary-foreground: #eceeea;
+  --muted: #232823;
+  --muted-foreground: #9ba59b;
+  --accent: #232823;
+  --accent-foreground: #eceeea;
+  --destructive: #f0705e;
+  --destructive-foreground: #0e100e;
+  --border: #2a2f2a;
+  --input: #313731;
+  --ring: #5fbf6a;
+  --flame: #f08a4b;
+  --flame-foreground: #0e100e;
+  --win: #5fbf6a;
+  --silver: #b7c0b7;
+  --bronze: #d08a55;
+  --page: #070807;
+  --chart-1: #5fbf6a;
+  --chart-2: #f08a4b;
+  --chart-3: #b7c0b7;
+  --chart-4: #6cb6d6;
+  --chart-5: #d08a55;
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 12px 30px -16px rgb(0 0 0 / 0.8);
 }
 
 @theme inline {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --font-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --font-display: 'Nunito', 'Inter', ui-sans-serif, system-ui, sans-serif;
 
-  --color-brass: var(--brass);
-  --color-brass-deep: var(--brass-deep);
-  --color-brass-dim: var(--brass-dim);
-  --color-walnut: var(--walnut-800);
-  --color-felt: var(--felt);
+  --color-flame: var(--flame);
+  --color-flame-foreground: var(--flame-foreground);
+  --color-win: var(--win);
+  --color-silver: var(--silver);
+  --color-bronze: var(--bronze);
+  --shadow-card: var(--shadow-card);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -121,74 +150,37 @@ body {
   margin: 0;
   color: var(--foreground);
   font-family: var(--font-sans);
-  background-color: var(--walnut-900);
-  /* Warm lamplight over the board, plus a faint grain of wood */
-  background-image:
-    radial-gradient(900px 520px at 15% -12%, oklch(0.79 0.121 82.5 / 0.13), transparent 62%),
-    radial-gradient(760px 460px at 92% -8%, oklch(0.45 0.055 152 / 0.12), transparent 60%),
-    linear-gradient(180deg, oklch(0.21 0.019 52) 0%, var(--walnut-900) 55%);
+  /* Outside the phone column: a big, soft chessboard, like the references. */
+  background-color: var(--page);
+  background-image: conic-gradient(
+    from 90deg,
+    rgb(255 255 255 / 0.07) 0deg 90deg,
+    transparent 90deg 180deg,
+    rgb(255 255 255 / 0.07) 180deg 270deg,
+    transparent 270deg
+  );
+  background-size: 22rem 22rem;
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Barely-there chessboard behind everything */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.035;
-  background-image:
-    conic-gradient(
-      from 90deg at 50% 50%,
-      #fff 0deg 90deg,
-      transparent 90deg 180deg,
-      #fff 180deg 270deg,
-      transparent 270deg
-    );
-  background-size: 96px 96px;
-  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent 75%);
-}
-
 .display {
-  font-family: var(--font-serif);
-  font-optical-sizing: auto;
-  letter-spacing: -0.015em;
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .numeric {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
 }
 
 .kicker {
   font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.18em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--brass-deep);
-}
-
-/* Brass hairline along the top of panels */
-.brass-edge {
-  position: relative;
-}
-
-.brass-edge::before {
-  content: '';
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    oklch(0.79 0.121 82.5 / 0.5),
-    transparent
-  );
+  color: var(--muted-foreground);
 }
 
 .rise-in {
@@ -222,6 +214,6 @@ body::before {
   h1,
   h2,
   h3 {
-    font-family: var(--font-serif);
+    font-family: var(--font-display);
   }
 }
