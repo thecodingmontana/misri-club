@@ -46,3 +46,12 @@ pnpm dev              # http://localhost:3005
   club or an admin awards a walkover.
 - **Admin**: one shared passphrase; every mutating server function goes through
   `adminMiddleware` in `src/server/auth.functions.ts`.
+  The session is an HMAC-signed cookie (`src/server/session.ts`) keyed off
+  the passphrase hash, so changing the passphrase signs everyone out.
+- **Train** (`src/routes/train.*`): endless puzzles fetched in the browser from
+  the Lichess API (no key, CORS-open), and games against Stockfish 19 lite
+  running in a Web Worker at five strengths. Games and results are kept in
+  the visitor's browser only.
+- **Sound** (`src/lib/sound.ts`): cuelume synthesizes interface sounds in the
+  browser. Buttons, inputs, tabs and toasts sound through `data-cuelume-*`
+  attributes; a top-bar toggle turns them off per browser.
