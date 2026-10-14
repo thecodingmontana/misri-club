@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { POINTS, tallyStandings } from './standings.ts'
+import { POINTS, fitsFixture, tallyStandings } from './standings.ts'
 
 const now = new Date('2026-10-12T12:00:00Z')
 const past = new Date('2026-10-10T12:00:00Z')
@@ -89,4 +89,27 @@ test('an expired fixture against a player who left costs nobody', () => {
   const tally = tallyStandings([fixture(10)], [], [1], now)
   assert.equal(tally.get(1)?.points, 0)
   assert.equal(tally.get(1)?.forfeits, 0)
+})
+
+test('a game fits its fixture only between the same pair, inside the window', () => {
+  const window = {
+    homePlayerId: 1,
+    awayPlayerId: 2,
+    opensAt: past,
+    dueAt: now,
+  }
+  const game = (whitePlayerId: number, blackPlayerId: number, endedAt: Date) => ({
+    whitePlayerId,
+    blackPlayerId,
+    endedAt,
+  })
+
+  assert.ok(fitsFixture(game(1, 2, past), window), 'opening instant counts')
+  assert.ok(fitsFixture(game(2, 1, now), window), 'either colour, deadline counts')
+  assert.ok(!fitsFixture(game(1, 2, future), window), 'after the deadline')
+  assert.ok(
+    !fitsFixture(game(1, 2, new Date(past.getTime() - 1)), window),
+    'before the window opens',
+  )
+  assert.ok(!fitsFixture(game(1, 3, now), window), 'different opponent')
 })

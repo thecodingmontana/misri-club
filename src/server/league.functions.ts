@@ -2,11 +2,11 @@ import { createServerFn } from '@tanstack/react-start'
 import { notFound } from '@tanstack/react-router'
 import { z } from 'zod'
 import { adminMiddleware } from './auth.functions'
-import { fetchPlayerProfile, fetchPlayerRating } from './chesscom.server'
+import { fetchPlayerRating } from './chesscom.server'
 import {
   addPlayerByUsername,
   generateFixtures,
-  getMeta,
+  claimSlot,
   listAllPlayers,
   setPlayerActive,
   setWalkover,
@@ -126,16 +126,14 @@ export const getPlayerRatingsFn = createServerFn({ method: 'GET' })
     )
   })
 
-export const verifyUsernameFn = createServerFn({ method: 'GET' })
-  .validator(z.object({ username: z.string().min(1) }))
-  .handler(async ({ data }) => {
-    const profile = await fetchPlayerProfile(data.username)
-    return profile
-      ? { valid: true as const, profile }
-      : { valid: false as const, profile: null }
-  })
-
 // --- Mutations -------------------------------------------------------------
+
+/**
+ * Both sync entry points claim this key before they start, so a sync already
+ * running (or one that crashed) holds off every other server instance until its
+ * window passes. `sync:lastRunAt` is written only on success, for display.
+ */
+const SYNC_CLAIM_KEY = 'sync:claimedAt'
 
 /** A sync is ~25 chess.com requests; once a minute is plenty for a club. */
 const SYNC_COOLDOWN_MS = 60_000
@@ -143,13 +141,12 @@ const SYNC_COOLDOWN_MS = 60_000
 /**
  * Deliberately public: syncing is idempotent and only ever reads from
  * chess.com, so anyone can pull the latest games and the board never goes
- * stale waiting for an admin. The cooldown is read from the database, so it
- * holds across every server instance, not just this one.
+ * stale waiting for an admin. The cooldown lives in the database, so it holds
+ * across every server instance, not just this one.
  */
 export const syncNowFn = createServerFn({ method: 'POST' }).handler(
   async () => {
-    const last = await getMeta('sync:lastRunAt')
-    const wait = last ? SYNC_COOLDOWN_MS - (Date.now() - Date.parse(last)) : 0
+    const wait = await claimSlot(SYNC_CLAIM_KEY, SYNC_COOLDOWN_MS)
     if (wait > 0) {
       throw new Error(
         `Synced moments ago. Try again in ${Math.ceil(wait / 1000)}s.`,
@@ -169,12 +166,11 @@ const AUTO_SYNC_MS = 10 * 60_000
 /**
  * Called by every open page on a timer. Syncs only when the last sync (from
  * anyone, on any server instance) is older than the grace period; otherwise it
- * is one cheap read and returns null.
+ * is one cheap write and returns null.
  */
 export const autoSyncFn = createServerFn({ method: 'POST' }).handler(
   async () => {
-    const last = await getMeta('sync:lastRunAt')
-    if (last && Date.now() - Date.parse(last) < AUTO_SYNC_MS) return null
+    if ((await claimSlot(SYNC_CLAIM_KEY, AUTO_SYNC_MS)) > 0) return null
     return syncGames()
   },
 )

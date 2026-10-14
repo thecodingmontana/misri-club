@@ -188,8 +188,9 @@ export const playerGames = pgTable(
 ).enableRLS()
 
 /**
- * Small key/value scratchpad for job bookkeeping (`sync:lastRunAt`, cached club
- * metadata, standings freshness). Not part of the league model.
+ * Small key/value scratchpad for job bookkeeping (`sync:lastRunAt`, the sync
+ * claim, cached club metadata, standings freshness, sign-in attempt counts).
+ * Not part of the league model.
  */
 export const appMeta = pgTable('app_meta', {
   key: text('key').primaryKey(),

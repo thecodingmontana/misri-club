@@ -14,9 +14,7 @@ const config = defineConfig({
   preview: { port: 3005 },
   plugins: [
     devtools(),
-    nitro({
-      rollupConfig: { external: [/^@sentry\//] },
-    }),
+    nitro(),
     tailwindcss(),
     tanstackStart(),
     viteReact(),

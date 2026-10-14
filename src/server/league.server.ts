@@ -6,6 +6,7 @@ import {
   inArray,
   isNotNull,
   isNull,
+  lt,
   sql,
 } from 'drizzle-orm'
 import { generateDoubleRoundRobin } from '#/lib/round-robin'
@@ -25,7 +26,7 @@ import {
   fetchPlayerProfile,
 } from './chesscom.server'
 import { KNOWN_MEMBERS } from './club-roster'
-import { tallyStandings } from './standings'
+import { fitsFixture, tallyStandings } from './standings'
 
 export const DEFAULT_MATCHDAY_DAYS = 2
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -290,6 +291,7 @@ export async function addPlayerByUsername(rawUsername: string) {
         .update(players)
         .set({ active: true })
         .where(eq(players.id, existing.id))
+      await recomputeCurrentStandings()
       return { username, status: 'reactivated' as const }
     }
     throw new Error(`${username} is already on the roster.`)
@@ -304,6 +306,7 @@ export async function addPlayerByUsername(rawUsername: string) {
     throw new Error(`No chess.com account called "${username}".`)
   }
 
+  await recomputeCurrentStandings()
   return { username, status: 'added' as const }
 }
 
@@ -318,7 +321,18 @@ export async function setPlayerActive(rawUsername: string, active: boolean) {
     .returning({ id: players.id })
 
   if (updated.length === 0) throw new Error(`${username} is not on the roster.`)
+  await recomputeCurrentStandings()
   return { username, active }
+}
+
+/**
+ * Standings depend on who is active (a lapsed fixture against someone who left
+ * costs nobody), and the stale check only watches deadlines — so roster
+ * changes rebuild the table themselves.
+ */
+async function recomputeCurrentStandings() {
+  const season = await getOrCreateCurrentSeason()
+  await recomputeStandings(season.id, new Date(), { wait: true })
 }
 
 export async function listActivePlayers() {
@@ -413,13 +427,8 @@ export async function generateFixtures(): Promise<GenerateFixturesResult> {
   }))
 
   await db.transaction(async (tx) => {
-    // Regenerating: detach any games first so the old fixture rows can go, then
-    // re-link them against the new schedule below.
-    await tx
-      .update(games)
-      .set({ fixtureId: null })
-      .where(eq(games.seasonId, season.id))
-
+    // No game is linked here (the season is unlocked), and the foreign key from
+    // `games.fixture_id` makes the delete fail if a sync linked one since.
     await tx.delete(fixtures).where(eq(fixtures.seasonId, season.id))
     await tx.insert(fixtures).values(rows)
   })
@@ -476,14 +485,7 @@ export async function linkGamesToFixtures(seasonId: number): Promise<number> {
 
   for (const game of unlinked) {
     const match = openFixtures.find(
-      (f) =>
-        !taken.has(f.id) &&
-        game.endedAt >= f.opensAt &&
-        game.endedAt <= f.dueAt &&
-        ((f.homePlayerId === game.whitePlayerId &&
-          f.awayPlayerId === game.blackPlayerId) ||
-          (f.homePlayerId === game.blackPlayerId &&
-            f.awayPlayerId === game.whitePlayerId)),
+      (f) => !taken.has(f.id) && fitsFixture(game, f),
     )
 
     if (!match) continue
@@ -676,6 +678,31 @@ export async function setMeta(key: string, value: string) {
       target: appMeta.key,
       set: { value, updatedAt: new Date() },
     })
+}
+
+/**
+ * Claims `key` unless it was claimed less than `windowMs` ago, and returns the
+ * milliseconds left to wait (0 = claimed). Check and write are one statement,
+ * so across every server instance only one concurrent caller wins.
+ */
+export async function claimSlot(key: string, windowMs: number): Promise<number> {
+  const now = new Date()
+  const claimed = await db
+    .insert(appMeta)
+    .values({ key, value: now.toISOString(), updatedAt: now })
+    .onConflictDoUpdate({
+      target: appMeta.key,
+      set: { value: now.toISOString(), updatedAt: now },
+      setWhere: lt(appMeta.updatedAt, new Date(now.getTime() - windowMs)),
+    })
+    .returning({ key: appMeta.key })
+  if (claimed.length > 0) return 0
+
+  const [row] = await db
+    .select({ updatedAt: appMeta.updatedAt })
+    .from(appMeta)
+    .where(eq(appMeta.key, key))
+  return row ? Math.max(1, row.updatedAt.getTime() + windowMs - now.getTime()) : 1
 }
 
 export async function getMeta(key: string): Promise<string | null> {

@@ -288,6 +288,10 @@ export async function getLeaderboard() {
     (a, b) => a - b,
   )
 
+  // Same rule as `tallyStandings`: an expired fixture against someone who left
+  // the club costs nobody, so it must not show as a forfeit either.
+  const activeIds = new Set(roster.filter((p) => p.active).map((p) => p.id))
+
   const standings: Array<StandingRow> = standingRows.map((row) => {
     const cells = matchdays.map((matchday) => {
       const fixture = allFixtures.find(
@@ -312,7 +316,11 @@ export async function getLeaderboard() {
         }
       } else if (status === 'walkover') {
         outcome = fixture.walkoverWinnerId === row.playerId ? 'win' : 'forfeit'
-      } else if (status === 'expired') {
+      } else if (
+        status === 'expired' &&
+        activeIds.has(fixture.homeId ?? -1) &&
+        activeIds.has(fixture.awayId ?? -1)
+      ) {
         outcome = 'forfeit'
       }
 

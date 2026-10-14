@@ -1,4 +1,4 @@
-import { inArray } from 'drizzle-orm'
+import { and, inArray } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import { games, playerGames } from '#/db/schema'
 import type { ArchivedGame } from './chesscom.server'
@@ -291,9 +291,15 @@ async function insertPlayerGames(
         })
         .from(playerGames)
         .where(
-          inArray(
-            playerGames.chessComUrl,
-            rows.map((row) => row.chessComUrl),
+          and(
+            // Leads with `player_id` so the primary key index serves it.
+            inArray(playerGames.playerId, [
+              ...new Set(rows.map((row) => row.playerId)),
+            ]),
+            inArray(
+              playerGames.chessComUrl,
+              rows.map((row) => row.chessComUrl),
+            ),
           ),
         )
     ).map((row) => `${row.playerId} ${row.url}`),

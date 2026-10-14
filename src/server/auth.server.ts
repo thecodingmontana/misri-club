@@ -1,10 +1,8 @@
-import {
-  createHash,
-  randomBytes,
-  scryptSync,
-  timingSafeEqual,
-} from 'node:crypto'
+import { createHash, scryptSync, timingSafeEqual } from 'node:crypto'
 import { getRequestIP, useSession } from '@tanstack/react-start/server'
+import { eq, sql } from 'drizzle-orm'
+import { db } from '#/db/client.server'
+import { appMeta } from '#/db/schema'
 
 /**
  * Admin authentication: a single shared passphrase, verified against a scrypt
@@ -19,8 +17,6 @@ import { getRequestIP, useSession } from '@tanstack/react-start/server'
  *
  * scrypt comes from `node:crypto`, so there is no native addon to compile.
  */
-
-const SCRYPT_PARAMS = { N: 16384, r: 8, p: 1, keylen: 64 } as const
 
 const SESSION_NAME = 'misri_admin'
 const SESSION_MAX_AGE = 60 * 60 * 12 // 12 hours
@@ -45,22 +41,10 @@ export class UnauthorizedError extends Error {
 // Password hashing
 // ---------------------------------------------------------------------------
 
-/** `scrypt$N$r$p$saltHex$keyHex` — parameters travel with the hash. */
-export function hashPassword(password: string): string {
-  const salt = randomBytes(16)
-  const { N, r, p, keylen } = SCRYPT_PARAMS
-  const key = scryptSync(password.normalize('NFKC'), salt, keylen, { N, r, p })
-
-  return [
-    'scrypt',
-    N,
-    r,
-    p,
-    salt.toString('hex'),
-    key.toString('hex'),
-  ].join('$')
-}
-
+/**
+ * Checks `password` against a `scrypt$N$r$p$saltHex$keyHex` hash, as printed by
+ * `scripts/set-admin-password.mjs`; the parameters travel with the hash.
+ */
 export function verifyPassword(password: string, stored: string): boolean {
   const parts = stored.split('$')
   if (parts.length !== 6 || parts[0] !== 'scrypt') return false
@@ -153,33 +137,44 @@ export async function requireAdmin(): Promise<void> {
 
 /**
  * With one shared secret, brute force is the whole threat model, so sign-in
- * attempts are capped per client address. In-memory is adequate for a
- * single-process club board; a multi-instance deploy would want shared state.
+ * attempts are capped per client address. The count lives in `app_meta` (value
+ * = attempts, `updated_at` = window start) because Vercel runs many instances
+ * and an in-memory count would reset on each one. Counting is one upsert, so
+ * parallel attempts cannot slip past the cap.
  */
 const ATTEMPT_LIMIT = 8
 const ATTEMPT_WINDOW_MS = 15 * 60 * 1000
-const attempts = new Map<string, { count: number; resetAt: number }>()
 
-function checkRateLimit(key: string) {
-  const now = Date.now()
-  const entry = attempts.get(key)
+async function checkRateLimit(key: string) {
+  const now = new Date()
+  // Raw `sql` params skip the column's Date mapping, hence ISO plus a cast.
+  const windowStart = new Date(now.getTime() - ATTEMPT_WINDOW_MS).toISOString()
+  const expired = sql`${appMeta.updatedAt} < ${windowStart}::timestamptz`
 
-  if (!entry || now > entry.resetAt) {
-    attempts.set(key, { count: 1, resetAt: now + ATTEMPT_WINDOW_MS })
-    return
-  }
+  const [entry] = await db
+    .insert(appMeta)
+    .values({ key, value: '1', updatedAt: now })
+    .onConflictDoUpdate({
+      target: appMeta.key,
+      set: {
+        value: sql`case when ${expired} then '1' else (${appMeta.value}::int + 1)::text end`,
+        updatedAt: sql`case when ${expired} then excluded.updated_at else ${appMeta.updatedAt} end`,
+      },
+    })
+    .returning({ count: appMeta.value, startedAt: appMeta.updatedAt })
 
-  entry.count++
-  if (entry.count > ATTEMPT_LIMIT) {
-    const minutes = Math.ceil((entry.resetAt - now) / 60000)
+  if (Number(entry.count) > ATTEMPT_LIMIT) {
+    const minutes = Math.ceil(
+      (entry.startedAt.getTime() + ATTEMPT_WINDOW_MS - now.getTime()) / 60000,
+    )
     throw new UnauthorizedError(
       `Too many sign-in attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`,
     )
   }
 }
 
-function clearRateLimit(key: string) {
-  attempts.delete(key)
+async function clearRateLimit(key: string) {
+  await db.delete(appMeta).where(eq(appMeta.key, key))
 }
 
 export async function signIn(password: string): Promise<void> {
@@ -187,14 +182,14 @@ export async function signIn(password: string): Promise<void> {
 
   // Behind Vercel's proxy the socket address is the proxy's, not the visitor's;
   // Vercel sets x-forwarded-for itself, so it is the address to trust.
-  const key = getRequestIP({ xForwardedFor: true }) ?? 'unknown'
-  checkRateLimit(key)
+  const key = `login:${getRequestIP({ xForwardedFor: true }) ?? 'unknown'}`
+  await checkRateLimit(key)
 
   if (!verifyPassword(password, adminHash())) {
     throw new UnauthorizedError('Incorrect passphrase.')
   }
 
-  clearRateLimit(key)
+  await clearRateLimit(key)
 
   const session = await useSession<AdminSessionData>(sessionConfig())
   await session.update({ admin: true, signedInAt: Date.now() })

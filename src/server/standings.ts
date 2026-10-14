@@ -18,6 +18,24 @@ export interface Tally {
   forfeits: number
 }
 
+/**
+ * A game counts for a fixture when it is between the same two players (either
+ * colour) and finished inside the fixture's window, both ends included.
+ */
+export function fitsFixture(
+  game: Pick<Game, 'whitePlayerId' | 'blackPlayerId' | 'endedAt'>,
+  fixture: Pick<Fixture, 'homePlayerId' | 'awayPlayerId' | 'opensAt' | 'dueAt'>,
+): boolean {
+  return (
+    game.endedAt >= fixture.opensAt &&
+    game.endedAt <= fixture.dueAt &&
+    ((fixture.homePlayerId === game.whitePlayerId &&
+      fixture.awayPlayerId === game.blackPlayerId) ||
+      (fixture.homePlayerId === game.blackPlayerId &&
+        fixture.awayPlayerId === game.whitePlayerId))
+  )
+}
+
 /** Pure: the standings a season's fixtures and linked games add up to. */
 export function tallyStandings(
   fixtures: Array<
