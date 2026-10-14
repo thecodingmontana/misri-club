@@ -1,15 +1,14 @@
-import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
+import { createFileRoute } from '@tanstack/react-router'
 import { Clock, ExternalLink } from '#/components/icons'
 
 import { LiveRating, RatingsProvider } from '#/components/live-ratings'
 import { PlayerAnalysis } from '#/components/player-analysis'
-import { Skeleton } from '#/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
-import { playerGamesQuery, playerQuery, useAvatarUrl } from '#/lib/queries'
 import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar'
 import { Badge } from '#/components/ui/badge'
 import { Card } from '#/components/ui/card'
+import { Skeleton } from '#/components/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import {
   countdown,
   formatDate,
@@ -17,6 +16,7 @@ import {
   relativeTime,
   winRate,
 } from '#/lib/format'
+import { playerGamesQuery, playerQuery, useAvatarUrl } from '#/lib/queries'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/players/$username')({
@@ -53,10 +53,7 @@ function PlayerScreen() {
       <div className="space-y-5">
         <section className="flex flex-col items-center pt-2 text-center">
           <Avatar className="size-24 border-[3px] border-primary bg-card dark:shadow-[0_0_24px_-4px_var(--primary)]">
-            <AvatarImage
-              src={avatar}
-              alt=""
-            />
+            <AvatarImage src={avatar} alt="" />
             <AvatarFallback className="display bg-secondary text-2xl text-primary">
               {player.username.slice(0, 2).toUpperCase()}
             </AvatarFallback>

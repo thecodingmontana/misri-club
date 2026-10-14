@@ -1,18 +1,22 @@
-import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { useMutation } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { avatarUrl } from '#/lib/avatar'
 import {
+  autoSyncFn,
   getAllTimeFn,
   getFixturesFn,
   getLeaderboardFn,
   getPlayerFn,
   getPlayerGamesFn,
   getRosterAvatarsFn,
-  autoSyncFn,
   syncNowFn,
 } from '#/server/league.functions'
 

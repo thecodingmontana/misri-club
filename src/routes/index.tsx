@@ -1,9 +1,7 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
-
-import type { FixtureView } from '#/server/queries.server'
-import { AlertTriangle, ChevronRight, RefreshCw } from '#/components/icons'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { FixtureScore, wonFixture } from '#/components/fixture-score'
+import { AlertTriangle, ChevronRight, RefreshCw } from '#/components/icons'
 import { PlayerChip } from '#/components/player-chip'
 import { Podium } from '#/components/podium'
 import { Button } from '#/components/ui/button'
@@ -11,6 +9,7 @@ import { Card, CardContent } from '#/components/ui/card'
 import { countdown, relativeTime } from '#/lib/format'
 import { leaderboardQuery, useSyncNow } from '#/lib/queries'
 import { cn } from '#/lib/utils'
+import type { FixtureView } from '#/server/queries.server'
 
 export const Route = createFileRoute('/')({
   loader: ({ context }) =>
@@ -227,11 +226,7 @@ function FixtureRow({ fixture }: { fixture: FixtureView }) {
   if (fixture.bye) {
     return (
       <div className="flex items-center justify-between rounded-xl px-3 py-2">
-        <PlayerChip
-          username={fixture.bye}
-          size="sm"
-          muted
-        />
+        <PlayerChip username={fixture.bye} size="sm" muted />
         <span className="kicker">Bye</span>
       </div>
     )

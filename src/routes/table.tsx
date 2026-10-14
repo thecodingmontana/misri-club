@@ -1,15 +1,14 @@
-import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { createFileRoute } from '@tanstack/react-router'
 import { Clock } from '#/components/icons'
-
-import type { FixtureStatus, Outcome } from '#/server/queries.server'
 import { PlayerChip } from '#/components/player-chip'
 import { Podium } from '#/components/podium'
-import { leaderboardQuery } from '#/lib/queries'
 import { Card } from '#/components/ui/card'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { countdown, relativeTime } from '#/lib/format'
+import { leaderboardQuery } from '#/lib/queries'
 import { cn } from '#/lib/utils'
+import type { FixtureStatus, Outcome } from '#/server/queries.server'
 
 export const Route = createFileRoute('/table')({
   loader: ({ context }) =>
@@ -142,10 +141,7 @@ function Board({ data }: { data: Data }) {
                   <span className="numeric w-3.5 shrink-0 text-[0.7rem] text-muted-foreground">
                     {index + 1}
                   </span>
-                  <PlayerChip
-                    username={row.username}
-                    size="sm"
-                  />
+                  <PlayerChip username={row.username} size="sm" />
                 </div>
                 <div className="numeric mt-0.5 pl-[1.375rem] text-[0.6rem] text-muted-foreground">
                   {row.wins}W {row.draws}D {row.losses}L

@@ -1,15 +1,14 @@
-import { useState } from 'react'
+import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { useMutation } from '@tanstack/react-query'
-import { KeyRound, ShieldCheck } from '#/components/icons'
+import { useState } from 'react'
 import { toast } from 'sonner'
-
-import { loginFn } from '#/server/auth.functions'
+import { KeyRound, ShieldCheck } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
 import { useAdmin } from '#/lib/use-admin'
+import { loginFn } from '#/server/auth.functions'
 
 export const Route = createFileRoute('/login')({ component: LoginPage })
 
@@ -86,9 +85,7 @@ function LoginPage() {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={
-                    mutation.isPending || !password || !auth.configured
-                  }
+                  disabled={mutation.isPending || !password || !auth.configured}
                 >
                   {mutation.isPending ? 'Checking…' : 'Sign in'}
                 </Button>

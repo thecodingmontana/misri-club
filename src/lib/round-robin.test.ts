@@ -26,6 +26,7 @@ test('every ordered pair meets once, nobody plays twice on a matchday', () => {
 
     assert.equal(pairings.size, n * (n - 1), `n=${n}: pairings`)
     assert.equal(busy.size, matchdayCount(n), `n=${n}: matchdays`)
-    for (const day of busy.values()) assert.equal(day.size, n, `n=${n}: everyone each day`)
+    for (const day of busy.values())
+      assert.equal(day.size, n, `n=${n}: everyone each day`)
   }
 })

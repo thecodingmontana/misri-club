@@ -1,24 +1,21 @@
+import { TanStackDevtools } from '@tanstack/react-devtools'
+import type { QueryClient } from '@tanstack/react-query'
 import {
+  createRootRouteWithContext,
   HeadContent,
   Outlet,
   Scripts,
-  createRootRouteWithContext,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { TanStackDevtools } from '@tanstack/react-devtools'
 import { ThemeProvider } from 'next-themes'
-
-import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import { BottomNav } from '#/components/bottom-nav'
 import { TopBar } from '#/components/top-bar'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { Toaster } from '#/components/ui/sonner'
-import { getSessionFn } from '#/server/auth.functions'
 import { rosterAvatarsQuery, useAutoSync } from '#/lib/queries'
-
+import { getSessionFn } from '#/server/auth.functions'
+import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import appCss from '../styles.css?url'
-
-import type { QueryClient } from '@tanstack/react-query'
 
 interface MyRouterContext {
   queryClient: QueryClient
@@ -120,7 +117,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <TanStackDevtools
           config={{ position: 'bottom-left' }}
           plugins={[
-            { name: 'Tanstack Router', render: <TanStackRouterDevtoolsPanel /> },
+            {
+              name: 'Tanstack Router',
+              render: <TanStackRouterDevtoolsPanel />,
+            },
             TanStackQueryDevtools,
           ]}
         />

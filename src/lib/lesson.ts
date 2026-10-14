@@ -1,8 +1,8 @@
-import { Chess } from 'chess.js'
 import type { Move, Square } from 'chess.js'
-import type { Score } from './engine'
-import { positionsOf, reviewFor } from './analysis.ts'
+import { Chess } from 'chess.js'
 import type { MoveReview, Phase } from './analysis'
+import { positionsOf, reviewFor } from './analysis.ts'
+import type { Score } from './engine'
 
 /**
  * A coaching lesson built from one game with no AI: Stockfish says which
@@ -149,7 +149,8 @@ const TEMPLATES: Record<
       heading: 'The Forcing-Move Hierarchy',
       body: 'Every turn, ask in order: can I give check? Can I capture? Can I threaten something big? Forcing moves take away your opponent’s choices, and that is where material is won. A quiet move hands the initiative back for free.',
     },
-    heading: (c) => `Move ${c.moveNumber} — You Missed ${c.best ?? 'a Forcing Move'}`,
+    heading: (c) =>
+      `Move ${c.moveNumber} — You Missed ${c.best ?? 'a Forcing Move'}`,
     theory: (c) =>
       `${c.best ?? 'A forcing move'} was there and wins out of this position. ${c.played} let your opponent off the hook.`,
     concept: {

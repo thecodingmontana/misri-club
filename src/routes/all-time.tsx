@@ -1,6 +1,5 @@
-import { useMemo } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { createFileRoute } from '@tanstack/react-router'
 import {
   createColumnHelper,
   createSortedRowModel,
@@ -10,9 +9,8 @@ import {
   tableFeatures,
   useTable,
 } from '@tanstack/react-table'
+import { useMemo } from 'react'
 import { ArrowDown, ArrowUp, ChevronsUpDown } from '#/components/icons'
-
-import type { AllTimeData, AllTimeRow } from '#/server/queries.server'
 import { PlayerLink } from '#/components/player-link'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import {
@@ -26,6 +24,7 @@ import {
 import { formatDate, record, winRate } from '#/lib/format'
 import { allTimeQuery } from '#/lib/queries'
 import { cn } from '#/lib/utils'
+import type { AllTimeData, AllTimeRow } from '#/server/queries.server'
 
 export const Route = createFileRoute('/all-time')({
   loader: ({ context }) => context.queryClient.ensureQueryData(allTimeQuery),
@@ -53,9 +52,7 @@ function AllTimePage() {
     <div className="space-y-8">
       <section className="rise-in pt-2 text-center">
         <p className="kicker">Across {data.seasons.length} season(s)</p>
-        <h1 className="display mt-1 text-3xl">
-          All-time records
-        </h1>
+        <h1 className="display mt-1 text-3xl">All-time records</h1>
         <p className="mx-auto mt-2 max-w-xs text-xs text-muted-foreground">
           Every season the club has played, summed per player. Nothing here is
           stored separately — it is a live roll-up of each season&apos;s final
@@ -99,14 +96,22 @@ function AllTimeTable({ data }: { data: Data }) {
           enableSorting: false,
           meta: { numeric: true },
         }),
-        helper.accessor((row) => (row.wins + row.draws / 2) / (row.played || 1), {
-          id: 'winRate',
-          header: 'Score %',
-          sortFn: 'basic',
-          sortDescFirst: true,
-          cell: (ctx) => winRate(ctx.row.original.wins, ctx.row.original.draws, ctx.row.original.losses),
-          meta: { numeric: true },
-        }),
+        helper.accessor(
+          (row) => (row.wins + row.draws / 2) / (row.played || 1),
+          {
+            id: 'winRate',
+            header: 'Score %',
+            sortFn: 'basic',
+            sortDescFirst: true,
+            cell: (ctx) =>
+              winRate(
+                ctx.row.original.wins,
+                ctx.row.original.draws,
+                ctx.row.original.losses,
+              ),
+            meta: { numeric: true },
+          },
+        ),
         helper.accessor('seasonsPlayed', {
           header: 'Seasons',
           sortFn: 'basic',

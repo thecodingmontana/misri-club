@@ -1,16 +1,15 @@
-import { useState } from 'react'
-import { useServerFn } from '@tanstack/react-start'
 import { useMutation } from '@tanstack/react-query'
-import { Lock, Plus, UserMinus, UserPlus } from '#/components/icons'
+import { useServerFn } from '@tanstack/react-start'
+import { useState } from 'react'
 import { toast } from 'sonner'
-
-import { addPlayerFn, setPlayerActiveFn } from '#/server/league.functions'
+import { Lock, Plus, UserMinus, UserPlus } from '#/components/icons'
 import { PlayerLink } from '#/components/player-link'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
 import { useRefreshLeague } from '#/lib/queries'
 import { useAdmin } from '#/lib/use-admin'
+import { addPlayerFn, setPlayerActiveFn } from '#/server/league.functions'
 
 interface RosterEntry {
   username: string
@@ -106,33 +105,33 @@ export function RosterCard({
         )}
 
         {isAdmin && (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (username.trim()) add.mutate(username.trim())
-          }}
-          className="flex gap-2"
-        >
-          <Input
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            placeholder="chess.com username"
-            aria-label="chess.com username"
-            autoComplete="off"
-            spellCheck={false}
-            className="h-9"
-          />
-          <Button
-            type="submit"
-            size="sm"
-            variant="secondary"
-            className="h-9 shrink-0 gap-1.5"
-            disabled={add.isPending || !username.trim()}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (username.trim()) add.mutate(username.trim())
+            }}
+            className="flex gap-2"
           >
-            <Plus className="size-4" />
-            Add
-          </Button>
-        </form>
+            <Input
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              placeholder="chess.com username"
+              aria-label="chess.com username"
+              autoComplete="off"
+              spellCheck={false}
+              className="h-9"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              variant="secondary"
+              className="h-9 shrink-0 gap-1.5"
+              disabled={add.isPending || !username.trim()}
+            >
+              <Plus className="size-4" />
+              Add
+            </Button>
+          </form>
         )}
 
         {roster.length === 0 ? (

@@ -1,8 +1,8 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
-
+import type { BoardStep } from '#/components/chess-board'
 import { ChessBoard } from '#/components/chess-board'
 import {
   CheckCircle,
@@ -15,9 +15,8 @@ import {
 import { SpeakButton } from '#/components/speak-button'
 import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
-import { buildLesson } from '#/lib/lesson'
 import type { LessonMoment, QuizQuestion } from '#/lib/lesson'
-import type { BoardStep } from '#/components/chess-board'
+import { buildLesson } from '#/lib/lesson'
 import { playerGamesQuery } from '#/lib/queries'
 import { useEngineAnalysis, useStoredScores } from '#/lib/use-engine-analysis'
 import { cn } from '#/lib/utils'
@@ -229,14 +228,25 @@ function Quiz({ question }: { question: QuizQuestion }) {
             onClick={() => setPicked(index)}
             className={cn(
               'flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-[0.8rem] transition-colors',
-              !answered && 'border-border hover:border-primary/50 hover:bg-secondary',
-              answered && correct && 'border-primary bg-primary/12 font-semibold',
-              answered && !correct && index === picked && 'border-destructive bg-destructive/10',
-              answered && !correct && index !== picked && 'border-border opacity-60',
+              !answered &&
+                'border-border hover:border-primary/50 hover:bg-secondary',
+              answered &&
+                correct &&
+                'border-primary bg-primary/12 font-semibold',
+              answered &&
+                !correct &&
+                index === picked &&
+                'border-destructive bg-destructive/10',
+              answered &&
+                !correct &&
+                index !== picked &&
+                'border-border opacity-60',
             )}
           >
             <span className="flex-1">{option}</span>
-            {answered && correct && <CheckCircle className="size-4 text-primary" />}
+            {answered && correct && (
+              <CheckCircle className="size-4 text-primary" />
+            )}
             {answered && !correct && index === picked && (
               <XCircle className="size-4 text-destructive" />
             )}

@@ -1,5 +1,5 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { ChevronRight, ExternalLink, Trophy } from '#/components/icons'
 
 import { RosterCard } from '#/components/roster-card'
@@ -33,8 +33,14 @@ function ClubScreen() {
       </header>
 
       <div className="grid grid-cols-3 gap-2">
-        <Stat label="Members" value={data.roster.filter((p) => p.active).length} />
-        <Stat label="Season" value={data.season.label.replace('Season ', 'S')} />
+        <Stat
+          label="Members"
+          value={data.roster.filter((p) => p.active).length}
+        />
+        <Stat
+          label="Season"
+          value={data.season.label.replace('Season ', 'S')}
+        />
         <Stat label="Window" value={`${data.season.matchdayDays}d`} />
       </div>
 
@@ -62,7 +68,9 @@ function ClubScreen() {
       <Card>
         <CardContent className="space-y-1.5 py-4 text-[0.7rem] leading-relaxed text-muted-foreground">
           <p>
-            <span className="font-medium text-foreground">How scoring works.</span>{' '}
+            <span className="font-medium text-foreground">
+              How scoring works.
+            </span>{' '}
             Win +3, draw +1, loss 0. A fixture left unplayed when its{' '}
             {data.season.matchdayDays}-day window closes costs{' '}
             <span className="font-medium text-foreground">both</span> players a

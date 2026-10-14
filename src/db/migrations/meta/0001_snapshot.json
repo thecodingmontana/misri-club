@@ -190,12 +190,8 @@
           "name": "fixtures_season_id_seasons_id_fk",
           "tableFrom": "fixtures",
           "tableTo": "seasons",
-          "columnsFrom": [
-            "season_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["season_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -203,12 +199,8 @@
           "name": "fixtures_home_player_id_players_id_fk",
           "tableFrom": "fixtures",
           "tableTo": "players",
-          "columnsFrom": [
-            "home_player_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["home_player_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -216,12 +208,8 @@
           "name": "fixtures_away_player_id_players_id_fk",
           "tableFrom": "fixtures",
           "tableTo": "players",
-          "columnsFrom": [
-            "away_player_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["away_player_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -229,12 +217,8 @@
           "name": "fixtures_bye_player_id_players_id_fk",
           "tableFrom": "fixtures",
           "tableTo": "players",
-          "columnsFrom": [
-            "bye_player_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bye_player_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -242,12 +226,8 @@
           "name": "fixtures_walkover_winner_id_players_id_fk",
           "tableFrom": "fixtures",
           "tableTo": "players",
-          "columnsFrom": [
-            "walkover_winner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["walkover_winner_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -410,12 +390,8 @@
           "name": "games_season_id_seasons_id_fk",
           "tableFrom": "games",
           "tableTo": "seasons",
-          "columnsFrom": [
-            "season_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["season_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -423,12 +399,8 @@
           "name": "games_fixture_id_fixtures_id_fk",
           "tableFrom": "games",
           "tableTo": "fixtures",
-          "columnsFrom": [
-            "fixture_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fixture_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -436,12 +408,8 @@
           "name": "games_white_player_id_players_id_fk",
           "tableFrom": "games",
           "tableTo": "players",
-          "columnsFrom": [
-            "white_player_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["white_player_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -449,12 +417,8 @@
           "name": "games_black_player_id_players_id_fk",
           "tableFrom": "games",
           "tableTo": "players",
-          "columnsFrom": [
-            "black_player_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["black_player_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -464,9 +428,7 @@
         "games_chess_com_url_unique": {
           "name": "games_chess_com_url_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "chess_com_url"
-          ]
+          "columns": ["chess_com_url"]
         }
       },
       "policies": {},
@@ -578,12 +540,8 @@
           "name": "player_games_player_id_players_id_fk",
           "tableFrom": "player_games",
           "tableTo": "players",
-          "columnsFrom": [
-            "player_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["player_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -591,10 +549,7 @@
       "compositePrimaryKeys": {
         "player_games_player_id_chess_com_url_pk": {
           "name": "player_games_player_id_chess_com_url_pk",
-          "columns": [
-            "player_id",
-            "chess_com_url"
-          ]
+          "columns": ["player_id", "chess_com_url"]
         }
       },
       "uniqueConstraints": {},
@@ -662,9 +617,7 @@
         "players_username_unique": {
           "name": "players_username_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "username"
-          ]
+          "columns": ["username"]
         }
       },
       "policies": {},
@@ -745,12 +698,8 @@
           "name": "season_standings_season_id_seasons_id_fk",
           "tableFrom": "season_standings",
           "tableTo": "seasons",
-          "columnsFrom": [
-            "season_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["season_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -758,12 +707,8 @@
           "name": "season_standings_player_id_players_id_fk",
           "tableFrom": "season_standings",
           "tableTo": "players",
-          "columnsFrom": [
-            "player_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["player_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -771,10 +716,7 @@
       "compositePrimaryKeys": {
         "season_standings_season_id_player_id_pk": {
           "name": "season_standings_season_id_player_id_pk",
-          "columns": [
-            "season_id",
-            "player_id"
-          ]
+          "columns": ["season_id", "player_id"]
         }
       },
       "uniqueConstraints": {},
@@ -859,19 +801,12 @@
     "public.game_result": {
       "name": "game_result",
       "schema": "public",
-      "values": [
-        "white",
-        "black",
-        "draw"
-      ]
+      "values": ["white", "black", "draw"]
     },
     "public.game_source": {
       "name": "game_source",
       "schema": "public",
-      "values": [
-        "auto",
-        "manual"
-      ]
+      "values": ["auto", "manual"]
     }
   },
   "schemas": {},

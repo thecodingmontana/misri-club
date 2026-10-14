@@ -44,15 +44,15 @@ export const players = pgTable('players', {
 export const seasons = pgTable(
   'seasons',
   {
-  id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
-  label: text('label').notNull(), // e.g. "Season 1"
-  startedAt: ts('started_at').notNull(),
-  endedAt: ts('ended_at'), // null = current season
-  /**
-   * How long each matchday stays open. Players have this many days to arrange
-   * and finish their fixture before it expires against both of them.
-   */
-  matchdayDays: integer('matchday_days').notNull().default(2),
+    id: integer('id').primaryKey().generatedAlwaysAsIdentity(),
+    label: text('label').notNull(), // e.g. "Season 1"
+    startedAt: ts('started_at').notNull(),
+    endedAt: ts('ended_at'), // null = current season
+    /**
+     * How long each matchday stays open. Players have this many days to arrange
+     * and finish their fixture before it expires against both of them.
+     */
+    matchdayDays: integer('matchday_days').notNull().default(2),
   },
   (t) => [
     // At most one open season: every open row indexes the same constant, so

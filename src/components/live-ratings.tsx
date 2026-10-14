@@ -1,7 +1,7 @@
-import { createContext, use } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getPlayerRatingsFn } from '#/server/league.functions'
+import { createContext, use } from 'react'
 import { cn } from '#/lib/utils'
+import { getPlayerRatingsFn } from '#/server/league.functions'
 
 interface RatingEntry {
   username: string

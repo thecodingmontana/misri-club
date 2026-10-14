@@ -1,14 +1,14 @@
+import { useMutation } from '@tanstack/react-query'
 import { Link, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { useMutation } from '@tanstack/react-query'
-import { LogOut, RefreshCw, ShieldCheck, UserRound } from '#/components/icons'
 import { toast } from 'sonner'
-import { logoutFn } from '#/server/auth.functions'
-import { useAdmin } from '#/lib/use-admin'
-import { useSyncNow } from '#/lib/queries'
-import { cn } from '#/lib/utils'
+import { LogOut, RefreshCw, ShieldCheck, UserRound } from '#/components/icons'
 import { ThemeToggle } from '#/components/theme-toggle'
 import { Button } from '#/components/ui/button'
+import { useSyncNow } from '#/lib/queries'
+import { useAdmin } from '#/lib/use-admin'
+import { cn } from '#/lib/utils'
+import { logoutFn } from '#/server/auth.functions'
 
 export function TopBar() {
   const auth = useAdmin()
@@ -40,7 +40,10 @@ export function TopBar() {
           aria-label="Sync with chess.com"
         >
           <RefreshCw
-            className={cn('size-[1.15rem]', syncNow.isPending && 'animate-spin')}
+            className={cn(
+              'size-[1.15rem]',
+              syncNow.isPending && 'animate-spin',
+            )}
           />
         </Button>
         <ThemeToggle />
@@ -65,12 +68,7 @@ export function TopBar() {
             <LogOut className="opacity-70" />
           </Button>
         ) : (
-          <Button
-            asChild
-            variant="ghost"
-            size="icon"
-            className="rounded-full"
-          >
+          <Button asChild variant="ghost" size="icon" className="rounded-full">
             <Link to="/login" aria-label="Admin sign in" title="Admin sign in">
               <UserRound className="size-[1.15rem]" />
             </Link>

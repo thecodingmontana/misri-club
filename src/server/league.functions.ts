@@ -1,12 +1,12 @@
-import { createServerFn } from '@tanstack/react-start'
 import { notFound } from '@tanstack/react-router'
+import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { adminMiddleware } from './auth.functions'
 import { fetchPlayerRating } from './chesscom.server'
 import {
   addPlayerByUsername,
-  generateFixtures,
   claimSlot,
+  generateFixtures,
   listAllPlayers,
   setPlayerActive,
   setWalkover,

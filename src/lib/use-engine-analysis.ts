@@ -1,8 +1,8 @@
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Engine } from './engine'
-import type { Score } from './engine'
 import { positionsOf } from './analysis'
+import type { Score } from './engine'
+import { Engine } from './engine'
 
 /**
  * Engine scores live in this browser only. TanStack Query holds them in memory
@@ -108,7 +108,9 @@ export function useEngineAnalysis() {
           queryClient.setQueryData(queryKey(game.chessComUrl), scores)
         }
         if (skipped > 0) {
-          setError(`${skipped} game${skipped === 1 ? '' : 's'} could not be read.`)
+          setError(
+            `${skipped} game${skipped === 1 ? '' : 's'} could not be read.`,
+          )
         }
       } catch (failure) {
         if (engine.current === current) setError((failure as Error).message)

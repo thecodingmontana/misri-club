@@ -1,17 +1,17 @@
-import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import type { PlayerGamesData } from '#/server/queries.server'
+import { useMemo, useState } from 'react'
 import { Book, Cpu, ExternalLink, Fire, Stop, Target } from '#/components/icons'
 import { RatingChart } from '#/components/rating-chart'
 import { Avatar, AvatarImage } from '#/components/ui/avatar'
 import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
-import { positionsOf, reviewFor, weakPoints } from '#/lib/analysis'
 import type { GameReview } from '#/lib/analysis'
+import { positionsOf, reviewFor, weakPoints } from '#/lib/analysis'
 import { relativeTime } from '#/lib/format'
 import { useAvatarUrl } from '#/lib/queries'
 import { useEngineAnalysis, useStoredScores } from '#/lib/use-engine-analysis'
 import { cn } from '#/lib/utils'
+import type { PlayerGamesData } from '#/server/queries.server'
 
 /** Games per click: about a minute and a half of engine time. */
 const BATCH = 8
@@ -345,55 +345,55 @@ function GameRow({
 
   return (
     <div className="flex items-center gap-2 rounded-2xl bg-card py-2.5 pl-3 pr-2 shadow-card">
-    <a
-      href={game.chessComUrl}
-      target="_blank"
-      rel="noreferrer noopener"
-      className="flex min-w-0 flex-1 items-center gap-3 transition-opacity hover:opacity-80"
-    >
-      <span
-        className={cn(
-          'numeric grid size-7 shrink-0 place-items-center rounded-full text-[0.7rem] font-bold',
-          game.outcome === 'win' && 'bg-win/15 text-win',
-          game.outcome === 'draw' && 'bg-secondary text-muted-foreground',
-          game.outcome === 'loss' && 'bg-destructive/12 text-destructive',
-        )}
-        title={game.outcome}
+      <a
+        href={game.chessComUrl}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="flex min-w-0 flex-1 items-center gap-3 transition-opacity hover:opacity-80"
       >
-        {game.outcome === 'win' ? 'W' : game.outcome === 'draw' ? '½' : 'L'}
-      </span>
-      <Avatar className="size-8">
-        <AvatarImage src={opponentAvatar} alt="" />
-      </Avatar>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[0.82rem] font-semibold">
-          {game.opponent}
-          {game.opponentRating && (
-            <span className="numeric font-normal text-muted-foreground">
-              {' '}
-              ({game.opponentRating})
-            </span>
-          )}
-        </span>
-        <span className="block truncate text-[0.68rem] text-muted-foreground">
-          {game.opening ?? game.timeClass}
-        </span>
-      </span>
-      <span className="flex shrink-0 flex-col items-end gap-0.5">
         <span
           className={cn(
-            'numeric text-xs font-semibold',
-            accuracy === null ? 'text-muted-foreground/60' : 'text-primary',
+            'numeric grid size-7 shrink-0 place-items-center rounded-full text-[0.7rem] font-bold',
+            game.outcome === 'win' && 'bg-win/15 text-win',
+            game.outcome === 'draw' && 'bg-secondary text-muted-foreground',
+            game.outcome === 'loss' && 'bg-destructive/12 text-destructive',
           )}
+          title={game.outcome}
         >
-          {accuracy === null ? '—' : `${accuracy.toFixed(1)}%`}
+          {game.outcome === 'win' ? 'W' : game.outcome === 'draw' ? '½' : 'L'}
         </span>
-        <span className="flex items-center gap-1 text-[0.62rem] text-muted-foreground">
-          {relativeTime(game.endedAt)}
-          <ExternalLink className="size-3" />
+        <Avatar className="size-8">
+          <AvatarImage src={opponentAvatar} alt="" />
+        </Avatar>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[0.82rem] font-semibold">
+            {game.opponent}
+            {game.opponentRating && (
+              <span className="numeric font-normal text-muted-foreground">
+                {' '}
+                ({game.opponentRating})
+              </span>
+            )}
+          </span>
+          <span className="block truncate text-[0.68rem] text-muted-foreground">
+            {game.opening ?? game.timeClass}
+          </span>
         </span>
-      </span>
-    </a>
+        <span className="flex shrink-0 flex-col items-end gap-0.5">
+          <span
+            className={cn(
+              'numeric text-xs font-semibold',
+              accuracy === null ? 'text-muted-foreground/60' : 'text-primary',
+            )}
+          >
+            {accuracy === null ? '—' : `${accuracy.toFixed(1)}%`}
+          </span>
+          <span className="flex items-center gap-1 text-[0.62rem] text-muted-foreground">
+            {relativeTime(game.endedAt)}
+            <ExternalLink className="size-3" />
+          </span>
+        </span>
+      </a>
       <Button
         asChild
         size="icon-sm"

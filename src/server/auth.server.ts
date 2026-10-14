@@ -64,9 +64,7 @@ export function verifyPassword(password: string, stored: string): boolean {
     return false
   }
 
-  return (
-    actual.length === expected.length && timingSafeEqual(actual, expected)
-  )
+  return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 
 // ---------------------------------------------------------------------------

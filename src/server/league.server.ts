@@ -9,7 +9,6 @@ import {
   lt,
   sql,
 } from 'drizzle-orm'
-import { generateDoubleRoundRobin } from '#/lib/round-robin'
 import { db } from '#/db/client.server'
 import {
   appMeta,
@@ -19,6 +18,7 @@ import {
   seasonStandings,
   seasons,
 } from '#/db/schema'
+import { generateDoubleRoundRobin } from '#/lib/round-robin'
 import {
   CLUB_ID,
   fetchClub,
@@ -685,7 +685,10 @@ export async function setMeta(key: string, value: string) {
  * milliseconds left to wait (0 = claimed). Check and write are one statement,
  * so across every server instance only one concurrent caller wins.
  */
-export async function claimSlot(key: string, windowMs: number): Promise<number> {
+export async function claimSlot(
+  key: string,
+  windowMs: number,
+): Promise<number> {
   const now = new Date()
   const claimed = await db
     .insert(appMeta)
@@ -702,7 +705,9 @@ export async function claimSlot(key: string, windowMs: number): Promise<number> 
     .select({ updatedAt: appMeta.updatedAt })
     .from(appMeta)
     .where(eq(appMeta.key, key))
-  return row ? Math.max(1, row.updatedAt.getTime() + windowMs - now.getTime()) : 1
+  return row
+    ? Math.max(1, row.updatedAt.getTime() + windowMs - now.getTime())
+    : 1
 }
 
 export async function getMeta(key: string): Promise<string | null> {

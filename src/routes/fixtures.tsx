@@ -1,20 +1,11 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
-import { useServerFn } from '@tanstack/react-start'
 import { useMutation, useSuspenseQuery } from '@tanstack/react-query'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
-import { CalendarPlus, Clock, Info, Lock, Shuffle } from '#/components/icons'
 import { toast } from 'sonner'
-
-import {
-  generateFixturesFn,
-  setWalkoverFn,
-  startNewSeasonFn,
-} from '#/server/league.functions'
-import type { FixtureView } from '#/server/queries.server'
 import { FixtureScore, wonFixture } from '#/components/fixture-score'
+import { CalendarPlus, Clock, Info, Lock, Shuffle } from '#/components/icons'
 import { PlayerChip } from '#/components/player-chip'
-import { Button } from '#/components/ui/button'
-import { Card, CardContent } from '#/components/ui/card'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,10 +17,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '#/components/ui/alert-dialog'
+import { Button } from '#/components/ui/button'
+import { Card, CardContent } from '#/components/ui/card'
 import { countdown, formatDate } from '#/lib/format'
 import { fixturesQuery, useRefreshLeague } from '#/lib/queries'
 import { useAdmin } from '#/lib/use-admin'
 import { cn } from '#/lib/utils'
+import {
+  generateFixturesFn,
+  setWalkoverFn,
+  startNewSeasonFn,
+} from '#/server/league.functions'
+import type { FixtureView } from '#/server/queries.server'
 
 export const Route = createFileRoute('/fixtures')({
   loader: ({ context }) => context.queryClient.ensureQueryData(fixturesQuery),

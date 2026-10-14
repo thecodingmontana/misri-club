@@ -1,5 +1,5 @@
-import type { FixtureView } from '#/server/queries.server'
 import { cn } from '#/lib/utils'
+import type { FixtureView } from '#/server/queries.server'
 
 /**
  * The middle of a fixture line: the result once there is one, else its state.
