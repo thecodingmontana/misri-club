@@ -24,6 +24,13 @@ export class Engine {
     this.worker.postMessage('isready')
   }
 
+  /** Stockfish's playing strength, 0 (weakest) to 20 (full), between searches. */
+  setSkill(level: number) {
+    this.chain = this.chain.then(() =>
+      this.worker.postMessage(`setoption name Skill Level value ${level}`),
+    )
+  }
+
   /** Evaluates one position for `movetime` milliseconds. */
   evaluate(fen: string, movetime: number): Promise<Score> {
     const run = this.chain.then(() => this.search(fen, movetime))

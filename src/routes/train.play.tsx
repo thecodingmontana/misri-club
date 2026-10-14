@@ -1,0 +1,229 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { play } from 'cuelume'
+import { useEffect, useMemo, useState } from 'react'
+import { z } from 'zod'
+import { Cpu, RefreshCw } from '#/components/icons'
+import { PlayBoard } from '#/components/play-board'
+import { Button } from '#/components/ui/button'
+import { Engine } from '#/lib/engine'
+import type { Colour, Outcome } from '#/lib/play'
+import { LEVELS, loadGame, outcomeFor, takeBack } from '#/lib/play'
+import { fromUci } from '#/lib/puzzle'
+import { cn } from '#/lib/utils'
+
+export const Route = createFileRoute('/train/play')({
+  component: PlayScreen,
+})
+
+const KEY = 'misri:play:v1'
+
+const saved = z.object({
+  pgn: z.string(),
+  colour: z.enum(['white', 'black']),
+  level: z
+    .number()
+    .int()
+    .min(0)
+    .max(LEVELS.length - 1),
+  /** Results per level, so a player can see how they fare at each. */
+  record: z.record(
+    z.string(),
+    z.object({ win: z.number(), draw: z.number(), loss: z.number() }),
+  ),
+})
+type Saved = z.infer<typeof saved>
+
+const FRESH: Saved = { pgn: '', colour: 'white', level: 1, record: {} }
+
+const SOUND: Record<Outcome, () => void> = {
+  win: () => play('success', { emphasis: 'strong' }),
+  draw: () => play('warning'),
+  loss: () => play('error'),
+}
+
+/** The game with `pgn` applied, its result tallied if that move ended it. */
+function commit(current: Saved, pgn: string): Saved {
+  const result = outcomeFor(loadGame(pgn), current.colour)
+  if (!result) return { ...current, pgn }
+  const label = LEVELS[current.level].label
+  const tally = current.record[label] ?? { win: 0, draw: 0, loss: 0 }
+  return {
+    ...current,
+    pgn,
+    record: {
+      ...current.record,
+      [label]: { ...tally, [result]: tally[result] + 1 },
+    },
+  }
+}
+
+/** The move's sound, or the result's if the move ended the game. */
+function moveSound(pgn: string, colour: Colour, mine: boolean) {
+  const result = outcomeFor(loadGame(pgn), colour)
+  if (result) SOUND[result]()
+  else if (mine) play('tap')
+  else play('select', { emphasis: 'subtle' })
+}
+
+/** A game against Stockfish in this browser, kept across visits. */
+function PlayScreen() {
+  const [game, setGame] = useState<Saved>(FRESH)
+  const [loaded, setLoaded] = useState(false)
+  const [engine, setEngine] = useState<Engine | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    try {
+      const stored = saved.safeParse(
+        JSON.parse(localStorage.getItem(KEY) ?? 'null'),
+      )
+      if (stored.success) setGame(stored.data)
+    } catch {
+      // Unreadable storage: start fresh.
+    }
+    setLoaded(true)
+  }, [])
+
+  useEffect(() => {
+    if (!loaded) return
+    try {
+      localStorage.setItem(KEY, JSON.stringify(game))
+    } catch {
+      // Storage full or blocked: the game still plays.
+    }
+  }, [game, loaded])
+
+  useEffect(() => {
+    const created = new Engine()
+    setEngine(created)
+    return () => created.terminate()
+  }, [])
+
+  const level = LEVELS[game.level]
+  useEffect(() => engine?.setSkill(level.skill), [engine, level])
+
+  const chess = useMemo(() => loadGame(game.pgn), [game.pgn])
+  const outcome = outcomeFor(chess, game.colour)
+  const yourTurn = chess.turn() === game.colour[0]
+  const last = chess.history({ verbose: true }).at(-1)
+  const thinking = loaded && !outcome && !yourTurn && !error
+
+  // Stockfish replies whenever it is its turn, including on a resumed game.
+  useEffect(() => {
+    if (!engine || !loaded || outcome || yourTurn) return
+    const fen = chess.fen()
+    let live = true
+    engine
+      .evaluate(fen, level.ms)
+      .then(({ best }) => {
+        if (!live || !best) return
+        const next = loadGame(chess.pgn())
+        next.move(fromUci(best))
+        moveSound(next.pgn(), game.colour, false)
+        setGame((current) =>
+          current.pgn === chess.pgn() ? commit(current, next.pgn()) : current,
+        )
+      })
+      .catch((failure: Error) => live && setError(failure.message))
+    return () => {
+      live = false
+    }
+  }, [engine, loaded, chess, outcome, yourTurn, level, game.colour])
+
+  const onMove = (from: string, to: string) => {
+    const next = loadGame(game.pgn)
+    try {
+      // shortcut: always promotes to a queen; add a picker if underpromotion matters.
+      next.move({ from, to, promotion: 'q' })
+    } catch {
+      return false
+    }
+    moveSound(next.pgn(), game.colour, true)
+    setGame(commit(game, next.pgn()))
+    return true
+  }
+
+  const newGame = (colour: Colour) => setGame({ ...game, pgn: '', colour })
+
+  const tally = game.record[level.label]
+  const status = outcome
+    ? {
+        win: 'Checkmate. You win!',
+        loss: 'Checkmate. Stockfish wins.',
+        draw: 'Draw.',
+      }[outcome]
+    : thinking
+      ? 'Stockfish is thinking…'
+      : yourTurn
+        ? chess.inCheck()
+          ? 'Your move. You are in check.'
+          : 'Your move.'
+        : ''
+
+  return (
+    <div className="space-y-3">
+      <fieldset className="flex gap-1 rounded-full bg-secondary p-1">
+        <legend className="sr-only">Stockfish strength</legend>
+        {LEVELS.map((option, index) => (
+          <button
+            key={option.label}
+            type="button"
+            aria-pressed={index === game.level}
+            data-cuelume-select=""
+            onClick={() => setGame({ ...game, level: index })}
+            className={cn(
+              'flex-1 rounded-full px-1 py-1.5 text-[0.68rem] font-semibold transition-colors duration-150',
+              index === game.level
+                ? 'bg-background text-foreground shadow-card'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </fieldset>
+
+      <PlayBoard
+        id="play-stockfish"
+        fen={chess.fen()}
+        orientation={game.colour}
+        interactive={loaded && !outcome && yourTurn}
+        onMove={onMove}
+        lastMove={last ? { from: last.from, to: last.to } : null}
+      />
+
+      <p
+        className="flex min-h-6 items-center justify-center gap-1.5 text-sm font-semibold"
+        aria-live="polite"
+      >
+        {thinking && <Cpu className="size-4 animate-pulse text-primary" />}
+        {error ?? status}
+      </p>
+
+      <div className="grid grid-cols-3 gap-2">
+        <Button
+          variant="secondary"
+          disabled={chess.history().length === 0}
+          onClick={() =>
+            setGame({ ...game, pgn: takeBack(game.pgn, game.colour) })
+          }
+        >
+          Take back
+        </Button>
+        <Button variant="secondary" onClick={() => newGame('white')}>
+          <RefreshCw /> White
+        </Button>
+        <Button variant="secondary" onClick={() => newGame('black')}>
+          <RefreshCw /> Black
+        </Button>
+      </div>
+
+      <p className="text-center text-xs text-muted-foreground">
+        Your record vs {level.label}:{' '}
+        <span className="numeric font-semibold text-foreground">
+          {tally?.win ?? 0}W · {tally?.draw ?? 0}D · {tally?.loss ?? 0}L
+        </span>
+      </p>
+    </div>
+  )
+}
