@@ -19,7 +19,18 @@ export class Engine {
   /** One search at a time; UCI has no request ids to match replies to. */
   private chain: Promise<unknown> = Promise.resolve()
 
+  /** Fails the search in flight, if any; set while one runs. */
+  private abort: ((error: Error) => void) | null = null
+
   constructor() {
+    // A worker that cannot load its script or wasm fires this once, often
+    // before any search has started, and then never answers at all.
+    this.worker.addEventListener('error', (event) => {
+      this.failure = new Error(
+        `The chess engine failed to load${event.message ? `: ${event.message}` : '.'}`,
+      )
+      this.abort?.(this.failure)
+    })
     this.worker.postMessage('uci')
     this.worker.postMessage('isready')
   }
@@ -45,17 +56,13 @@ export class Engine {
       if (this.failure) return reject(this.failure)
       let score: Score = { cp: 0 }
 
-      // A worker that cannot load its script or wasm never answers at all.
-      const onError = (event: ErrorEvent) => {
-        this.failure = new Error(
-          `The chess engine failed to load${event.message ? `: ${event.message}` : '.'}`,
-        )
-        cleanup()
-        reject(this.failure)
-      }
       const cleanup = () => {
         this.worker.removeEventListener('message', onMessage)
-        this.worker.removeEventListener('error', onError)
+        this.abort = null
+      }
+      this.abort = (error) => {
+        cleanup()
+        reject(error)
       }
 
       const onMessage = (event: MessageEvent<string>) => {
@@ -78,7 +85,6 @@ export class Engine {
       }
 
       this.worker.addEventListener('message', onMessage)
-      this.worker.addEventListener('error', onError)
       this.worker.postMessage(`position fen ${fen}`)
       this.worker.postMessage(`go movetime ${movetime}`)
     })
