@@ -28,7 +28,6 @@ import {
 import { KNOWN_MEMBERS } from './club-roster'
 import { fitsFixture, tallyStandings } from './standings'
 
-export const DEFAULT_MATCHDAY_DAYS = 2
 const DAY_MS = 24 * 60 * 60 * 1000
 
 // ---------------------------------------------------------------------------

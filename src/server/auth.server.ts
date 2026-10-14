@@ -1,4 +1,4 @@
-import { createHash, scryptSync, timingSafeEqual } from 'node:crypto'
+import { createHash } from 'node:crypto'
 import {
   deleteCookie,
   getCookie,
@@ -8,7 +8,7 @@ import {
 import { eq, sql } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import { appMeta } from '#/db/schema'
-import { openSession, sealSession } from './session'
+import { openSession, sealSession, verifyPassword } from './session'
 
 /**
  * Admin authentication: a single shared passphrase, verified against a scrypt
@@ -41,36 +41,6 @@ export class UnauthorizedError extends Error {
     super(message)
     this.name = 'UnauthorizedError'
   }
-}
-
-// ---------------------------------------------------------------------------
-// Password hashing
-// ---------------------------------------------------------------------------
-
-/**
- * Checks `password` against a `scrypt$N$r$p$saltHex$keyHex` hash, as printed by
- * `scripts/set-admin-password.mjs`; the parameters travel with the hash.
- */
-export function verifyPassword(password: string, stored: string): boolean {
-  const parts = stored.split('$')
-  if (parts.length !== 6 || parts[0] !== 'scrypt') return false
-
-  const [, N, r, p, saltHex, keyHex] = parts
-  const expected = Buffer.from(keyHex, 'hex')
-
-  let actual: Buffer
-  try {
-    actual = scryptSync(
-      password.normalize('NFKC'),
-      Buffer.from(saltHex, 'hex'),
-      expected.length,
-      { N: Number(N), r: Number(r), p: Number(p) },
-    )
-  } catch {
-    return false
-  }
-
-  return actual.length === expected.length && timingSafeEqual(actual, expected)
 }
 
 // ---------------------------------------------------------------------------

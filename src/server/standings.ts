@@ -36,6 +36,52 @@ export function fitsFixture(
   )
 }
 
+export type Outcome = 'win' | 'draw' | 'loss' | 'forfeit'
+
+const COUNTER = {
+  win: 'wins',
+  draw: 'draws',
+  loss: 'losses',
+  forfeit: 'forfeits',
+} as const
+
+/**
+ * What one fixture means for one of its players, or null while it means
+ * nothing yet. The standings and the leaderboard grid both read this, so the
+ * points and the cells cannot disagree.
+ */
+export function fixtureOutcome(
+  fixture: Pick<
+    Fixture,
+    'homePlayerId' | 'awayPlayerId' | 'dueAt' | 'walkoverWinnerId'
+  >,
+  game: { whitePlayerId: number | null; result: Game['result'] } | null,
+  playerId: number,
+  active: Set<number>,
+  now: Date,
+): Outcome | null {
+  if (!fixture.homePlayerId || !fixture.awayPlayerId) return null
+
+  if (game) {
+    if (game.result === 'draw') return 'draw'
+    return (game.result === 'white') === (game.whitePlayerId === playerId)
+      ? 'win'
+      : 'loss'
+  }
+
+  if (fixture.walkoverWinnerId) {
+    return fixture.walkoverWinnerId === playerId ? 'win' : 'forfeit'
+  }
+
+  // Still open, or not yet started — no consequence until the window shuts.
+  if (fixture.dueAt > now) return null
+  // Someone who left the club can't play; their opponent isn't to blame.
+  if (!active.has(fixture.homePlayerId) || !active.has(fixture.awayPlayerId)) {
+    return null
+  }
+  return 'forfeit'
+}
+
 /** Pure: the standings a season's fixtures and linked games add up to. */
 export function tallyStandings(
   fixtures: Array<
@@ -66,58 +112,15 @@ export function tallyStandings(
 
   for (const fixture of fixtures) {
     if (!fixture.homePlayerId || !fixture.awayPlayerId) continue
+    const game = gameByFixture.get(fixture.id) ?? null
 
-    const home = row(fixture.homePlayerId)
-    const away = row(fixture.awayPlayerId)
-    const game = gameByFixture.get(fixture.id)
-
-    if (!game && fixture.walkoverWinnerId) {
-      const [winner, loser] =
-        fixture.walkoverWinnerId === fixture.homePlayerId
-          ? [home, away]
-          : [away, home]
-      winner.wins++
-      winner.points += POINTS.win
-      loser.forfeits++
-      loser.points += POINTS.forfeit
-      continue
+    for (const playerId of [fixture.homePlayerId, fixture.awayPlayerId]) {
+      const entry = row(playerId)
+      const outcome = fixtureOutcome(fixture, game, playerId, active, now)
+      if (!outcome) continue
+      entry[COUNTER[outcome]]++
+      entry.points += POINTS[outcome]
     }
-
-    if (!game) {
-      // Still open, or not yet started — no consequence until the window shuts.
-      if (fixture.dueAt > now) continue
-      // Someone who left the club can't play; their opponent isn't to blame.
-      if (
-        !active.has(fixture.homePlayerId) ||
-        !active.has(fixture.awayPlayerId)
-      ) {
-        continue
-      }
-
-      home.forfeits++
-      away.forfeits++
-      home.points += POINTS.forfeit
-      away.points += POINTS.forfeit
-      continue
-    }
-
-    const white = game.whitePlayerId === fixture.homePlayerId ? home : away
-    const black = white === home ? away : home
-
-    if (game.result === 'draw') {
-      white.draws++
-      black.draws++
-      white.points += POINTS.draw
-      black.points += POINTS.draw
-      continue
-    }
-
-    const [winner, loser] =
-      game.result === 'white' ? [white, black] : [black, white]
-    winner.wins++
-    winner.points += POINTS.win
-    loser.losses++
-    loser.points += POINTS.loss
   }
 
   return tally

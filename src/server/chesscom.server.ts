@@ -231,13 +231,44 @@ export interface PlayerRating {
   timeClass: 'rapid' | 'blitz' | 'bullet' | 'daily' | null
 }
 
+const RATING_TTL_MS = 5 * 60_000
+
+// shortcut: per-instance cache, so each server instance asks chess.com at most
+// once per member per 5 minutes; move it to app_meta if instances multiply.
+const ratingCache = new Map<
+  string,
+  { at: number; rating: Promise<Omit<PlayerRating, 'username'>> }
+>()
+
 /**
- * Display rating: rapid first (the club's default cadence), then blitz, bullet
- * and daily as fallbacks so a player who only plays one format still shows one.
+ * Display rating, cached: the endpoint behind it is public, and without the
+ * cache every page view (or a script in a loop) became a chess.com request per
+ * member, sent under our User-Agent — the same one the sync depends on.
  */
 export async function fetchPlayerRating(
   username: string,
 ): Promise<PlayerRating> {
+  const key = username.toLowerCase()
+  let hit = ratingCache.get(key)
+  if (!hit || Date.now() - hit.at >= RATING_TTL_MS) {
+    const entry = { at: Date.now(), rating: lookupRating(username) }
+    ratingCache.set(key, entry)
+    // A failed lookup is not remembered; the next caller tries again.
+    entry.rating.catch(() => {
+      if (ratingCache.get(key) === entry) ratingCache.delete(key)
+    })
+    hit = entry
+  }
+  return { username, ...(await hit.rating) }
+}
+
+/**
+ * Rapid first (the club's default cadence), then blitz, bullet and daily as
+ * fallbacks so a player who only plays one format still shows one.
+ */
+async function lookupRating(
+  username: string,
+): Promise<Omit<PlayerRating, 'username'>> {
   const stats = await apiGet<PlayerStatsResponse>(
     `/player/${encodeURIComponent(username)}/stats`,
   )
@@ -251,11 +282,11 @@ export async function fetchPlayerRating(
 
   for (const [timeClass, bucket] of buckets) {
     if (bucket?.last?.rating) {
-      return { username, rating: bucket.last.rating, timeClass }
+      return { rating: bucket.last.rating, timeClass }
     }
   }
 
-  return { username, rating: null, timeClass: null }
+  return { rating: null, timeClass: null }
 }
 
 /** Monthly archive URLs, oldest first. */

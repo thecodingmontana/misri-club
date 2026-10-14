@@ -37,7 +37,8 @@ pnpm dev              # http://localhost:3005
 ## How it works
 
 - **Sync** (`src/server/sync.server.ts`): open pages ask the server every few
-  minutes; at most one sync runs per 10 minutes across all instances. It reads
+  minutes and sync at most once per 10 minutes across all instances; the Sync
+  button can sync once a minute. It reads
   each active member's last two monthly archives, stores league games, links
   them to fixtures, and rebuilds standings.
 - **Roster**: the club is private, so chess.com won't list its members. The

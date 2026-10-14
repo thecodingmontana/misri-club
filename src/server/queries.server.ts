@@ -12,7 +12,6 @@ import {
 import { matchdayCount } from '#/lib/round-robin'
 import { CLUB_ID, clubUrl } from './chesscom.server'
 import {
-  DEFAULT_MATCHDAY_DAYS,
   getManyMeta,
   getOrCreateCurrentSeason,
   isSeasonLocked,
@@ -20,6 +19,7 @@ import {
   recomputeStandingsIfStale,
   unscheduledPlayers,
 } from './league.server'
+import { fixtureOutcome, type Outcome } from './standings'
 
 /**
  * Runs a page's queries one after another, and takes thunks rather than
@@ -63,7 +63,7 @@ export type FixtureStatus =
   | 'walkover'
   | 'expired'
   | 'bye'
-export type Outcome = 'win' | 'draw' | 'loss' | 'forfeit'
+export type { Outcome } from './standings'
 
 export interface GameRow {
   id: number
@@ -288,8 +288,6 @@ export async function getLeaderboard() {
     (a, b) => a - b,
   )
 
-  // Same rule as `tallyStandings`: an expired fixture against someone who left
-  // the club costs nobody, so it must not show as a forfeit either.
   const activeIds = new Set(roster.filter((p) => p.active).map((p) => p.id))
 
   const standings: Array<StandingRow> = standingRows.map((row) => {
@@ -304,25 +302,22 @@ export async function getLeaderboard() {
 
       if (!fixture) return { matchday, outcome: null, status: 'bye' as const }
 
+      const outcome = fixtureOutcome(
+        {
+          homePlayerId: fixture.homeId,
+          awayPlayerId: fixture.awayId,
+          dueAt: fixture.dueAt,
+          walkoverWinnerId: fixture.walkoverWinnerId,
+        },
+        fixture.gameResult && {
+          whitePlayerId: fixture.gameWhiteId,
+          result: fixture.gameResult,
+        },
+        row.playerId,
+        activeIds,
+        now,
+      )
       const status = statusOf(fixture, now)
-      let outcome: Outcome | null = null
-
-      if (status === 'played' && fixture.gameResult) {
-        if (fixture.gameResult === 'draw') outcome = 'draw'
-        else {
-          const playedWhite = fixture.gameWhiteId === row.playerId
-          outcome =
-            (fixture.gameResult === 'white') === playedWhite ? 'win' : 'loss'
-        }
-      } else if (status === 'walkover') {
-        outcome = fixture.walkoverWinnerId === row.playerId ? 'win' : 'forfeit'
-      } else if (
-        status === 'expired' &&
-        activeIds.has(fixture.homeId ?? -1) &&
-        activeIds.has(fixture.awayId ?? -1)
-      ) {
-        outcome = 'forfeit'
-      }
 
       return { matchday, outcome, status }
     })
@@ -446,9 +441,7 @@ export async function getFixtures() {
     fixtures: list,
     unscheduled: unscheduled.map((p) => p.username),
     projectedMatchdays: matchdayCount(activeCount),
-    projectedDays:
-      matchdayCount(activeCount) *
-      (season.matchdayDays || DEFAULT_MATCHDAY_DAYS),
+    projectedDays: matchdayCount(activeCount) * season.matchdayDays,
     activePlayers: activeCount,
     now: now.getTime(),
   }

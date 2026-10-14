@@ -1,15 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import {
-  createColumnHelper,
-  createSortedRowModel,
-  rowSortingFeature,
-  sortFn_alphanumeric,
-  sortFn_basic,
-  tableFeatures,
-  useTable,
-} from '@tanstack/react-table'
-import { useMemo } from 'react'
+import { type ReactNode, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, ChevronsUpDown } from '#/components/icons'
 import { PlayerLink } from '#/components/player-link'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
@@ -39,19 +30,72 @@ export const Route = createFileRoute('/all-time')({
   component: AllTimePage,
 })
 
-/**
- * Only the sorting feature is registered — v9 has no global feature set, so a
- * table gets exactly the machinery it uses and nothing more.
- */
-const features = tableFeatures({
-  rowSortingFeature,
-  sortedRowModel: createSortedRowModel(),
-  sortFns: { alphanumeric: sortFn_alphanumeric, basic: sortFn_basic },
-})
+interface Column {
+  id: string
+  header: string
+  /** What the column sorts by; absent when it does not sort. */
+  value?: (row: AllTimeRow) => string | number | null
+  cell: (row: AllTimeRow) => ReactNode
+  numeric?: boolean
+  emphasis?: boolean
+  season?: boolean
+}
 
-const helper = createColumnHelper<typeof features, AllTimeRow>()
-
-const EMPTY_ROWS: Array<AllTimeRow> = []
+function columnsFor(seasons: AllTimeData['seasons']): Array<Column> {
+  return [
+    {
+      id: 'username',
+      header: 'Player',
+      value: (row) => row.username,
+      cell: (row) => <PlayerLink username={row.username} />,
+    },
+    {
+      id: 'points',
+      header: 'Pts',
+      value: (row) => row.points,
+      cell: (row) => row.points,
+      numeric: true,
+      emphasis: true,
+    },
+    {
+      id: 'played',
+      header: 'P',
+      value: (row) => row.played,
+      cell: (row) => row.played,
+      numeric: true,
+    },
+    {
+      id: 'record',
+      header: 'W–D–L',
+      cell: (row) => record(row.wins, row.draws, row.losses),
+      numeric: true,
+    },
+    {
+      id: 'winRate',
+      header: 'Score %',
+      value: (row) => (row.wins + row.draws / 2) / (row.played || 1),
+      cell: (row) => winRate(row.wins, row.draws, row.losses),
+      numeric: true,
+    },
+    {
+      id: 'seasonsPlayed',
+      header: 'Seasons',
+      value: (row) => row.seasonsPlayed,
+      cell: (row) => row.seasonsPlayed,
+      numeric: true,
+    },
+    // One column per season — the breakdown grows with the club's history
+    // rather than being fixed at build time.
+    ...seasons.map((season) => ({
+      id: `season-${season.id}`,
+      header: season.label,
+      value: (row: AllTimeRow) => row.perSeason[season.id]?.points ?? null,
+      cell: (row: AllTimeRow) => row.perSeason[season.id]?.points ?? '—',
+      numeric: true,
+      season: true,
+    })),
+  ]
+}
 
 function AllTimePage() {
   const { data } = useSuspenseQuery(allTimeQuery)
@@ -78,78 +122,29 @@ function AllTimePage() {
 type Data = AllTimeData
 
 function AllTimeTable({ data }: { data: Data }) {
-  const columns = useMemo(
-    () =>
-      helper.columns([
-        helper.accessor('username', {
-          header: 'Player',
-          sortFn: 'alphanumeric',
-          cell: (ctx) => <PlayerLink username={ctx.getValue()} />,
-        }),
-        helper.accessor('points', {
-          header: 'Pts',
-          sortFn: 'basic',
-          sortDescFirst: true,
-          meta: { numeric: true, emphasis: true },
-        }),
-        helper.accessor('played', {
-          header: 'P',
-          sortFn: 'basic',
-          sortDescFirst: true,
-          meta: { numeric: true },
-        }),
-        helper.accessor((row) => record(row.wins, row.draws, row.losses), {
-          id: 'record',
-          header: 'W–D–L',
-          enableSorting: false,
-          meta: { numeric: true },
-        }),
-        helper.accessor(
-          (row) => (row.wins + row.draws / 2) / (row.played || 1),
-          {
-            id: 'winRate',
-            header: 'Score %',
-            sortFn: 'basic',
-            sortDescFirst: true,
-            cell: (ctx) =>
-              winRate(
-                ctx.row.original.wins,
-                ctx.row.original.draws,
-                ctx.row.original.losses,
-              ),
-            meta: { numeric: true },
-          },
-        ),
-        helper.accessor('seasonsPlayed', {
-          header: 'Seasons',
-          sortFn: 'basic',
-          sortDescFirst: true,
-          meta: { numeric: true },
-        }),
-        // One column per season — the breakdown grows with the club's history
-        // rather than being fixed at build time.
-        ...data.seasons.map((season) =>
-          helper.accessor((row) => row.perSeason[season.id]?.points ?? null, {
-            id: `season-${season.id}`,
-            header: season.label,
-            sortFn: 'basic',
-            sortDescFirst: true,
-            sortUndefined: 'last',
-            cell: (ctx) => ctx.getValue() ?? '—',
-            meta: { numeric: true, season: true },
-          }),
-        ),
-      ]),
-    [data.seasons],
-  )
+  const columns = useMemo(() => columnsFor(data.seasons), [data.seasons])
+  const [sort, setSort] = useState({ id: 'points', desc: true })
 
-  const table = useTable({
-    features,
-    columns,
-    data: data.rows.length > 0 ? data.rows : EMPTY_ROWS,
-    initialState: { sorting: [{ id: 'points', desc: true }] },
-    enableSortingRemoval: false,
-  })
+  const rows = useMemo(() => {
+    const value = columns.find((column) => column.id === sort.id)?.value
+    if (!value) return data.rows
+    return [...data.rows].sort((a, b) => {
+      const x = value(a)
+      const y = value(b)
+      // Seasons someone missed sort last, whichever way the column runs.
+      if (x === null || y === null) return x === y ? 0 : x === null ? 1 : -1
+      const order = x < y ? -1 : x > y ? 1 : 0
+      return sort.desc ? -order : order
+    })
+  }, [columns, data.rows, sort])
+
+  // Numbers start high-to-low; names start A–Z.
+  const toggle = (id: string) =>
+    setSort((current) =>
+      current.id === id
+        ? { id, desc: !current.desc }
+        : { id, desc: id !== 'username' },
+    )
 
   return (
     <Card className="rise-in">
@@ -166,82 +161,67 @@ function AllTimeTable({ data }: { data: Data }) {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                {table.getHeaderGroups().map((group) => (
-                  <TableRow key={group.id} className="hover:bg-transparent">
-                    <TableHead className="w-12 pl-6">#</TableHead>
-                    {group.headers.map((header) => {
-                      const meta = header.column.columnDef.meta as
-                        | { numeric?: boolean; season?: boolean }
-                        | undefined
-                      const sorted = header.column.getIsSorted()
-                      const canSort = header.column.getCanSort()
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-12 pl-6">#</TableHead>
+                  {columns.map((column) => {
+                    const sorted =
+                      sort.id === column.id && (sort.desc ? 'desc' : 'asc')
 
-                      return (
-                        <TableHead
-                          key={header.id}
-                          className={cn(
-                            meta?.numeric && 'text-right',
-                            meta?.season && 'text-muted-foreground',
-                          )}
-                        >
-                          {header.isPlaceholder ? null : canSort ? (
-                            <button
-                              data-cuelume-select=""
-                              type="button"
-                              onClick={header.column.getToggleSortingHandler()}
-                              className={cn(
-                                'inline-flex items-center gap-1 rounded transition-colors hover:text-primary',
-                                meta?.numeric && 'flex-row-reverse',
-                                sorted && 'text-primary',
-                              )}
-                            >
-                              <table.FlexRender header={header} />
-                              {sorted === 'asc' ? (
-                                <ArrowUp className="size-3" />
-                              ) : sorted === 'desc' ? (
-                                <ArrowDown className="size-3" />
-                              ) : (
-                                <ChevronsUpDown className="size-3 opacity-40" />
-                              )}
-                            </button>
-                          ) : (
-                            <table.FlexRender header={header} />
-                          )}
-                        </TableHead>
-                      )
-                    })}
-                  </TableRow>
-                ))}
+                    return (
+                      <TableHead
+                        key={column.id}
+                        className={cn(
+                          column.numeric && 'text-right',
+                          column.season && 'text-muted-foreground',
+                        )}
+                      >
+                        {column.value ? (
+                          <button
+                            data-cuelume-select=""
+                            type="button"
+                            onClick={() => toggle(column.id)}
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded transition-colors hover:text-primary',
+                              column.numeric && 'flex-row-reverse',
+                              sorted && 'text-primary',
+                            )}
+                          >
+                            {column.header}
+                            {sorted === 'asc' ? (
+                              <ArrowUp className="size-3" />
+                            ) : sorted === 'desc' ? (
+                              <ArrowDown className="size-3" />
+                            ) : (
+                              <ChevronsUpDown className="size-3 opacity-40" />
+                            )}
+                          </button>
+                        ) : (
+                          column.header
+                        )}
+                      </TableHead>
+                    )
+                  })}
+                </TableRow>
               </TableHeader>
               <TableBody>
-                {table.getRowModel().rows.map((row, index) => (
-                  <TableRow key={row.id}>
+                {rows.map((row, index) => (
+                  <TableRow key={row.playerId}>
                     <TableCell className="numeric pl-6 text-muted-foreground">
                       {index + 1}
                     </TableCell>
-                    {row.getAllCells().map((cell) => {
-                      const meta = cell.column.columnDef.meta as
-                        | {
-                            numeric?: boolean
-                            emphasis?: boolean
-                            season?: boolean
-                          }
-                        | undefined
-
-                      return (
-                        <TableCell
-                          key={cell.id}
-                          className={cn(
-                            meta?.numeric && 'numeric text-right',
-                            meta?.emphasis &&
-                              'text-base font-semibold text-primary',
-                            meta?.season && 'text-muted-foreground',
-                          )}
-                        >
-                          <table.FlexRender cell={cell} />
-                        </TableCell>
-                      )
-                    })}
+                    {columns.map((column) => (
+                      <TableCell
+                        key={column.id}
+                        className={cn(
+                          column.numeric && 'numeric text-right',
+                          column.emphasis &&
+                            'text-base font-semibold text-primary',
+                          column.season && 'text-muted-foreground',
+                        )}
+                      >
+                        {column.cell(row)}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))}
               </TableBody>
