@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { Chess } from 'chess.js'
 import { play } from 'cuelume'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   CheckCircle,
   ExternalLink,
@@ -14,8 +14,7 @@ import { PlayBoard } from '#/components/play-board'
 import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
 import { Skeleton } from '#/components/ui/skeleton'
-import type { LichessPuzzle } from '#/lib/puzzle'
-import { fetchPuzzle, fromUci, judgeMove, puzzleStart } from '#/lib/puzzle'
+import { fetchPuzzle, fromUci, judgeMove } from '#/lib/puzzle'
 
 export const Route = createFileRoute('/train/')({
   component: PuzzlesScreen,
@@ -61,6 +60,7 @@ function PuzzlesScreen() {
 }
 
 type Status = 'solving' | 'wrong' | 'solved' | 'revealed'
+type Puzzle = Awaited<ReturnType<typeof fetchPuzzle>>
 
 function Puzzle({
   data,
@@ -68,21 +68,13 @@ function Puzzle({
   onSolved,
   onNext,
 }: {
-  data: LichessPuzzle
+  data: Puzzle
   solvedCount: number
   onSolved: () => void
   onNext: () => void
 }) {
   const { solution } = data.puzzle
-  const [start] = useState(() => {
-    const chess = puzzleStart(data.game.pgn)
-    const last = chess.history({ verbose: true }).at(-1)
-    return {
-      fen: chess.fen(),
-      colour: chess.turn() === 'w' ? ('white' as const) : ('black' as const),
-      lastMove: last ? { from: last.from, to: last.to } : null,
-    }
-  })
+  const { start } = data
   const [fen, setFen] = useState(start.fen)
   const [lastMove, setLastMove] = useState<{
     from: string
@@ -91,6 +83,13 @@ function Puzzle({
   const [step, setStep] = useState(0)
   const [status, setStatus] = useState<Status>('solving')
   const [hint, setHint] = useState(false)
+
+  // Replies and the solution play out on timers; none may outlive the puzzle.
+  const timers = useRef<Array<ReturnType<typeof setTimeout>>>([])
+  useEffect(() => () => timers.current.forEach(clearTimeout), [])
+  const later = (run: () => void, ms: number) => {
+    timers.current.push(setTimeout(run, ms))
+  }
 
   const playersTurn = new Chess(fen).turn() === start.colour[0]
   const finished = status === 'solved' || status === 'revealed'
@@ -126,7 +125,7 @@ function Puzzle({
     const reply = verdict.reply
     setStatus('solving')
     // A beat before the opponent answers, so both moves are seen.
-    setTimeout(() => {
+    later(() => {
       applyUci(verdict.fen, reply)
       setStep(step + 2)
       play('select', { emphasis: 'subtle' })
@@ -139,7 +138,7 @@ function Puzzle({
     setHint(false)
     let position = fen
     solution.slice(step).forEach((uci, index) => {
-      setTimeout(
+      later(
         () => {
           position = applyUci(position, uci)
           play('select', { emphasis: 'subtle' })
