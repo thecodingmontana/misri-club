@@ -6,6 +6,12 @@ import { toast } from 'sonner'
 import { CalendarPlus, Clock, Info, Lock, Shuffle } from '#/components/icons'
 import { FixtureCard } from '#/components/match-card'
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '#/components/ui/accordion'
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -53,7 +59,12 @@ function FixturesScreen() {
   const data = useFixtures()
   const [filter, setFilter] = useState<Filter>('all')
 
-  const matchdays = groupByMatchday(data.fixtures).filter((group) => {
+  const all = groupByMatchday(data.fixtures)
+  // The matchday in play starts open: the live one, else the next, else the last.
+  const focus =
+    all.find((group) => data.now < group.fixtures[0].dueAt) ?? all.at(-1)
+
+  const matchdays = all.filter((group) => {
     if (filter === 'all') return true
     if (filter === 'finished') {
       return group.fixtures.some(
@@ -89,11 +100,14 @@ function FixturesScreen() {
       ) : (
         <>
           <Tabs filter={filter} onChange={setFilter} />
-          <div className="space-y-6">
+          <Accordion
+            type="multiple"
+            defaultValue={focus ? [`md-${focus.matchday}`] : []}
+          >
             {matchdays.map((group) => (
               <MatchdayCard key={group.matchday} group={group} now={data.now} />
             ))}
-          </div>
+          </Accordion>
         </>
       )}
     </div>
@@ -298,17 +312,17 @@ function MatchdayCard({
   const done = now >= window.dueAt
 
   return (
-    <section>
-      <div className="mb-2 flex items-center justify-between gap-2 px-1">
-        <h3
+    <AccordionItem value={`md-${group.matchday}`} className="border-border/50">
+      <AccordionTrigger className="gap-2 px-1 py-3 hover:no-underline">
+        <span
           className={cn(
             'kicker text-[0.7rem]',
             live ? 'text-primary' : 'text-foreground',
           )}
         >
           Matchday {group.matchday}
-        </h3>
-        <span className="numeric flex items-center gap-2 text-[0.65rem] text-muted-foreground">
+        </span>
+        <span className="numeric ml-auto flex items-center gap-2 text-[0.65rem] text-muted-foreground">
           <span>
             {played}/{playable.length}
           </span>
@@ -326,14 +340,14 @@ function MatchdayCard({
                 : `opens ${formatDate(window.opensAt)}`}
           </span>
         </span>
-      </div>
+      </AccordionTrigger>
 
-      <div className="space-y-2">
+      <AccordionContent className="space-y-2 pb-4">
         {group.fixtures.map((fixture) => (
           <FixtureLine key={fixture.id} fixture={fixture} now={now} />
         ))}
-      </div>
-    </section>
+      </AccordionContent>
+    </AccordionItem>
   )
 }
 
