@@ -18,7 +18,10 @@ export function FixtureScore({ fixture }: { fixture: FixtureView }) {
         target="_blank"
         rel="noreferrer noopener"
         title="Open the game on chess.com"
-        className={cn(pill, 'bg-primary/12 text-foreground hover:bg-primary/20')}
+        className={cn(
+          pill,
+          'bg-primary/12 text-foreground hover:bg-primary/20',
+        )}
       >
         {game.result === 'draw' ? '½–½' : game.homeWon ? '1–0' : '0–1'}
       </a>
