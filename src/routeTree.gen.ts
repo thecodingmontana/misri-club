@@ -19,6 +19,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TableRouteImport } from './routes/table'
 import { Route as PlayersUsernameRouteImport } from './routes/players.$username'
 import { Route as TrainIndexRouteImport } from './routes/train.index'
+import { Route as TrainBrilliantRouteImport } from './routes/train.brilliant'
 import { Route as TrainPlayRouteImport } from './routes/train.play'
 import { Route as TrainPuzzlesRouteImport } from './routes/train.puzzles'
 import { Route as PlayersUsernameLessonRouteImport } from './routes/players.$username_.lesson'
@@ -77,6 +78,11 @@ const TrainIndexRoute = TrainIndexRouteImport.update({
   path: '/train/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrainBrilliantRoute = TrainBrilliantRouteImport.update({
+  id: '/train/brilliant',
+  path: '/train/brilliant',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TrainPlayRoute = TrainPlayRouteImport.update({
   id: '/train/play',
   path: '/train/play',
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/table': typeof TableRoute
   '/players/$username': typeof PlayersUsernameRoute
+  '/train/brilliant': typeof TrainBrilliantRoute
   '/train/play': typeof TrainPlayRoute
   '/train/puzzles': typeof TrainPuzzlesRoute
   '/train/': typeof TrainIndexRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/table': typeof TableRoute
   '/players/$username': typeof PlayersUsernameRoute
+  '/train/brilliant': typeof TrainBrilliantRoute
   '/train/play': typeof TrainPlayRoute
   '/train/puzzles': typeof TrainPuzzlesRoute
   '/train': typeof TrainIndexRoute
@@ -162,6 +170,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/table': typeof TableRoute
   '/players/$username': typeof PlayersUsernameRoute
+  '/train/brilliant': typeof TrainBrilliantRoute
   '/train/play': typeof TrainPlayRoute
   '/train/puzzles': typeof TrainPuzzlesRoute
   '/train/': typeof TrainIndexRoute
@@ -183,6 +192,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/table'
     | '/players/$username'
+    | '/train/brilliant'
     | '/train/play'
     | '/train/puzzles'
     | '/train/'
@@ -202,6 +212,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/table'
     | '/players/$username'
+    | '/train/brilliant'
     | '/train/play'
     | '/train/puzzles'
     | '/train'
@@ -221,6 +232,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/table'
     | '/players/$username'
+    | '/train/brilliant'
     | '/train/play'
     | '/train/puzzles'
     | '/train/'
@@ -241,6 +253,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TableRoute: typeof TableRoute
   PlayersUsernameRoute: typeof PlayersUsernameRoute
+  TrainBrilliantRoute: typeof TrainBrilliantRoute
   TrainPlayRoute: typeof TrainPlayRoute
   TrainPuzzlesRoute: typeof TrainPuzzlesRoute
   TrainIndexRoute: typeof TrainIndexRoute
@@ -323,6 +336,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/train/brilliant': {
+      id: '/train/brilliant'
+      path: '/train/brilliant'
+      fullPath: '/train/brilliant'
+      preLoaderRoute: typeof TrainBrilliantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/train/play': {
       id: '/train/play'
       path: '/train/play'
@@ -385,6 +405,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TableRoute: TableRoute,
   PlayersUsernameRoute: PlayersUsernameRoute,
+  TrainBrilliantRoute: TrainBrilliantRoute,
   TrainPlayRoute: TrainPlayRoute,
   TrainPuzzlesRoute: TrainPuzzlesRoute,
   TrainIndexRoute: TrainIndexRoute,
@@ -397,12 +418,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

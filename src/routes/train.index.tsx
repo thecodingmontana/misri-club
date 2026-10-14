@@ -1,5 +1,12 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Book, ChevronRight, Cpu, Lightbulb, Trophy } from '#/components/icons'
+import {
+  Book,
+  ChevronRight,
+  Cpu,
+  Fire,
+  Lightbulb,
+  Trophy,
+} from '#/components/icons'
 import { seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/train/')({
@@ -19,6 +26,13 @@ const MODES = [
     icon: Lightbulb,
     title: 'Puzzles',
     description: 'Endless tactics from Lichess. Find the best move.',
+  },
+  {
+    to: '/train/brilliant',
+    icon: Fire,
+    title: 'Brilliant moves',
+    description:
+      'How to spot sacrifices and killer moves, with master examples.',
   },
   {
     to: '/train/play',

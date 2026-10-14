@@ -14,6 +14,7 @@ const PAGES = [
   '/train/puzzles',
   '/train/play',
   '/train/masters',
+  '/train/brilliant',
   '/train/openings',
   ...OPENINGS.map((course) => `/train/openings/${course.slug}`),
   ...MASTER_GAMES.map((game) => `/train/masters/${game.slug}`),

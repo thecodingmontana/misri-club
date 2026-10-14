@@ -3,6 +3,7 @@ import { Chess } from 'chess.js'
 import { play } from 'cuelume'
 import { useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, ReferenceLine, XAxis, YAxis } from 'recharts'
+import { z } from 'zod'
 import {
   ChevronLeft,
   ChevronRight,
@@ -26,6 +27,10 @@ import { useEngineAnalysis, useStoredScores } from '#/lib/use-engine-analysis'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/train/masters/$slug')({
+  // `?ply=36` opens the game at that move, e.g. from the brilliant-moves lesson.
+  validateSearch: z.object({
+    ply: z.number().int().min(0).optional().catch(undefined),
+  }),
   loader: ({ params }) => {
     const game = masterGame(params.slug)
     if (!game) throw notFound()
@@ -47,7 +52,8 @@ const AUTOPLAY_MS = 1200
 function MasterGameScreen() {
   const game = Route.useLoaderData()
   // A fresh replay per game, so moving between games never mixes state.
-  return <Replay key={game.slug} game={game} />
+  const { ply } = Route.useSearch()
+  return <Replay key={game.slug} game={game} startAt={ply ?? 0} />
 }
 
 interface Guessing {
@@ -58,7 +64,7 @@ interface Guessing {
   last: { right: boolean; san: string } | null
 }
 
-function Replay({ game }: { game: MasterGame }) {
+function Replay({ game, startAt }: { game: MasterGame; startAt: number }) {
   const moves = useMemo(() => {
     const chess = new Chess()
     chess.loadPgn(game.moves)
@@ -69,7 +75,7 @@ function Replay({ game }: { game: MasterGame }) {
     [game],
   )
 
-  const [ply, setPly] = useState(0)
+  const [ply, setPly] = useState(() => Math.min(startAt, moves.length))
   const [playing, setPlaying] = useState(false)
   const [guess, setGuess] = useState<Guessing | null>(null)
   const last = ply === moves.length
