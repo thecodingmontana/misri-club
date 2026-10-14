@@ -161,6 +161,8 @@ async function checkRateLimit(key: string) {
   }
 }
 
+// shortcut: rows for addresses that never sign in successfully are never
+// deleted; prune 'login:%' rows older than the window if app_meta ever grows.
 async function clearRateLimit(key: string) {
   await db.delete(appMeta).where(eq(appMeta.key, key))
 }

@@ -39,17 +39,6 @@ async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
 
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms))
 
-export class ChessComError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly url: string,
-  ) {
-    super(message)
-    this.name = 'ChessComError'
-  }
-}
-
 /**
  * GET a chess.com endpoint. Returns `null` on 404 (missing player/archive) so
  * callers can treat "doesn't exist" as data rather than as an error. Retries
@@ -69,11 +58,7 @@ async function apiGet<T>(path: string, retries = 3): Promise<T | null> {
 
       const retryable = res.status === 429 || res.status >= 500
       if (!retryable || attempt >= retries) {
-        throw new ChessComError(
-          `chess.com responded ${res.status} for ${url}`,
-          res.status,
-          url,
-        )
+        throw new Error(`chess.com responded ${res.status} for ${url}`)
       }
 
       const retryAfter = Number(res.headers.get('retry-after'))

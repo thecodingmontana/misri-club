@@ -372,15 +372,6 @@ export async function isSeasonLocked(seasonId: number): Promise<boolean> {
   return row?.locked ?? false
 }
 
-export class SeasonLockedError extends Error {
-  constructor() {
-    super(
-      'Fixtures are locked for this season — a scheduled game has already been played.',
-    )
-    this.name = 'SeasonLockedError'
-  }
-}
-
 export interface GenerateFixturesResult {
   seasonId: number
   matchdays: number
@@ -402,7 +393,11 @@ export interface GenerateFixturesResult {
 export async function generateFixtures(): Promise<GenerateFixturesResult> {
   const season = await getOrCreateCurrentSeason()
 
-  if (await isSeasonLocked(season.id)) throw new SeasonLockedError()
+  if (await isSeasonLocked(season.id)) {
+    throw new Error(
+      'Fixtures are locked for this season — a scheduled game has already been played.',
+    )
+  }
 
   const roster = await listActivePlayers()
   if (roster.length < 2) {
