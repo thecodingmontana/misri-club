@@ -48,3 +48,12 @@ test('Stockfish’s reply lands on a brand-new game, but not on a stale one', ()
   // The player took back or started over while it thought.
   assert.equal(withReply(play('d4').pgn(), start, 'e2e4'), null)
 })
+
+test('a typed promotion keeps its piece, in any case', () => {
+  const fen = '8/4P1k1/8/8/8/8/8/K7 w - - 0 1'
+  const knight = { from: 'e7', to: 'e8', promotion: 'n' }
+  assert.deepEqual(parseMove(fen, 'e8=N'), knight)
+  assert.deepEqual(parseMove(fen, 'e8=n'), knight)
+  assert.deepEqual(parseMove(fen, 'e7e8n'), knight)
+  assert.equal(parseMove(fen, 'e8'), null, 'a promotion needs its piece')
+})

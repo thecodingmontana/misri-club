@@ -39,7 +39,8 @@ export function PlayBoard({
   fen: string
   orientation: 'white' | 'black'
   interactive: boolean
-  onMove: (from: string, to: string) => boolean
+  /** `promotion` is set only for a typed move like e8=N. */
+  onMove: (from: string, to: string, promotion?: string) => boolean
   lastMove?: { from: string; to: string } | null
   /** A square to ring, e.g. the piece a hint points at. */
   hint?: string | null
@@ -61,9 +62,9 @@ export function PlayBoard({
   const isOwn = (square: string) =>
     chess.get(square as Square)?.color === chess.turn()
 
-  const move = (from: string, to: string) => {
+  const move = (from: string, to: string, promotion?: string) => {
     setPicked(null)
-    return onMove(from, to)
+    return onMove(from, to, promotion)
   }
 
   const styles: Record<string, React.CSSProperties> = {}
@@ -84,7 +85,7 @@ export function PlayBoard({
     event.preventDefault()
     const parsed = parseMove(fen, typed)
     setUnreadable(parsed === null)
-    if (parsed && move(parsed.from, parsed.to)) setTyped('')
+    if (parsed && move(parsed.from, parsed.to, parsed.promotion)) setTyped('')
   }
 
   return (
@@ -142,7 +143,7 @@ export function PlayBoard({
       </form>
       {unreadable && (
         <p id={`${fieldId}-error`} className="mt-1 text-xs text-destructive">
-          That isn&apos;t a legal move here. Type one like Nf3 or e2e4.
+          That isn&apos;t a legal move here. Type one like Nf3, e2e4 or e8=N.
         </p>
       )}
     </div>
