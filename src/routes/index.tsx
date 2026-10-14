@@ -1,8 +1,7 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { FixtureScore, wonFixture } from '#/components/fixture-score'
 import { AlertTriangle, ChevronRight, RefreshCw } from '#/components/icons'
-import { PlayerChip } from '#/components/player-chip'
+import { FixtureCard, GameCard } from '#/components/match-card'
 import { Podium } from '#/components/podium'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent } from '#/components/ui/card'
@@ -10,7 +9,6 @@ import { countdown, relativeTime } from '#/lib/format'
 import { leaderboardQuery, useSyncNow } from '#/lib/queries'
 import { HOME_DESCRIPTION, SITE_NAME, seo } from '#/lib/seo'
 import { cn } from '#/lib/utils'
-import type { FixtureView } from '#/server/queries.server'
 
 export const Route = createFileRoute('/')({
   head: () =>
@@ -159,9 +157,9 @@ function MatchdayCard({ data }: { data: Data }) {
           </Button>
         </div>
 
-        <div className="space-y-1.5 border-t border-border/60 bg-background/40 p-2">
+        <div className="space-y-2 border-t border-border/60 bg-background/40 p-2">
           {current.fixtures.map((fixture) => (
-            <FixtureRow key={fixture.id} fixture={fixture} />
+            <FixtureCard key={fixture.id} fixture={fixture} now={data.now} />
           ))}
         </div>
       </Card>
@@ -225,40 +223,6 @@ function CountdownRing({
   )
 }
 
-function FixtureRow({ fixture }: { fixture: FixtureView }) {
-  if (fixture.bye) {
-    return (
-      <div className="flex items-center justify-between rounded-xl px-3 py-2">
-        <PlayerChip username={fixture.bye} size="sm" muted />
-        <span className="kicker">Bye</span>
-      </div>
-    )
-  }
-
-  if (!fixture.home || !fixture.away) return null
-
-  return (
-    <div className="flex items-center gap-2 rounded-xl bg-card px-3 py-2">
-      <PlayerChip
-        username={fixture.home}
-        size="sm"
-        className={cn('flex-1', wonFixture(fixture, 'home') && 'font-bold')}
-      />
-      <FixtureScore fixture={fixture} />
-      <div className="flex flex-1 justify-end">
-        <PlayerChip
-          username={fixture.away}
-          size="sm"
-          className={cn(
-            'flex-row-reverse',
-            wonFixture(fixture, 'away') && 'font-bold',
-          )}
-        />
-      </div>
-    </div>
-  )
-}
-
 function RecentResults({ data }: { data: Data }) {
   if (data.recentGames.length === 0) return null
 
@@ -267,48 +231,15 @@ function RecentResults({ data }: { data: Data }) {
       <SectionHeader title="Recent games" />
       <div className="space-y-2">
         {data.recentGames.slice(0, 6).map((game) => (
-          <a
+          <GameCard
             key={game.id}
+            white={game.white}
+            black={game.black}
+            result={game.result}
             href={game.chessComUrl}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="flex items-center gap-2 rounded-2xl bg-card px-3 py-2.5 shadow-card transition-colors hover:bg-secondary"
-          >
-            <span
-              className={cn(
-                'min-w-0 flex-1 truncate text-[0.82rem]',
-                game.result === 'white' ? 'font-bold' : 'font-medium',
-              )}
-            >
-              {game.white}
-            </span>
-            <span className="numeric shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[0.7rem] font-bold text-primary">
-              {game.result === 'white'
-                ? '1–0'
-                : game.result === 'black'
-                  ? '0–1'
-                  : '½–½'}
-            </span>
-            <span
-              className={cn(
-                'min-w-0 flex-1 truncate text-right text-[0.82rem]',
-                game.result === 'black' ? 'font-bold' : 'font-medium',
-              )}
-            >
-              {game.black}
-            </span>
-            <span className="flex w-14 shrink-0 flex-col items-end gap-0.5 text-[0.62rem] text-muted-foreground">
-              <span>{relativeTime(game.endedAt)}</span>
-              <span
-                className={cn(
-                  'font-semibold uppercase tracking-wide',
-                  game.counts ? 'text-primary' : 'text-muted-foreground/70',
-                )}
-              >
-                {game.counts ? `MD${game.matchday}` : 'friendly'}
-              </span>
-            </span>
-          </a>
+            label={game.counts ? `Matchday ${game.matchday}` : 'Friendly'}
+            status={relativeTime(game.endedAt)}
+          />
         ))}
       </div>
     </section>

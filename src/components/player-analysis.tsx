@@ -1,14 +1,13 @@
 import { Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { Book, Cpu, ExternalLink, Fire, Stop, Target } from '#/components/icons'
+import { PlayerAvatar } from '#/components/player-chip'
 import { RatingChart } from '#/components/rating-chart'
-import { Avatar, AvatarImage } from '#/components/ui/avatar'
 import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
 import type { GameReview } from '#/lib/analysis'
 import { positionsOf, reviewFor, weakPoints } from '#/lib/analysis'
 import { relativeTime } from '#/lib/format'
-import { useAvatarUrl } from '#/lib/queries'
 import { useEngineAnalysis, useStoredScores } from '#/lib/use-engine-analysis'
 import { cn } from '#/lib/utils'
 import type { PlayerGamesData } from '#/server/queries.server'
@@ -342,8 +341,6 @@ function GameRow({
   game: PlayerGamesData['recent'][number]
   accuracy: number | null
 }) {
-  const opponentAvatar = useAvatarUrl(game.opponent)
-
   return (
     <div className="flex items-center gap-2 rounded-2xl bg-card py-2.5 pl-3 pr-2 shadow-card">
       <a
@@ -363,9 +360,7 @@ function GameRow({
         >
           {game.outcome === 'win' ? 'W' : game.outcome === 'draw' ? '½' : 'L'}
         </span>
-        <Avatar className="size-8">
-          <AvatarImage src={opponentAvatar} alt="" />
-        </Avatar>
+        <PlayerAvatar username={game.opponent} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[0.82rem] font-semibold">
             {game.opponent}

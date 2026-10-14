@@ -2,7 +2,7 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
 import { type ReactNode, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, ChevronsUpDown } from '#/components/icons'
-import { PlayerLink } from '#/components/player-link'
+import { PlayerChip } from '#/components/player-chip'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import {
   Table,
@@ -47,7 +47,7 @@ function columnsFor(seasons: AllTimeData['seasons']): Array<Column> {
       id: 'username',
       header: 'Player',
       value: (row) => row.username,
-      cell: (row) => <PlayerLink username={row.username} />,
+      cell: (row) => <PlayerChip username={row.username} size="sm" />,
     },
     {
       id: 'points',

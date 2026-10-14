@@ -1,22 +1,17 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { Clock, ExternalLink } from '#/components/icons'
+import { ExternalLink } from '#/components/icons'
 
 import { LiveRating, RatingsProvider } from '#/components/live-ratings'
+import { FixtureCard, GameCard } from '#/components/match-card'
 import { PlayerAnalysis } from '#/components/player-analysis'
-import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar'
+import { PlayerAvatar } from '#/components/player-chip'
 import { Badge } from '#/components/ui/badge'
 import { Card } from '#/components/ui/card'
 import { Skeleton } from '#/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
-import {
-  countdown,
-  formatDate,
-  record,
-  relativeTime,
-  winRate,
-} from '#/lib/format'
-import { playerGamesQuery, playerQuery, useAvatarUrl } from '#/lib/queries'
+import { formatDate, record, relativeTime, winRate } from '#/lib/format'
+import { playerGamesQuery, playerQuery } from '#/lib/queries'
 import { seo } from '#/lib/seo'
 import { cn } from '#/lib/utils'
 
@@ -63,7 +58,6 @@ function PlayerScreen() {
   const { data } = useSuspenseQuery(playerQuery(username))
   const analysis = useQuery(playerGamesQuery(username))
   const { player, totals, history, games, fixtures, now } = data
-  const avatar = useAvatarUrl(player.username)
 
   const open = fixtures.filter(
     (f) => f.status === 'live' || f.status === 'upcoming',
@@ -73,12 +67,10 @@ function PlayerScreen() {
     <RatingsProvider usernames={[player.username]}>
       <div className="space-y-5">
         <section className="flex flex-col items-center pt-2 text-center">
-          <Avatar className="size-24 border-[3px] border-primary bg-card dark:shadow-[0_0_24px_-4px_var(--primary)]">
-            <AvatarImage src={avatar} alt="" />
-            <AvatarFallback className="display bg-secondary text-2xl text-primary">
-              {player.username.slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <PlayerAvatar
+            username={player.username}
+            className="size-24 rounded-full border-[3px] border-primary bg-card dark:shadow-[0_0_24px_-4px_var(--primary)]"
+          />
           <h1 className="display mt-3 text-2xl">{player.username}</h1>
           <a
             href={`https://www.chess.com/member/${player.username}`}
@@ -145,43 +137,16 @@ function PlayerScreen() {
           <TabsContent value="league" className="space-y-5 pt-3">
             {open.length > 0 && (
               <Section title="Your fixtures">
-                <Card className="p-0">
-                  <div className="divide-y divide-border/40">
-                    {open.map((fixture) => {
-                      const opponent =
-                        fixture.home === player.username
-                          ? fixture.away
-                          : fixture.home
-
-                      return (
-                        <div
-                          key={fixture.id}
-                          className="flex items-center gap-2 px-3 py-2.5"
-                        >
-                          <span className="numeric w-8 shrink-0 text-[0.65rem] text-muted-foreground">
-                            MD{fixture.matchday}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-[0.8rem] font-medium">
-                            {fixture.bye ? 'Bye' : `vs ${opponent}`}
-                          </span>
-                          <span
-                            className={cn(
-                              'numeric flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[0.62rem] font-semibold',
-                              fixture.status === 'live'
-                                ? 'bg-primary/15 text-primary'
-                                : 'text-muted-foreground',
-                            )}
-                          >
-                            <Clock className="size-3" />
-                            {fixture.status === 'live'
-                              ? `${countdown(fixture.dueAt - now)} left`
-                              : formatDate(fixture.opensAt)}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </Card>
+                <div className="space-y-2">
+                  {open.map((fixture) => (
+                    <FixtureCard
+                      key={fixture.id}
+                      fixture={fixture}
+                      now={now}
+                      label={`Matchday ${fixture.matchday}`}
+                    />
+                  ))}
+                </div>
               </Section>
             )}
 
@@ -229,32 +194,19 @@ function PlayerScreen() {
               ) : (
                 <div className="space-y-2">
                   {games.map((game) => (
-                    <a
+                    <GameCard
                       key={game.id}
+                      white={game.white}
+                      black={game.black}
+                      result={game.result}
                       href={game.chessComUrl}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="flex items-center gap-2 rounded-xl border border-border/60 bg-card/60 px-3 py-2.5 transition-colors hover:border-primary/30"
-                    >
-                      <Outcome outcome={game.outcome} />
-                      <span className="min-w-0 flex-1 truncate text-[0.8rem]">
-                        <span className="text-muted-foreground">vs </span>
-                        {game.opponent}
-                      </span>
-                      <span className="flex shrink-0 flex-col items-end text-[0.6rem] text-muted-foreground">
-                        <span>{relativeTime(game.endedAt)}</span>
-                        <span
-                          className={cn(
-                            'uppercase tracking-wide',
-                            game.counts
-                              ? 'text-primary/80'
-                              : 'text-muted-foreground/60',
-                          )}
-                        >
-                          {game.counts ? `MD${game.matchday}` : 'friendly'}
-                        </span>
-                      </span>
-                    </a>
+                      label={
+                        game.counts
+                          ? `${game.seasonLabel} · Matchday ${game.matchday}`
+                          : `${game.seasonLabel} · Friendly`
+                      }
+                      status={relativeTime(game.endedAt)}
+                    />
                   ))}
                 </div>
               )}
@@ -278,21 +230,6 @@ function Section({
       <h2 className="display mb-2 px-1 text-lg">{title}</h2>
       {children}
     </section>
-  )
-}
-
-function Outcome({ outcome }: { outcome: 'win' | 'draw' | 'loss' }) {
-  return (
-    <span
-      className={cn(
-        'numeric grid size-6 shrink-0 place-items-center rounded text-[0.68rem] font-bold',
-        outcome === 'win' && 'bg-win/25 text-foreground',
-        outcome === 'draw' && 'bg-secondary text-muted-foreground',
-        outcome === 'loss' && 'bg-destructive/15 text-destructive/90',
-      )}
-    >
-      {outcome === 'win' ? 'W' : outcome === 'draw' ? '½' : 'L'}
-    </span>
   )
 }
 

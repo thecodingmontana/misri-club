@@ -1,6 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Avatar, AvatarFallback, AvatarImage } from '#/components/ui/avatar'
-import { useAvatarUrl } from '#/lib/queries'
+import { PlayerAvatar } from '#/components/player-chip'
 import { cn } from '#/lib/utils'
 
 interface PodiumEntry {
@@ -23,7 +22,6 @@ export function Podium({ entries }: { entries: Array<PodiumEntry> }) {
 }
 
 function Place({ entry, rank }: { entry?: PodiumEntry; rank: 1 | 2 | 3 }) {
-  const src = useAvatarUrl(entry?.username ?? '')
   if (!entry) return <div />
   const leader = rank === 1
 
@@ -37,22 +35,13 @@ function Place({ entry, rank }: { entry?: PodiumEntry; rank: 1 | 2 | 3 }) {
       )}
     >
       <span className="relative">
-        <Avatar
+        <PlayerAvatar
+          username={entry.username}
           className={cn(
-            'border-[3px] bg-card',
-            leader ? 'size-24 border-primary' : 'size-[4.5rem] border-primary',
+            'rounded-full border-[3px] border-primary bg-card',
+            leader ? 'size-24' : 'size-[4.5rem]',
           )}
-        >
-          <AvatarImage src={src} alt="" />
-          <AvatarFallback
-            className={cn(
-              'display bg-secondary',
-              leader ? 'text-2xl text-primary' : 'text-lg text-primary',
-            )}
-          >
-            {entry.username.slice(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        />
         <span
           className={cn(
             'display absolute -top-2.5 left-1/2 grid size-7 -translate-x-1/2 place-items-center rounded-full text-sm ring-[3px] ring-background',

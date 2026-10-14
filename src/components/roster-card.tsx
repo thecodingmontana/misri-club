@@ -3,12 +3,13 @@ import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Lock, Plus, UserMinus, UserPlus } from '#/components/icons'
-import { PlayerLink } from '#/components/player-link'
+import { PlayerChip } from '#/components/player-chip'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
 import { useRefreshLeague } from '#/lib/queries'
 import { useAdmin } from '#/lib/use-admin'
+import { cn } from '#/lib/utils'
 import { addPlayerFn, setPlayerActiveFn } from '#/server/league.functions'
 
 interface RosterEntry {
@@ -145,10 +146,10 @@ export function RosterCard({
                 key={entry.username}
                 className="flex items-center justify-between gap-2 py-2 text-sm"
               >
-                <PlayerLink
+                <PlayerChip
                   username={entry.username}
                   muted={!entry.active}
-                  className="truncate text-sm"
+                  className={cn(!entry.active && 'opacity-70')}
                 />
                 {isAdmin ? (
                   <Button

@@ -3,9 +3,8 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { FixtureScore, wonFixture } from '#/components/fixture-score'
 import { CalendarPlus, Clock, Info, Lock, Shuffle } from '#/components/icons'
-import { PlayerChip } from '#/components/player-chip'
+import { FixtureCard } from '#/components/match-card'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -90,7 +89,7 @@ function FixturesScreen() {
       ) : (
         <>
           <Tabs filter={filter} onChange={setFilter} />
-          <div className="space-y-3">
+          <div className="space-y-6">
             {matchdays.map((group) => (
               <MatchdayCard key={group.matchday} group={group} now={data.now} />
             ))}
@@ -299,14 +298,16 @@ function MatchdayCard({
   const done = now >= window.dueAt
 
   return (
-    <Card className="overflow-hidden p-0">
-      <div
-        className={cn(
-          'flex items-center justify-between gap-2 border-b border-border/60 px-3 py-2',
-          live ? 'bg-primary/10' : 'bg-secondary/40',
-        )}
-      >
-        <span className="text-xs font-semibold">Matchday {group.matchday}</span>
+    <section>
+      <div className="mb-2 flex items-center justify-between gap-2 px-1">
+        <h3
+          className={cn(
+            'kicker text-[0.7rem]',
+            live ? 'text-primary' : 'text-foreground',
+          )}
+        >
+          Matchday {group.matchday}
+        </h3>
         <span className="numeric flex items-center gap-2 text-[0.65rem] text-muted-foreground">
           <span>
             {played}/{playable.length}
@@ -327,54 +328,24 @@ function MatchdayCard({
         </span>
       </div>
 
-      <div className="divide-y divide-border/40">
+      <div className="space-y-2">
         {group.fixtures.map((fixture) => (
-          <FixtureLine key={fixture.id} fixture={fixture} />
+          <FixtureLine key={fixture.id} fixture={fixture} now={now} />
         ))}
       </div>
-    </Card>
+    </section>
   )
 }
 
-function FixtureLine({ fixture }: { fixture: FixtureView }) {
+function FixtureLine({ fixture, now }: { fixture: FixtureView; now: number }) {
   const { isAdmin } = useAdmin()
 
-  if (fixture.bye) {
-    return (
-      <div className="flex items-center justify-between px-3 py-2">
-        <PlayerChip username={fixture.bye} size="sm" muted />
-        <span className="kicker">Bye</span>
-      </div>
-    )
-  }
-
-  if (!fixture.home || !fixture.away) return null
-
   return (
-    <div className="px-3 py-2">
-      <div className="flex items-center gap-2">
-        <span
-          className={cn(
-            'min-w-0 flex-1 truncate text-[0.82rem]',
-            wonFixture(fixture, 'home') ? 'font-bold' : 'font-medium',
-          )}
-        >
-          {fixture.home}
-        </span>
-        <FixtureScore fixture={fixture} />
-        <span
-          className={cn(
-            'min-w-0 flex-1 truncate text-right text-[0.82rem]',
-            wonFixture(fixture, 'away') ? 'font-bold' : 'font-medium',
-          )}
-        >
-          {fixture.away}
-        </span>
-      </div>
+    <FixtureCard fixture={fixture} now={now}>
       {isAdmin && !fixture.game && fixture.status !== 'upcoming' && (
         <WalkoverControl fixture={fixture} />
       )}
-    </div>
+    </FixtureCard>
   )
 }
 
@@ -403,7 +374,7 @@ function WalkoverControl({ fixture }: { fixture: FixtureView }) {
   )
 
   return (
-    <div className="mt-1.5 flex items-center gap-1.5 text-[0.65rem] text-muted-foreground">
+    <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 border-t border-border/50 pt-2.5 text-[0.65rem] text-muted-foreground">
       <span className="kicker text-[0.6rem]">Walkover</span>
       {sides.map((name) => (
         <Button
