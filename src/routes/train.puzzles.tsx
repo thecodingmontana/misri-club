@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Chess } from 'chess.js'
 import { play } from 'cuelume'
 import { useEffect, useRef, useState } from 'react'
+import { z } from 'zod'
 import {
   CheckCircle,
   ExternalLink,
@@ -14,19 +15,47 @@ import { PlayBoard } from '#/components/play-board'
 import { TrainHeader } from '#/components/train-header'
 import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import { recordPuzzle } from '#/lib/progress'
-import { fetchPuzzle, fromUci, judgeMove } from '#/lib/puzzle'
+import type { Difficulty, Theme } from '#/lib/puzzle'
+import {
+  DIFFICULTIES,
+  fetchPuzzle,
+  fromUci,
+  judgeMove,
+  THEME_GROUPS,
+  THEMES,
+} from '#/lib/puzzle'
 import { seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/train/puzzles')({
-  head: () =>
-    seo({
-      title: 'Chess puzzles',
-      description:
-        'Solve endless chess puzzles from Lichess on a touch-friendly board, with hints and full solutions.',
-      path: '/train/puzzles',
-    }),
+  // Unknown values fall back to any theme and normal difficulty.
+  validateSearch: z.object({
+    theme: z
+      .enum(Object.keys(THEMES) as [Theme, ...Array<Theme>])
+      .optional()
+      .catch(undefined),
+    difficulty: z.enum(DIFFICULTIES).optional().catch(undefined),
+  }),
+  head: ({ match }) => {
+    const theme = match.search.theme
+    return seo({
+      title: theme ? `${THEMES[theme]} puzzles` : 'Chess puzzles',
+      description: theme
+        ? `Practise ${THEMES[theme].toLowerCase()} with endless Lichess puzzles on a touch-friendly board, with hints and full solutions.`
+        : 'Solve endless chess puzzles from Lichess by theme and difficulty, on a touch-friendly board with hints and full solutions.',
+      path: theme ? `/train/puzzles?theme=${theme}` : '/train/puzzles',
+    })
+  },
   component: PuzzlesScreen,
 })
 
@@ -35,17 +64,73 @@ function PuzzlesScreen() {
   return (
     <div className="space-y-4 pt-2">
       <TrainHeader title="Puzzles" />
+      <Pickers />
       <PuzzleLoader />
     </div>
   )
 }
 
+/** Theme and difficulty live in the address, so a lesson can link to forks. */
+function Pickers() {
+  const { theme, difficulty } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const set = (next: { theme?: Theme; difficulty?: Difficulty }) =>
+    navigate({ search: (prev) => ({ ...prev, ...next }), replace: true })
+
+  return (
+    <div className="grid grid-cols-[1fr_auto] gap-2">
+      <Select
+        value={theme ?? 'any'}
+        onValueChange={(value) =>
+          set({ theme: value === 'any' ? undefined : (value as Theme) })
+        }
+      >
+        <SelectTrigger aria-label="Puzzle theme" className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="any">Any theme</SelectItem>
+          {THEME_GROUPS.map((group) => (
+            <SelectGroup key={group.label}>
+              <SelectLabel>{group.label}</SelectLabel>
+              {group.themes.map((key) => (
+                <SelectItem key={key} value={key}>
+                  {THEMES[key]}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select
+        value={difficulty ?? 'normal'}
+        onValueChange={(value) => set({ difficulty: value as Difficulty })}
+      >
+        <SelectTrigger
+          aria-label="Puzzle difficulty"
+          className="w-32 capitalize"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {DIFFICULTIES.map((level) => (
+            <SelectItem key={level} value={level} className="capitalize">
+              {level}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
 function PuzzleLoader() {
+  const { theme, difficulty } = Route.useSearch()
   const [round, setRound] = useState(0)
   const [solved, setSolved] = useState(0)
   const { data, error, isPending, refetch } = useQuery({
-    queryKey: ['lichess-puzzle', round],
-    queryFn: fetchPuzzle,
+    queryKey: ['lichess-puzzle', theme, difficulty, round],
+    queryFn: () => fetchPuzzle({ theme, difficulty }),
     // Each round is one random puzzle; refetching would swap it mid-solve.
     staleTime: Number.POSITIVE_INFINITY,
     retry: 1,
