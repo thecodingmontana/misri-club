@@ -122,6 +122,7 @@ function Tabs({
     <div className="flex gap-1 rounded-full border border-border/60 bg-card/60 p-1">
       {tabs.map((tab) => (
         <button
+          data-cuelume-select=""
           key={tab.id}
           type="button"
           onClick={() => onChange(tab.id)}

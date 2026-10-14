@@ -1,5 +1,7 @@
+import { play, type SoundName } from 'cuelume'
 import { useTheme } from 'next-themes'
-import { Toaster as Sonner, type ToasterProps } from 'sonner'
+import { useEffect, useRef } from 'react'
+import { Toaster as Sonner, type ToasterProps, useSonner } from 'sonner'
 import {
   AlertTriangle,
   CheckCircle,
@@ -8,8 +10,33 @@ import {
   XCircle,
 } from '#/components/icons'
 
+const CUES: Partial<Record<string, SoundName>> = {
+  success: 'success',
+  error: 'error',
+  warning: 'warning',
+  info: 'ready',
+  default: 'ready',
+  normal: 'ready',
+}
+
+/** Every toast sounds like what it reports, quietly; each one once. */
+function useToastSounds() {
+  const { toasts } = useSonner()
+  const heard = useRef(new Set<string | number>())
+
+  useEffect(() => {
+    for (const toast of toasts) {
+      if (heard.current.has(toast.id)) continue
+      heard.current.add(toast.id)
+      const cue = CUES[toast.type ?? 'default']
+      if (cue) play(cue, { emphasis: 'subtle' })
+    }
+  }, [toasts])
+}
+
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = 'system' } = useTheme()
+  useToastSounds()
 
   return (
     <Sonner

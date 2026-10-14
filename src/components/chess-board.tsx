@@ -85,6 +85,7 @@ export function ChessBoard({
       >
         {steps.map((s, i) => (
           <button
+            data-cuelume-select=""
             key={s.label}
             type="button"
             role="tab"

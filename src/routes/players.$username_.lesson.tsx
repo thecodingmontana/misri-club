@@ -1,5 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { play } from 'cuelume'
 import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
 import type { BoardStep } from '#/components/chess-board'
@@ -225,7 +226,10 @@ function Quiz({ question }: { question: QuizQuestion }) {
             key={option}
             type="button"
             disabled={answered}
-            onClick={() => setPicked(index)}
+            onClick={() => {
+              setPicked(index)
+              play(correct ? 'success' : 'error')
+            }}
             className={cn(
               'flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-[0.8rem] transition-colors',
               !answered &&

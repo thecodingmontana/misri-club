@@ -3,6 +3,7 @@ import { Link, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { toast } from 'sonner'
 import { LogOut, RefreshCw, ShieldCheck, UserRound } from '#/components/icons'
+import { SoundToggle } from '#/components/sound-toggle'
 import { ThemeToggle } from '#/components/theme-toggle'
 import { Button } from '#/components/ui/button'
 import { useSyncNow } from '#/lib/queries'
@@ -47,6 +48,7 @@ export function TopBar() {
           />
         </Button>
         <ThemeToggle />
+        <SoundToggle />
       </div>
 
       <Link to="/" aria-label="Misri home">

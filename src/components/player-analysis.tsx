@@ -247,6 +247,7 @@ function RatingSection({ ratings }: { ratings: PlayerGamesData['ratings'] }) {
         <div className="flex gap-1 rounded-full bg-secondary p-1">
           {counts.map(([tc]) => (
             <button
+              data-cuelume-select=""
               key={tc}
               type="button"
               onClick={() => setPicked(tc)}

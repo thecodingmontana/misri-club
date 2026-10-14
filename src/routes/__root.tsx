@@ -13,6 +13,7 @@ import { TopBar } from '#/components/top-bar'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { Toaster } from '#/components/ui/sonner'
 import { rosterAvatarsQuery, useAutoSync } from '#/lib/queries'
+import { useInterfaceSounds } from '#/lib/sound'
 import { getSessionFn } from '#/server/auth.functions'
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import appCss from '../styles.css?url'
@@ -62,6 +63,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
  */
 function RootLayout() {
   useAutoSync()
+  useInterfaceSounds()
 
   return (
     // Pinned to the window (fixed, inset 0), which every browser sizes the

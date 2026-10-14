@@ -178,6 +178,7 @@ function AllTimeTable({ data }: { data: Data }) {
                         >
                           {header.isPlaceholder ? null : canSort ? (
                             <button
+                              data-cuelume-select=""
                               type="button"
                               onClick={header.column.getToggleSortingHandler()}
                               className={cn(
