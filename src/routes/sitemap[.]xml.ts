@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { MASTER_GAMES } from '#/lib/masters'
 import { SITE_URL } from '#/lib/seo'
 
 /** Every indexable page; player pages come from the live roster. */
@@ -11,6 +12,8 @@ const PAGES = [
   '/train',
   '/train/puzzles',
   '/train/play',
+  '/train/masters',
+  ...MASTER_GAMES.map((game) => `/train/masters/${game.slug}`),
 ]
 
 export const Route = createFileRoute('/sitemap.xml')({

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ChevronRight, Cpu, Lightbulb } from '#/components/icons'
+import { ChevronRight, Cpu, Lightbulb, Trophy } from '#/components/icons'
 import { seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/train/')({
@@ -7,7 +7,7 @@ export const Route = createFileRoute('/train/')({
     seo({
       title: 'Train',
       description:
-        'Free chess training: endless tactics puzzles and full games against Stockfish, right in your browser.',
+        'Free chess training: endless tactics puzzles, games against Stockfish and famous master games to study, right in your browser.',
       path: '/train',
     }),
   component: TrainScreen,
@@ -25,6 +25,13 @@ const MODES = [
     icon: Cpu,
     title: 'Play Stockfish',
     description: 'A full game against the engine, from Beginner to Max.',
+  },
+  {
+    to: '/train/masters',
+    icon: Trophy,
+    title: 'Master games',
+    description:
+      'Replay famous games, learn the key moves, guess them yourself.',
   },
 ] as const
 
