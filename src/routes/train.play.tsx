@@ -14,8 +14,7 @@ import {
 } from '#/components/ui/select'
 import { Engine } from '#/lib/engine'
 import type { Colour, Outcome } from '#/lib/play'
-import { LEVELS, loadGame, outcomeFor, takeBack } from '#/lib/play'
-import { fromUci } from '#/lib/puzzle'
+import { LEVELS, loadGame, outcomeFor, takeBack, withReply } from '#/lib/play'
 
 export const Route = createFileRoute('/train/play')({
   component: PlayScreen,
@@ -123,12 +122,13 @@ function PlayScreen() {
       .evaluate(fen, level.ms)
       .then(({ best }) => {
         if (!live || !best) return
-        const next = loadGame(chess.pgn())
-        next.move(fromUci(best))
-        moveSound(next.pgn(), game.colour, false)
-        setGame((current) =>
-          current.pgn === chess.pgn() ? commit(current, next.pgn()) : current,
-        )
+        const next = withReply(chess.pgn(), fen, best)
+        if (!next) return
+        moveSound(next, game.colour, false)
+        setGame((current) => {
+          const pgn = withReply(current.pgn, fen, best)
+          return pgn ? commit(current, pgn) : current
+        })
       })
       .catch((failure: Error) => live && setError(failure.message))
     return () => {

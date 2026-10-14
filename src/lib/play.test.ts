@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { loadGame, outcomeFor, parseMove, takeBack } from './play.ts'
+import { loadGame, outcomeFor, parseMove, takeBack, withReply } from './play.ts'
 
 const play = (...moves: Array<string>) => {
   const chess = loadGame('')
@@ -37,4 +37,14 @@ test('a typed move is read in either notation, or refused', () => {
   assert.deepEqual(parseMove(start, 'e2e4'), { from: 'e2', to: 'e4' })
   assert.equal(parseMove(start, 'e7e5'), null, 'not White’s piece')
   assert.equal(parseMove(start, 'hello'), null)
+})
+
+test('Stockfish’s reply lands on a brand-new game, but not on a stale one', () => {
+  const start = loadGame('').fen()
+  // As Black, a new game is stored as '' and Stockfish opens.
+  const opened = withReply('', start, 'e2e4')
+  assert.ok(opened)
+  assert.deepEqual(loadGame(opened).history(), ['e4'])
+  // The player took back or started over while it thought.
+  assert.equal(withReply(play('d4').pgn(), start, 'e2e4'), null)
 })

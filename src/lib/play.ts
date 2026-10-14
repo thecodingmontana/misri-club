@@ -55,3 +55,19 @@ export function parseMove(fen: string, text: string) {
   }
   return null
 }
+
+/**
+ * The game with Stockfish's `uci` reply played, or null if the game moved on
+ * since it was asked about `fen`. Positions are compared, not PGN text: a new
+ * game is stored as '' but writes back with headers.
+ */
+export function withReply(
+  pgn: string,
+  fen: string,
+  uci: string,
+): string | null {
+  const chess = loadGame(pgn)
+  if (chess.fen() !== fen) return null
+  chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
+  return chess.pgn()
+}
