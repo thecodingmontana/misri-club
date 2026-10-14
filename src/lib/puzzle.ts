@@ -63,14 +63,11 @@ export function judgeMove(
   step: number,
   from: string,
   to: string,
-  /** The piece the player typed; dragging or tapping has no picker. */
-  typed?: string,
 ): Verdict {
   const expected = solution[step]
   const chess = new Chess(fen)
-  // Without a typed piece, take the solution's, else a queen.
-  const promotion =
-    typed ?? (expected.startsWith(from + to) ? expected[4] : 'q')
+  // The board has no promotion picker: take the solution's piece, else a queen.
+  const promotion = expected.startsWith(from + to) ? expected[4] : 'q'
 
   let lan: string
   try {

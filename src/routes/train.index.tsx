@@ -102,8 +102,8 @@ function Puzzle({
     return chess.fen()
   }
 
-  const onMove = (from: string, to: string, promotion?: string) => {
-    const verdict = judgeMove(fen, solution, step, from, to, promotion)
+  const onMove = (from: string, to: string) => {
+    const verdict = judgeMove(fen, solution, step, from, to)
     if (verdict.kind === 'wrong') {
       play('error', { emphasis: 'subtle' })
       setStatus('wrong')

@@ -45,10 +45,3 @@ test('the last move solves it; any mate counts; promotion follows the solution',
 test('a puzzle whose solution cannot be played is refused up front', () => {
   assert.throws(() => puzzleStart(lichess(['e4e5', 'a1a8'])))
 })
-
-test('a typed promotion piece is judged as typed', () => {
-  const fen = '8/4P1k1/8/8/8/8/8/K7 w - - 0 1'
-  const line = ['e7e8n', 'g7f7']
-  assert.equal(judgeMove(fen, line, 0, 'e7', 'e8', 'n').kind, 'right')
-  assert.equal(judgeMove(fen, line, 0, 'e7', 'e8', 'q').kind, 'wrong')
-})

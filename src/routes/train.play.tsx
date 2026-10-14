@@ -136,11 +136,11 @@ function PlayScreen() {
     }
   }, [engine, loaded, chess, outcome, yourTurn, level, game.colour])
 
-  const onMove = (from: string, to: string, promotion = 'q') => {
+  const onMove = (from: string, to: string) => {
     const next = loadGame(game.pgn)
     try {
-      // Dragging or tapping promotes to a queen; type e8=N for another piece.
-      next.move({ from, to, promotion })
+      // shortcut: always promotes to a queen; add a picker if underpromotion matters.
+      next.move({ from, to, promotion: 'q' })
     } catch {
       return false
     }

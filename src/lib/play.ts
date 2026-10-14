@@ -36,31 +36,6 @@ export function takeBack(pgn: string, colour: Colour): string {
 }
 
 /**
- * A typed move (`Nf3`, `e4`, `e2e4`, `e8=N`) as squares plus any promotion
- * piece, or null if it isn't legal here. Lowercase piece letters are forgiven,
- * since phones lowercase keys; a leading `b` is left alone because `bxc3` is
- * a pawn move.
- */
-export function parseMove(fen: string, text: string) {
-  const typed = text.trim()
-  for (const attempt of [
-    typed,
-    typed
-      .replace(/^[nrqk]/, (c) => c.toUpperCase())
-      .replace(/=([nbrq])/, (c) => c.toUpperCase()),
-  ]) {
-    try {
-      const move = new Chess(fen).move(attempt)
-      const { from, to, promotion } = move
-      return promotion ? { from, to, promotion } : { from, to }
-    } catch {
-      // Try the next reading.
-    }
-  }
-  return null
-}
-
-/**
  * The game with Stockfish's `uci` reply played, or null if the game moved on
  * since it was asked about `fen`. Positions are compared, not PGN text: a new
  * game is stored as '' but writes back with headers.
