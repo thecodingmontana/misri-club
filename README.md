@@ -1,4 +1,4 @@
-# Misri Chess Club League
+# Misri Chess Club League II
 
 Season standings, fixtures and all-time records for the Misri chess.com club.
 Games are pulled from the chess.com public API and matched to a two-leg
