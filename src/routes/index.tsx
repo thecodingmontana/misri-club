@@ -195,7 +195,7 @@ function CountdownRing({
       <svg
         viewBox="0 0 64 64"
         className="absolute inset-0 -rotate-90 dark:drop-shadow-[0_0_6px_var(--primary)]"
-        aria-hidden
+        aria-hidden="true"
       >
         <circle
           cx="32"

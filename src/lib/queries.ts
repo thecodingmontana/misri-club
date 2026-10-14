@@ -121,11 +121,11 @@ const AUTO_SYNC_CHECK_MS = 5 * 60_000
  * when the tab comes back into view. The server decides whether a sync is due,
  * so many open tabs still mean at most one sync per grace period.
  */
-// biome-ignore lint/correctness/useExhaustiveDependencies: mount once; the server-fn handle and refresh are stable for the page's life.
 export function useAutoSync() {
   const autoSync = useServerFn(autoSyncFn)
   const refresh = useRefreshLeague()
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount once; `refresh` is a new function each render, and listing it would re-sync on every render.
   useEffect(() => {
     let running = false
     const tick = async () => {

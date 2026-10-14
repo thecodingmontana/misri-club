@@ -78,6 +78,7 @@ const globalForDb = globalThis as unknown as {
   __misriDb?: ReturnType<typeof createDb>
 }
 
-export const db = (globalForDb.__misriDb ??= createDb())
+globalForDb.__misriDb ??= createDb()
+export const db = globalForDb.__misriDb
 
 export { schema }
