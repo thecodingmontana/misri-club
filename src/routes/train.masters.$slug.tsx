@@ -20,6 +20,7 @@ import { ChartContainer } from '#/components/ui/chart'
 import { reviewFor, winChance } from '#/lib/analysis'
 import type { MasterGame } from '#/lib/masters'
 import { masterGame, plyOf } from '#/lib/masters'
+import { recordGuess } from '#/lib/progress'
 import { seo } from '#/lib/seo'
 import { useEngineAnalysis, useStoredScores } from '#/lib/use-engine-analysis'
 import { cn } from '#/lib/utils'
@@ -99,6 +100,14 @@ function Replay({ game }: { game: MasterGame }) {
     const timer = setTimeout(() => go(ply + 1), 700)
     return () => clearTimeout(timer)
   })
+
+  // A finished guessing run keeps its score if it is the best so far.
+  const finished = guess !== null && last
+  useEffect(() => {
+    if (finished && guess.tried > 0) {
+      recordGuess(game.slug, guess.right, guess.tried)
+    }
+  }, [finished, guess, game.slug])
 
   // Arrow keys step through the game.
   useEffect(() => {

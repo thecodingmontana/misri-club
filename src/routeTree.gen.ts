@@ -24,6 +24,8 @@ import { Route as TrainPuzzlesRouteImport } from './routes/train.puzzles'
 import { Route as PlayersUsernameLessonRouteImport } from './routes/players.$username_.lesson'
 import { Route as TrainMastersIndexRouteImport } from './routes/train.masters.index'
 import { Route as TrainMastersSlugRouteImport } from './routes/train.masters.$slug'
+import { Route as TrainOpeningsIndexRouteImport } from './routes/train.openings.index'
+import { Route as TrainOpeningsSlugRouteImport } from './routes/train.openings.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -100,6 +102,16 @@ const TrainMastersSlugRoute = TrainMastersSlugRouteImport.update({
   path: '/train/masters/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrainOpeningsIndexRoute = TrainOpeningsIndexRouteImport.update({
+  id: '/train/openings/',
+  path: '/train/openings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrainOpeningsSlugRoute = TrainOpeningsSlugRouteImport.update({
+  id: '/train/openings/$slug',
+  path: '/train/openings/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -116,7 +128,9 @@ export interface FileRoutesByFullPath {
   '/train/': typeof TrainIndexRoute
   '/players/$username/lesson': typeof PlayersUsernameLessonRoute
   '/train/masters/$slug': typeof TrainMastersSlugRoute
+  '/train/openings/$slug': typeof TrainOpeningsSlugRoute
   '/train/masters/': typeof TrainMastersIndexRoute
+  '/train/openings/': typeof TrainOpeningsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -133,7 +147,9 @@ export interface FileRoutesByTo {
   '/train': typeof TrainIndexRoute
   '/players/$username/lesson': typeof PlayersUsernameLessonRoute
   '/train/masters/$slug': typeof TrainMastersSlugRoute
+  '/train/openings/$slug': typeof TrainOpeningsSlugRoute
   '/train/masters': typeof TrainMastersIndexRoute
+  '/train/openings': typeof TrainOpeningsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -151,7 +167,9 @@ export interface FileRoutesById {
   '/train/': typeof TrainIndexRoute
   '/players/$username_/lesson': typeof PlayersUsernameLessonRoute
   '/train/masters/$slug': typeof TrainMastersSlugRoute
+  '/train/openings/$slug': typeof TrainOpeningsSlugRoute
   '/train/masters/': typeof TrainMastersIndexRoute
+  '/train/openings/': typeof TrainOpeningsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -170,7 +188,9 @@ export interface FileRouteTypes {
     | '/train/'
     | '/players/$username/lesson'
     | '/train/masters/$slug'
+    | '/train/openings/$slug'
     | '/train/masters/'
+    | '/train/openings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -187,7 +207,9 @@ export interface FileRouteTypes {
     | '/train'
     | '/players/$username/lesson'
     | '/train/masters/$slug'
+    | '/train/openings/$slug'
     | '/train/masters'
+    | '/train/openings'
   id:
     | '__root__'
     | '/'
@@ -204,7 +226,9 @@ export interface FileRouteTypes {
     | '/train/'
     | '/players/$username_/lesson'
     | '/train/masters/$slug'
+    | '/train/openings/$slug'
     | '/train/masters/'
+    | '/train/openings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -222,7 +246,9 @@ export interface RootRouteChildren {
   TrainIndexRoute: typeof TrainIndexRoute
   PlayersUsernameLessonRoute: typeof PlayersUsernameLessonRoute
   TrainMastersSlugRoute: typeof TrainMastersSlugRoute
+  TrainOpeningsSlugRoute: typeof TrainOpeningsSlugRoute
   TrainMastersIndexRoute: typeof TrainMastersIndexRoute
+  TrainOpeningsIndexRoute: typeof TrainOpeningsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -332,6 +358,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainMastersSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/train/openings/': {
+      id: '/train/openings/'
+      path: '/train/openings'
+      fullPath: '/train/openings/'
+      preLoaderRoute: typeof TrainOpeningsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/train/openings/$slug': {
+      id: '/train/openings/$slug'
+      path: '/train/openings/$slug'
+      fullPath: '/train/openings/$slug'
+      preLoaderRoute: typeof TrainOpeningsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -350,7 +390,9 @@ const rootRouteChildren: RootRouteChildren = {
   TrainIndexRoute: TrainIndexRoute,
   PlayersUsernameLessonRoute: PlayersUsernameLessonRoute,
   TrainMastersSlugRoute: TrainMastersSlugRoute,
+  TrainOpeningsSlugRoute: TrainOpeningsSlugRoute,
   TrainMastersIndexRoute: TrainMastersIndexRoute,
+  TrainOpeningsIndexRoute: TrainOpeningsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

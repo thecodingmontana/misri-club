@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { ChevronRight, Cpu, Lightbulb, Trophy } from '#/components/icons'
+import { Book, ChevronRight, Cpu, Lightbulb, Trophy } from '#/components/icons'
 import { seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/train/')({
@@ -25,6 +25,13 @@ const MODES = [
     icon: Cpu,
     title: 'Play Stockfish',
     description: 'A full game against the engine, from Beginner to Max.',
+  },
+  {
+    to: '/train/openings',
+    icon: Book,
+    title: 'Openings',
+    description:
+      'Learn the Italian, Queen’s Gambit, Sicilian and more, then drill them.',
   },
   {
     to: '/train/masters',

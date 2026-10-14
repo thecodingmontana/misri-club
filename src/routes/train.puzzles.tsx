@@ -15,6 +15,7 @@ import { TrainHeader } from '#/components/train-header'
 import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
 import { Skeleton } from '#/components/ui/skeleton'
+import { recordPuzzle } from '#/lib/progress'
 import { fetchPuzzle, fromUci, judgeMove } from '#/lib/puzzle'
 import { seo } from '#/lib/seo'
 
@@ -101,6 +102,8 @@ function Puzzle({
   const [step, setStep] = useState(0)
   const [status, setStatus] = useState<Status>('solving')
   const [hint, setHint] = useState(false)
+  // Any slip, hint or reveal means the puzzle no longer counts as clean.
+  const [helped, setHelped] = useState(false)
 
   // Replies and the solution play out on timers; none may outlive the puzzle.
   const timers = useRef<Array<ReturnType<typeof setTimeout>>>([])
@@ -125,6 +128,7 @@ function Puzzle({
     if (verdict.kind === 'wrong') {
       play('error', { emphasis: 'subtle' })
       setStatus('wrong')
+      setHelped(true)
       return false
     }
 
@@ -137,6 +141,7 @@ function Puzzle({
       play('success')
       setStatus('solved')
       onSolved()
+      recordPuzzle(data.puzzle.themes, !helped)
       return true
     }
 
@@ -153,6 +158,7 @@ function Puzzle({
 
   const reveal = () => {
     setStatus('revealed')
+    recordPuzzle(data.puzzle.themes, false)
     setHint(false)
     let position = fen
     solution.slice(step).forEach((uci, index) => {
@@ -219,6 +225,7 @@ function Puzzle({
           disabled={finished || !playersTurn || hint}
           onClick={() => {
             setHint(true)
+            setHelped(true)
             setStatus('solving')
           }}
         >

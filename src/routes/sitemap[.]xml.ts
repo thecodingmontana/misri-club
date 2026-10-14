@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { MASTER_GAMES } from '#/lib/masters'
+import { OPENINGS } from '#/lib/openings'
 import { SITE_URL } from '#/lib/seo'
 
 /** Every indexable page; player pages come from the live roster. */
@@ -13,6 +14,8 @@ const PAGES = [
   '/train/puzzles',
   '/train/play',
   '/train/masters',
+  '/train/openings',
+  ...OPENINGS.map((course) => `/train/openings/${course.slug}`),
   ...MASTER_GAMES.map((game) => `/train/masters/${game.slug}`),
 ]
 

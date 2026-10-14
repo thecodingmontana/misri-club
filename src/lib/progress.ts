@@ -1,0 +1,135 @@
+import { z } from 'zod'
+
+/**
+ * What a visitor has practised, kept in this browser only. Each trainer
+ * records its results here and the progress dashboard charts them. The game
+ * against Stockfish keeps its own record (see the play page).
+ */
+
+const tally = z.object({ done: z.number(), clean: z.number() })
+
+const progressSchema = z.object({
+  /** Puzzles by Lichess theme; `clean` = solved without a mistake or help. */
+  puzzles: z.record(z.string(), tally),
+  /** Opening drills by course slug; `clean` = played through without a slip. */
+  openings: z.record(z.string(), tally),
+  /** Best guess-the-move score per master game, as found / tried. */
+  masters: z.record(
+    z.string(),
+    z.object({ found: z.number(), tried: z.number() }),
+  ),
+  /** Days with any training, as YYYY-MM-DD, for the streak. */
+  days: z.array(z.string()),
+})
+
+export type Progress = z.infer<typeof progressSchema>
+
+export const EMPTY: Progress = {
+  puzzles: {},
+  openings: {},
+  masters: {},
+  days: [],
+}
+
+const KEY = 'misri:progress:v1'
+
+export function readProgress(): Progress {
+  try {
+    const stored = progressSchema.safeParse(
+      JSON.parse(localStorage.getItem(KEY) ?? 'null'),
+    )
+    return stored.success ? stored.data : EMPTY
+  } catch {
+    return EMPTY
+  }
+}
+
+function save(update: (progress: Progress) => Progress) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(update(readProgress())))
+  } catch {
+    // Storage blocked or full: training still works, it just isn't counted.
+  }
+}
+
+const today = () => new Date().toLocaleDateString('en-CA')
+
+function bump(
+  record: Record<string, { done: number; clean: number }>,
+  key: string,
+  clean: boolean,
+) {
+  const current = record[key] ?? { done: 0, clean: 0 }
+  return {
+    ...record,
+    [key]: { done: current.done + 1, clean: current.clean + (clean ? 1 : 0) },
+  }
+}
+
+function markDay(days: Array<string>, day: string) {
+  return days.includes(day) ? days : [...days, day].slice(-366)
+}
+
+/** A finished puzzle counts once for each of its themes. */
+export function withPuzzle(
+  progress: Progress,
+  themes: Array<string>,
+  clean: boolean,
+  day = today(),
+): Progress {
+  let puzzles = progress.puzzles
+  for (const theme of themes) puzzles = bump(puzzles, theme, clean)
+  return { ...progress, puzzles, days: markDay(progress.days, day) }
+}
+
+export function withDrill(
+  progress: Progress,
+  slug: string,
+  clean: boolean,
+  day = today(),
+): Progress {
+  return {
+    ...progress,
+    openings: bump(progress.openings, slug, clean),
+    days: markDay(progress.days, day),
+  }
+}
+
+/** Keeps the best guess-the-move result for a game: most moves found. */
+export function withGuess(
+  progress: Progress,
+  slug: string,
+  found: number,
+  tried: number,
+  day = today(),
+): Progress {
+  const best = progress.masters[slug]
+  const better = !best || found / tried > best.found / best.tried
+  return {
+    ...progress,
+    masters: better
+      ? { ...progress.masters, [slug]: { found, tried } }
+      : progress.masters,
+    days: markDay(progress.days, day),
+  }
+}
+
+/** Consecutive days of training ending today or yesterday. */
+export function streak(days: Array<string>, day = today()): number {
+  const set = new Set(days)
+  const cursor = new Date(`${day}T12:00:00`)
+  if (!set.has(day)) cursor.setDate(cursor.getDate() - 1)
+  let count = 0
+  while (set.has(cursor.toLocaleDateString('en-CA'))) {
+    count++
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return count
+}
+
+export const recordPuzzle = (themes: Array<string>, clean: boolean) =>
+  save((p) => withPuzzle(p, themes, clean))
+export const recordDrill = (slug: string, clean: boolean) =>
+  save((p) => withDrill(p, slug, clean))
+export const recordGuess = (slug: string, found: number, tried: number) =>
+  save((p) => withGuess(p, slug, found, tried))
