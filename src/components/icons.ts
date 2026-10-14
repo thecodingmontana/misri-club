@@ -1,9 +1,13 @@
 /**
- * The app's icon set: Solar, compiled to inline SVG at build time by
- * unplugin-icons. Names keep the old lucide ones so call sites read the same;
- * swap a glyph here and it changes everywhere.
+ * The app's icon set: Solar and Hugeicons, compiled to inline SVG at build
+ * time by unplugin-icons. Names keep the old lucide ones so call sites read the
+ * same; swap a glyph here and it changes everywhere.
  */
 
+export { default as ChevronDown } from '~icons/hugeicons/arrow-down-01'
+export { default as ChevronUp } from '~icons/hugeicons/arrow-up-01'
+export { default as Loader } from '~icons/hugeicons/loading-03'
+export { default as Check } from '~icons/hugeicons/tick-02'
 export { default as Plus } from '~icons/solar/add-circle-bold'
 export { default as ChevronLeft } from '~icons/solar/alt-arrow-left-linear'
 export { default as ChevronRight } from '~icons/solar/alt-arrow-right-linear'
