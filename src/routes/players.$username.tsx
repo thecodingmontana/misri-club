@@ -69,7 +69,7 @@ function PlayerScreen() {
             <ExternalLink className="size-3" />
           </a>
           <div className="mt-2 flex items-center gap-2">
-            <span className="rounded-full bg-flame px-3 py-0.5 text-[0.7rem] font-bold text-flame-foreground">
+            <span className="rounded-full bg-primary px-3 py-0.5 text-[0.7rem] font-bold text-primary-foreground">
               <LiveRating username={player.username} />
             </span>
             {!player.active && (

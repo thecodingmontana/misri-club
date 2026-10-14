@@ -165,7 +165,7 @@ function MatchdayCard({ data }: { data: Data }) {
 
       {current.state === 'live' && (
         <p className="mt-2 flex items-start gap-1.5 px-1 text-[0.7rem] leading-snug text-muted-foreground">
-          <AlertTriangle className="mt-px size-3.5 shrink-0 text-flame" />
+          <AlertTriangle className="mt-px size-3.5 shrink-0 text-destructive" />
           <span>
             Any fixture still unplayed when the window closes costs{' '}
             <span className="font-semibold text-foreground">both</span> players

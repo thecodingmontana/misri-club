@@ -7,8 +7,8 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Misri Chess Club. Light: cream board, deep-green ink, an orange flame for
- * whoever leads. Dark: charcoal with a green glow. Both themes are their own
+ * Misri Chess Club. Light: cream board, deep-green ink. Dark: charcoal with a
+ * green glow. Green is the one brand accent in both. Both themes are their own
  * picks, not one inverted into the other.
  */
 
@@ -32,17 +32,9 @@
   --border: #dfe3cc;
   --input: #d6dbc2;
   --ring: #2b7350;
-  /* The leader's colour: rank 1, the live matchday, the active tab. */
-  --flame: #c2410c;
-  --flame-foreground: #ffffff;
+  /* The move you played on a lesson board, set apart from the green best move. */
+  --played: #2f6f9f;
   --win: #2b7350;
-  --silver: #6b7d73;
-  --bronze: #9a5b2e;
-  --chart-1: #2b7350;
-  --chart-2: #c2410c;
-  --chart-3: #6b7d73;
-  --chart-4: #3b82a0;
-  --chart-5: #9a5b2e;
   --radius: 1rem;
   --shadow-card: 0 1px 0 rgb(31 77 58 / 0.04), 0 8px 24px -12px rgb(31 77 58 / 0.18);
   --sidebar: var(--card);
@@ -76,16 +68,7 @@
   --border: #2a2f2a;
   --input: #313731;
   --ring: #5fbf6a;
-  --flame: #f08a4b;
-  --flame-foreground: #0e100e;
   --win: #5fbf6a;
-  --silver: #b7c0b7;
-  --bronze: #d08a55;
-  --chart-1: #5fbf6a;
-  --chart-2: #f08a4b;
-  --chart-3: #b7c0b7;
-  --chart-4: #6cb6d6;
-  --chart-5: #d08a55;
   --shadow-card: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 12px 30px -16px rgb(0 0 0 / 0.8);
 }
 
@@ -93,11 +76,8 @@
   --font-sans: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
 
-  --color-flame: var(--flame);
-  --color-flame-foreground: var(--flame-foreground);
+  --color-played: var(--played);
   --color-win: var(--win);
-  --color-silver: var(--silver);
-  --color-bronze: var(--bronze);
   --shadow-card: var(--shadow-card);
 
   --color-background: var(--background);
@@ -119,11 +99,6 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

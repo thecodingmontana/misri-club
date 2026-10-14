@@ -14,13 +14,13 @@ export interface BoardStep {
 }
 
 const ARROW = {
-  played: '#c2410c',
+  played: '#2f6f9f',
   best: '#2b7350',
   reply: '#c2412f',
 } as const
 
 const DOT = {
-  played: 'bg-flame',
+  played: 'bg-played',
   best: 'bg-primary',
   reply: 'bg-destructive',
 } as const

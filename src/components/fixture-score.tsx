@@ -18,7 +18,7 @@ export function FixtureScore({ fixture }: { fixture: FixtureView }) {
         target="_blank"
         rel="noreferrer noopener"
         title="Open the game on chess.com"
-        className={cn(pill, 'bg-primary/12 text-primary hover:bg-primary/20')}
+        className={cn(pill, 'bg-primary/12 text-foreground hover:bg-primary/20')}
       >
         {game.result === 'draw' ? '½–½' : game.homeWon ? '1–0' : '0–1'}
       </a>
@@ -28,7 +28,7 @@ export function FixtureScore({ fixture }: { fixture: FixtureView }) {
   if (fixture.status === 'walkover') {
     return (
       <span
-        className={cn(pill, 'bg-flame/12 text-flame')}
+        className={cn(pill, 'bg-primary/12 text-foreground')}
         title={`Walkover to ${fixture.walkoverWinner}: +3 for them, −1 for the other`}
       >
         W/O
@@ -53,7 +53,7 @@ export function FixtureScore({ fixture }: { fixture: FixtureView }) {
         pill,
         'uppercase',
         fixture.status === 'live'
-          ? 'bg-flame text-flame-foreground'
+          ? 'bg-primary text-primary-foreground'
           : 'text-muted-foreground',
       )}
     >

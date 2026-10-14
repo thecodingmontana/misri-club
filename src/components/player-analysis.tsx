@@ -310,7 +310,7 @@ function WeakPoints({
         <div className="flex items-center gap-2 border-t border-border/60 px-4 py-3 text-xs text-muted-foreground">
           {weak.weakestPhase ? (
             <>
-              <Fire className="size-4 shrink-0 text-flame" />
+              <Fire className="size-4 shrink-0 text-primary" />
               <span>
                 Most fragile phase:{' '}
                 <span className="font-semibold text-foreground">
@@ -354,7 +354,7 @@ function GameRow({
         <span
           className={cn(
             'numeric grid size-7 shrink-0 place-items-center rounded-full text-[0.7rem] font-bold',
-            game.outcome === 'win' && 'bg-win/15 text-win',
+            game.outcome === 'win' && 'bg-win/15 text-foreground',
             game.outcome === 'draw' && 'bg-secondary text-muted-foreground',
             game.outcome === 'loss' && 'bg-destructive/12 text-destructive',
           )}

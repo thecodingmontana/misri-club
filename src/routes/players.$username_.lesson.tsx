@@ -134,7 +134,7 @@ function LessonScreen() {
               <h2 className="display text-lg">{moment.heading}</h2>
               <div className="flex items-start gap-3 rounded-2xl bg-card px-4 py-3 shadow-card">
                 <p className="flex-1 text-[0.8rem] leading-relaxed">
-                  <Lightbulb className="mr-1 inline size-4 text-flame" />
+                  <Lightbulb className="mr-1 inline size-4 text-primary" />
                   <span className="font-bold text-primary">Theory: </span>
                   {moment.theory}
                 </p>

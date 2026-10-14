@@ -48,7 +48,7 @@ function ClubScreen() {
         to="/all-time"
         className="flex items-center gap-3 rounded-2xl bg-card px-4 py-3 shadow-card transition-colors hover:bg-secondary"
       >
-        <Trophy className="size-6 text-flame" />
+        <Trophy className="size-6 text-primary" />
         <span className="flex-1">
           <span className="block text-sm font-medium">All-time records</span>
           <span className="block text-[0.68rem] text-muted-foreground">

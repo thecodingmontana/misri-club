@@ -40,14 +40,14 @@ function Place({ entry, rank }: { entry?: PodiumEntry; rank: 1 | 2 | 3 }) {
         <Avatar
           className={cn(
             'border-[3px] bg-card',
-            leader ? 'size-24 border-flame' : 'size-[4.5rem] border-primary',
+            leader ? 'size-24 border-primary' : 'size-[4.5rem] border-primary',
           )}
         >
           <AvatarImage src={src} alt="" />
           <AvatarFallback
             className={cn(
               'display bg-secondary',
-              leader ? 'text-2xl text-flame' : 'text-lg text-primary',
+              leader ? 'text-2xl text-primary' : 'text-lg text-primary',
             )}
           >
             {entry.username.slice(0, 2).toUpperCase()}
@@ -57,7 +57,7 @@ function Place({ entry, rank }: { entry?: PodiumEntry; rank: 1 | 2 | 3 }) {
           className={cn(
             'display absolute -top-2.5 left-1/2 grid size-7 -translate-x-1/2 place-items-center rounded-full text-sm ring-[3px] ring-background',
             leader
-              ? 'bg-flame text-flame-foreground'
+              ? 'bg-primary text-primary-foreground'
               : 'bg-primary text-primary-foreground',
           )}
         >
@@ -67,7 +67,7 @@ function Place({ entry, rank }: { entry?: PodiumEntry; rank: 1 | 2 | 3 }) {
       <span
         className={cn(
           'display numeric mt-2',
-          leader ? 'text-2xl text-flame' : 'text-lg text-primary',
+          leader ? 'text-2xl text-primary' : 'text-lg text-primary',
         )}
       >
         {entry.points}
@@ -75,7 +75,7 @@ function Place({ entry, rank }: { entry?: PodiumEntry; rank: 1 | 2 | 3 }) {
       <span
         className={cn(
           'w-full truncate font-semibold transition-colors group-hover:text-primary',
-          leader ? 'text-sm text-flame' : 'text-[0.8rem]',
+          leader ? 'text-sm text-primary' : 'text-[0.8rem]',
         )}
       >
         {entry.username}
