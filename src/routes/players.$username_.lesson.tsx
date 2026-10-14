@@ -16,6 +16,7 @@ import {
 import { SpeakButton } from '#/components/speak-button'
 import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
+import { confetti } from '#/lib/confetti'
 import type { LessonMoment, QuizQuestion } from '#/lib/lesson'
 import { buildLesson } from '#/lib/lesson'
 import { playerGamesQuery } from '#/lib/queries'
@@ -237,6 +238,7 @@ function Quiz({ question }: { question: QuizQuestion }) {
             onClick={() => {
               setPicked(index)
               play(correct ? 'success' : 'error')
+              if (correct) confetti(40)
             }}
             className={cn(
               'flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-[0.8rem] transition-colors',

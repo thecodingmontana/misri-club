@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '#/components/ui/select'
+import { confetti } from '#/lib/confetti'
 import { Engine } from '#/lib/engine'
 import type { Colour, Outcome, SavedGame as Saved } from '#/lib/play'
 import {
@@ -39,7 +40,10 @@ export const Route = createFileRoute('/train/play')({
 const FRESH: Saved = { pgn: '', colour: 'white', level: 1, record: {} }
 
 const SOUND: Record<Outcome, () => void> = {
-  win: () => play('success', { emphasis: 'strong' }),
+  win: () => {
+    play('success', { emphasis: 'strong' })
+    confetti()
+  },
   draw: () => play('warning'),
   loss: () => play('error'),
 }

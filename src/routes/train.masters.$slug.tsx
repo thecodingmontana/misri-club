@@ -19,6 +19,7 @@ import { Card } from '#/components/ui/card'
 import type { ChartConfig } from '#/components/ui/chart'
 import { ChartContainer } from '#/components/ui/chart'
 import { reviewFor, winChance } from '#/lib/analysis'
+import { confetti } from '#/lib/confetti'
 import type { MasterGame } from '#/lib/masters'
 import { masterGame, plyOf } from '#/lib/masters'
 import { recordGuess } from '#/lib/progress'
@@ -112,6 +113,7 @@ function Replay({ game, startAt }: { game: MasterGame; startAt: number }) {
   useEffect(() => {
     if (finished && guess.tried > 0) {
       recordGuess(game.slug, guess.right, guess.tried)
+      if (guess.right > 0) confetti(60)
     }
   }, [finished, guess, game.slug])
 
@@ -131,6 +133,8 @@ function Replay({ game, startAt }: { game: MasterGame; startAt: number }) {
     const master = moves[ply]
     const right = master.from === from && master.to === to
     play(right ? 'success' : 'error', { emphasis: 'subtle' })
+    // Finding a move the masters marked brilliant (!!) is worth a party.
+    if (right && notes.get(ply + 1)?.brilliant) confetti()
     setGuess({
       ...guess,
       right: guess.right + (right ? 1 : 0),

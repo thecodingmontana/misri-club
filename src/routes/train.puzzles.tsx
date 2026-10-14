@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
+import { confetti } from '#/lib/confetti'
 import { recordPuzzle } from '#/lib/progress'
 import type { Difficulty, Theme } from '#/lib/puzzle'
 import {
@@ -224,6 +225,7 @@ function Puzzle({
 
     if (verdict.reply === null) {
       play('success')
+      confetti()
       setStatus('solved')
       onSolved()
       recordPuzzle(data.puzzle.themes, !helped)

@@ -15,6 +15,7 @@ import { PlayBoard } from '#/components/play-board'
 import { TrainHeader } from '#/components/train-header'
 import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
+import { confetti } from '#/lib/confetti'
 import type { OpeningCourse } from '#/lib/openings'
 import { lichessOpeningUrl, opening } from '#/lib/openings'
 import { recordDrill } from '#/lib/progress'
@@ -244,6 +245,7 @@ function Drill({ course, moves }: { course: OpeningCourse; moves: Moves }) {
   useEffect(() => {
     if (!done) return
     play('success')
+    confetti()
     recordDrill(course.slug, !slipped)
   }, [done, course.slug, slipped])
 
