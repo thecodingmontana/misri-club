@@ -1,14 +1,38 @@
 import { Link } from '@tanstack/react-router'
-import { CalendarDays, Crown, Home, Users } from '#/components/icons'
+import {
+  CalendarFilled,
+  CalendarOutline,
+  CrownFilled,
+  CrownOutline,
+  HomeFilled,
+  HomeOutline,
+  UsersFilled,
+  UsersOutline,
+} from '#/components/icons'
 
 const TABS = [
-  { to: '/', label: 'Home', icon: Home, exact: true },
-  { to: '/table', label: 'Table', icon: Crown, exact: false },
-  { to: '/fixtures', label: 'Fixtures', icon: CalendarDays, exact: false },
-  { to: '/club', label: 'Club', icon: Users, exact: false },
+  {
+    to: '/',
+    label: 'Home',
+    icon: HomeOutline,
+    active: HomeFilled,
+    exact: true,
+  },
+  { to: '/table', label: 'Table', icon: CrownOutline, active: CrownFilled },
+  {
+    to: '/fixtures',
+    label: 'Fixtures',
+    icon: CalendarOutline,
+    active: CalendarFilled,
+  },
+  { to: '/club', label: 'Club', icon: UsersOutline, active: UsersFilled },
 ] as const
 
-/** Tab bar along the bottom of the phone column; the active tab burns orange. */
+/**
+ * Tab bar along the bottom of the phone column. The active tab swaps to a
+ * filled icon on a green pill and a bolder label, so it reads at a glance
+ * without relying on colour alone.
+ */
 export function BottomNav() {
   return (
     <nav className="shrink-0 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]">
@@ -17,11 +41,14 @@ export function BottomNav() {
           <Link
             key={tab.to}
             to={tab.to}
-            activeOptions={{ exact: tab.exact }}
-            className="flex flex-col items-center gap-1 py-3 text-[0.65rem] font-semibold text-muted-foreground transition-colors hover:text-foreground"
-            activeProps={{ className: 'text-flame hover:text-flame' }}
+            activeOptions={{ exact: 'exact' in tab }}
+            // TanStack Link sets data-status="active" on the current tab.
+            className="group flex flex-col items-center gap-1 py-2 text-[0.65rem] font-semibold text-muted-foreground transition-colors duration-150 [-webkit-tap-highlight-color:transparent] hover:text-foreground data-[status=active]:font-bold data-[status=active]:text-primary"
           >
-            <tab.icon className="size-5" />
+            <span className="grid h-7 w-14 place-items-center rounded-full transition-colors duration-150 group-data-[status=active]:bg-primary/15">
+              <tab.icon className="size-5 group-data-[status=active]:hidden" />
+              <tab.active className="hidden size-5 group-data-[status=active]:block" />
+            </span>
             {tab.label}
           </Link>
         ))}
