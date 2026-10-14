@@ -17,14 +17,14 @@ import {
  */
 export const adminMiddleware = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
-    await requireAdmin()
+    requireAdmin()
     return next()
   },
 )
 
 export const getSessionFn = createServerFn({ method: 'GET' }).handler(
   async () => ({
-    isAdmin: await isAdmin(),
+    isAdmin: isAdmin(),
     configured: isAuthConfigured(),
   }),
 )
@@ -37,6 +37,6 @@ export const loginFn = createServerFn({ method: 'POST' })
   })
 
 export const logoutFn = createServerFn({ method: 'POST' }).handler(async () => {
-  await signOut()
+  signOut()
   return { ok: true as const }
 })
