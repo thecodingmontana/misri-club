@@ -1,15 +1,27 @@
 import { Chess } from 'chess.js'
+import { z } from 'zod'
 
 /** The fields we use from `GET https://lichess.org/api/puzzle/next`. */
-export interface LichessPuzzle {
-  game: { pgn: string }
-  puzzle: {
-    id: string
-    rating: number
+export const lichessPuzzle = z.object({
+  game: z.object({ pgn: z.string().min(1) }),
+  puzzle: z.object({
+    id: z.string().min(1),
+    rating: z.number(),
     /** UCI moves, the player's first, then alternating with the replies. */
-    solution: Array<string>
-    themes: Array<string>
-  }
+    solution: z.array(z.string().regex(/^[a-h][1-8][a-h][1-8][qrbn]?$/)).min(1),
+    themes: z.array(z.string()),
+  }),
+})
+
+export type LichessPuzzle = z.infer<typeof lichessPuzzle>
+
+/** A random puzzle from Lichess (CORS-open, no key), checked before use. */
+export async function fetchPuzzle(): Promise<LichessPuzzle> {
+  const response = await fetch('https://lichess.org/api/puzzle/next', {
+    headers: { Accept: 'application/json' },
+  })
+  if (!response.ok) throw new Error(`Lichess answered ${response.status}.`)
+  return lichessPuzzle.parse(await response.json())
 }
 
 /** The puzzle's position: every move of the game up to it, played out. */

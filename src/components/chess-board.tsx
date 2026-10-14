@@ -13,6 +13,12 @@ export interface BoardStep {
   hanging?: Array<Square>
 }
 
+/** chess.com's board colours, shared by every board in the app. */
+export const SQUARES = {
+  darkSquareStyle: { backgroundColor: '#769656' },
+  lightSquareStyle: { backgroundColor: '#eeeed2' },
+}
+
 const ARROW = {
   played: '#2f6f9f',
   best: '#2b7350',
@@ -57,8 +63,7 @@ export function ChessBoard({
             allowDragging: false,
             allowDrawingArrows: false,
             animationDurationInMs: 350,
-            darkSquareStyle: { backgroundColor: '#769656' },
-            lightSquareStyle: { backgroundColor: '#eeeed2' },
+            ...SQUARES,
             arrows: current.arrow
               ? [
                   {

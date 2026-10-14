@@ -15,7 +15,9 @@ import { Route as ClubRouteImport } from './routes/club'
 import { Route as FixturesRouteImport } from './routes/fixtures'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as TableRouteImport } from './routes/table'
+import { Route as TrainRouteImport } from './routes/train'
 import { Route as PlayersUsernameRouteImport } from './routes/players.$username'
+import { Route as TrainIndexRouteImport } from './routes/train.index'
 import { Route as PlayersUsernameLessonRouteImport } from './routes/players.$username_.lesson'
 
 const IndexRoute = IndexRouteImport.update({
@@ -48,10 +50,20 @@ const TableRoute = TableRouteImport.update({
   path: '/table',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrainRoute = TrainRouteImport.update({
+  id: '/train',
+  path: '/train',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PlayersUsernameRoute = PlayersUsernameRouteImport.update({
   id: '/players/$username',
   path: '/players/$username',
   getParentRoute: () => rootRouteImport,
+} as any)
+const TrainIndexRoute = TrainIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => TrainRoute,
 } as any)
 const PlayersUsernameLessonRoute = PlayersUsernameLessonRouteImport.update({
   id: '/players/$username_/lesson',
@@ -66,7 +78,9 @@ export interface FileRoutesByFullPath {
   '/fixtures': typeof FixturesRoute
   '/login': typeof LoginRoute
   '/table': typeof TableRoute
+  '/train': typeof TrainRouteWithChildren
   '/players/$username': typeof PlayersUsernameRoute
+  '/train/': typeof TrainIndexRoute
   '/players/$username/lesson': typeof PlayersUsernameLessonRoute
 }
 export interface FileRoutesByTo {
@@ -77,6 +91,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/table': typeof TableRoute
   '/players/$username': typeof PlayersUsernameRoute
+  '/train': typeof TrainIndexRoute
   '/players/$username/lesson': typeof PlayersUsernameLessonRoute
 }
 export interface FileRoutesById {
@@ -87,7 +102,9 @@ export interface FileRoutesById {
   '/fixtures': typeof FixturesRoute
   '/login': typeof LoginRoute
   '/table': typeof TableRoute
+  '/train': typeof TrainRouteWithChildren
   '/players/$username': typeof PlayersUsernameRoute
+  '/train/': typeof TrainIndexRoute
   '/players/$username_/lesson': typeof PlayersUsernameLessonRoute
 }
 export interface FileRouteTypes {
@@ -99,7 +116,9 @@ export interface FileRouteTypes {
     | '/fixtures'
     | '/login'
     | '/table'
+    | '/train'
     | '/players/$username'
+    | '/train/'
     | '/players/$username/lesson'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -110,6 +129,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/table'
     | '/players/$username'
+    | '/train'
     | '/players/$username/lesson'
   id:
     | '__root__'
@@ -119,7 +139,9 @@ export interface FileRouteTypes {
     | '/fixtures'
     | '/login'
     | '/table'
+    | '/train'
     | '/players/$username'
+    | '/train/'
     | '/players/$username_/lesson'
   fileRoutesById: FileRoutesById
 }
@@ -130,6 +152,7 @@ export interface RootRouteChildren {
   FixturesRoute: typeof FixturesRoute
   LoginRoute: typeof LoginRoute
   TableRoute: typeof TableRoute
+  TrainRoute: typeof TrainRouteWithChildren
   PlayersUsernameRoute: typeof PlayersUsernameRoute
   PlayersUsernameLessonRoute: typeof PlayersUsernameLessonRoute
 }
@@ -178,12 +201,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TableRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/train': {
+      id: '/train'
+      path: '/train'
+      fullPath: '/train'
+      preLoaderRoute: typeof TrainRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/players/$username': {
       id: '/players/$username'
       path: '/players/$username'
       fullPath: '/players/$username'
       preLoaderRoute: typeof PlayersUsernameRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/train/': {
+      id: '/train/'
+      path: '/'
+      fullPath: '/train/'
+      preLoaderRoute: typeof TrainIndexRouteImport
+      parentRoute: typeof TrainRoute
     }
     '/players/$username_/lesson': {
       id: '/players/$username_/lesson'
@@ -195,6 +232,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface TrainRouteChildren {
+  TrainIndexRoute: typeof TrainIndexRoute
+}
+
+const TrainRouteChildren: TrainRouteChildren = {
+  TrainIndexRoute: TrainIndexRoute,
+}
+
+const TrainRouteWithChildren = TrainRoute._addFileChildren(TrainRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AllTimeRoute: AllTimeRoute,
@@ -202,18 +249,10 @@ const rootRouteChildren: RootRouteChildren = {
   FixturesRoute: FixturesRoute,
   LoginRoute: LoginRoute,
   TableRoute: TableRoute,
+  TrainRoute: TrainRouteWithChildren,
   PlayersUsernameRoute: PlayersUsernameRoute,
   PlayersUsernameLessonRoute: PlayersUsernameLessonRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

@@ -6,6 +6,8 @@ import {
   CrownOutline,
   HomeFilled,
   HomeOutline,
+  TrainFilled,
+  TrainOutline,
   UsersFilled,
   UsersOutline,
 } from '#/components/icons'
@@ -25,6 +27,7 @@ const TABS = [
     icon: CalendarOutline,
     active: CalendarFilled,
   },
+  { to: '/train', label: 'Train', icon: TrainOutline, active: TrainFilled },
   { to: '/club', label: 'Club', icon: UsersOutline, active: UsersFilled },
 ] as const
 
@@ -36,7 +39,7 @@ const TABS = [
 export function BottomNav() {
   return (
     <nav className="shrink-0 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]">
-      <div className="mx-auto grid w-full max-w-[27rem] grid-cols-4">
+      <div className="mx-auto grid w-full max-w-[27rem] grid-cols-5">
         {TABS.map((tab) => (
           <Link
             key={tab.to}
