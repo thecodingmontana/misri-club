@@ -34,3 +34,24 @@ export function takeBack(pgn: string, colour: Colour): string {
   if (chess.turn() !== colour[0]) chess.undo()
   return chess.pgn()
 }
+
+/**
+ * A typed move (`Nf3`, `e4`, `e2e4`) as squares, or null if it isn't legal
+ * here. A lowercase piece letter is forgiven, since phones lowercase the first
+ * key; `b` is left alone because `bxc3` is a pawn move.
+ */
+export function parseMove(fen: string, text: string) {
+  const typed = text.trim()
+  for (const attempt of [
+    typed,
+    typed.replace(/^[nrqk]/, (c) => c.toUpperCase()),
+  ]) {
+    try {
+      const move = new Chess(fen).move(attempt)
+      return { from: move.from, to: move.to }
+    } catch {
+      // Try the next reading.
+    }
+  }
+  return null
+}

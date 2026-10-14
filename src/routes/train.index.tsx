@@ -150,12 +150,15 @@ function Puzzle({
   }
 
   const side = start.colour === 'white' ? 'White' : 'Black'
-  const message = {
-    solving: `${side} to move. Find the best move.`,
-    wrong: 'Not that one. Try again.',
-    solved: 'Solved!',
-    revealed: 'Here is the solution.',
-  }[status]
+  const message =
+    hint && status === 'solving'
+      ? `Hint: move the piece on ${solution[step].slice(0, 2)}.`
+      : {
+          solving: `${side} to move. Find the best move.`,
+          wrong: 'Not that one. Try again.',
+          solved: 'Solved!',
+          revealed: 'Here is the solution.',
+        }[status]
 
   return (
     <div className="space-y-3">
@@ -193,11 +196,14 @@ function Puzzle({
         {message}
       </p>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="flex flex-wrap gap-2 *:flex-1 *:basis-24">
         <Button
           variant="secondary"
           disabled={finished || !playersTurn || hint}
-          onClick={() => setHint(true)}
+          onClick={() => {
+            setHint(true)
+            setStatus('solving')
+          }}
         >
           <Lightbulb /> Hint
         </Button>
@@ -206,12 +212,12 @@ function Puzzle({
           disabled={finished || !playersTurn}
           onClick={reveal}
         >
-          Solution
+          Show solution
         </Button>
-        <Button onClick={onNext}>Next</Button>
+        <Button onClick={onNext}>Next puzzle</Button>
       </div>
 
-      <p className="text-center text-[0.68rem] text-muted-foreground">
+      <p className="text-center text-xs text-muted-foreground">
         {data.puzzle.themes.slice(0, 3).map(themeName).join(' · ')}
         {' · '}
         <a

@@ -1,6 +1,7 @@
 import type { Square } from 'chess.js'
 import { useState } from 'react'
 import { Chessboard } from 'react-chessboard'
+import { useReducedMotion } from '#/lib/use-reduced-motion'
 import { cn } from '#/lib/utils'
 
 export interface BoardStep {
@@ -50,6 +51,7 @@ export function ChessBoard({
   steps: Array<BoardStep>
 }) {
   const [index, setIndex] = useState(0)
+  const reducedMotion = useReducedMotion()
   const current = steps[index]
 
   return (
@@ -62,7 +64,7 @@ export function ChessBoard({
             boardOrientation: orientation,
             allowDragging: false,
             allowDrawingArrows: false,
-            animationDurationInMs: 350,
+            animationDurationInMs: reducedMotion ? 0 : 350,
             ...SQUARES,
             arrows: current.arrow
               ? [

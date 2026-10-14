@@ -2,14 +2,20 @@ import { createFileRoute } from '@tanstack/react-router'
 import { play } from 'cuelume'
 import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
-import { Cpu, RefreshCw } from '#/components/icons'
+import { Cpu } from '#/components/icons'
 import { PlayBoard } from '#/components/play-board'
 import { Button } from '#/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#/components/ui/select'
 import { Engine } from '#/lib/engine'
 import type { Colour, Outcome } from '#/lib/play'
 import { LEVELS, loadGame, outcomeFor, takeBack } from '#/lib/play'
 import { fromUci } from '#/lib/puzzle'
-import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/train/play')({
   component: PlayScreen,
@@ -162,26 +168,26 @@ function PlayScreen() {
 
   return (
     <div className="space-y-3">
-      <fieldset className="flex gap-1 rounded-full bg-secondary p-1">
-        <legend className="sr-only">Stockfish strength</legend>
-        {LEVELS.map((option, index) => (
-          <button
-            key={option.label}
-            type="button"
-            aria-pressed={index === game.level}
-            data-cuelume-select=""
-            onClick={() => setGame({ ...game, level: index })}
-            className={cn(
-              'flex-1 rounded-full px-1 py-1.5 text-[0.68rem] font-semibold transition-colors duration-150',
-              index === game.level
-                ? 'bg-background text-foreground shadow-card'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {option.label}
-          </button>
-        ))}
-      </fieldset>
+      <div className="flex items-center justify-between gap-3">
+        <span id="strength-label" className="text-sm font-medium">
+          Stockfish strength
+        </span>
+        <Select
+          value={String(game.level)}
+          onValueChange={(value) => setGame({ ...game, level: Number(value) })}
+        >
+          <SelectTrigger aria-labelledby="strength-label" className="w-36">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {LEVELS.map((option, index) => (
+              <SelectItem key={option.label} value={String(index)}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       <PlayBoard
         id="play-stockfish"
@@ -197,10 +203,10 @@ function PlayScreen() {
         aria-live="polite"
       >
         {thinking && <Cpu className="size-4 animate-pulse text-primary" />}
-        {error ?? status}
+        {error ? `${error} Reload the page to try again.` : status}
       </p>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="flex flex-wrap gap-2 *:flex-1 *:basis-24">
         <Button
           variant="secondary"
           disabled={chess.history().length === 0}
@@ -211,10 +217,10 @@ function PlayScreen() {
           Take back
         </Button>
         <Button variant="secondary" onClick={() => newGame('white')}>
-          <RefreshCw /> White
+          Play White
         </Button>
         <Button variant="secondary" onClick={() => newGame('black')}>
-          <RefreshCw /> Black
+          Play Black
         </Button>
       </div>
 
