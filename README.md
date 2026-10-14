@@ -49,10 +49,20 @@ pnpm dev              # http://localhost:3005
   `adminMiddleware` in `src/server/auth.functions.ts`.
   The session is an HMAC-signed cookie (`src/server/session.ts`) keyed off
   the passphrase hash, so changing the passphrase signs everyone out.
-- **Train** (`src/routes/train.*`): endless puzzles fetched in the browser from
-  the Lichess API (no key, CORS-open), and games against Stockfish 19 lite
-  running in a Web Worker at five strengths. Games and results are kept in
-  the visitor's browser only.
+- **Train** (`src/routes/train.*`): a hub of free practice, mostly built on
+  Lichess:
+  - **Puzzles** from the Lichess puzzle API, by theme and difficulty.
+  - **Openings**: 13 courses (`src/lib/openings.ts`) checked against the
+    Lichess opening data set (CC0, bundled as `public/openings.tsv`), with
+    Learn and Drill modes, Lichess cloud evaluations and a search over every
+    named opening.
+  - **Master games** (`src/lib/masters.ts`): famous games, verified against
+    chessgames.com or Wikipedia, with notes, guess-the-move and a Stockfish
+    evaluation graph.
+  - **Brilliant moves**: a lesson on finding them, linked to the masters.
+  - **Play Stockfish** 19 lite in a Web Worker at five strengths.
+  - **Progress**: a dashboard of streak, themes and records.
+  All training data stays in the visitor's browser.
 - **SEO** (`src/lib/seo.ts`): every page sets its title, description,
   canonical link, Open Graph and Twitter tags through `seo()`; `/robots.txt`
   and `/sitemap.xml` are generated server routes, the sitemap listing the
