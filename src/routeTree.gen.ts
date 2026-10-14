@@ -21,6 +21,7 @@ import { Route as PlayersUsernameRouteImport } from './routes/players.$username'
 import { Route as TrainIndexRouteImport } from './routes/train.index'
 import { Route as TrainBrilliantRouteImport } from './routes/train.brilliant'
 import { Route as TrainPlayRouteImport } from './routes/train.play'
+import { Route as TrainProgressRouteImport } from './routes/train.progress'
 import { Route as TrainPuzzlesRouteImport } from './routes/train.puzzles'
 import { Route as PlayersUsernameLessonRouteImport } from './routes/players.$username_.lesson'
 import { Route as TrainMastersIndexRouteImport } from './routes/train.masters.index'
@@ -88,6 +89,11 @@ const TrainPlayRoute = TrainPlayRouteImport.update({
   path: '/train/play',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrainProgressRoute = TrainProgressRouteImport.update({
+  id: '/train/progress',
+  path: '/train/progress',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TrainPuzzlesRoute = TrainPuzzlesRouteImport.update({
   id: '/train/puzzles',
   path: '/train/puzzles',
@@ -131,6 +137,7 @@ export interface FileRoutesByFullPath {
   '/players/$username': typeof PlayersUsernameRoute
   '/train/brilliant': typeof TrainBrilliantRoute
   '/train/play': typeof TrainPlayRoute
+  '/train/progress': typeof TrainProgressRoute
   '/train/puzzles': typeof TrainPuzzlesRoute
   '/train/': typeof TrainIndexRoute
   '/players/$username/lesson': typeof PlayersUsernameLessonRoute
@@ -151,6 +158,7 @@ export interface FileRoutesByTo {
   '/players/$username': typeof PlayersUsernameRoute
   '/train/brilliant': typeof TrainBrilliantRoute
   '/train/play': typeof TrainPlayRoute
+  '/train/progress': typeof TrainProgressRoute
   '/train/puzzles': typeof TrainPuzzlesRoute
   '/train': typeof TrainIndexRoute
   '/players/$username/lesson': typeof PlayersUsernameLessonRoute
@@ -172,6 +180,7 @@ export interface FileRoutesById {
   '/players/$username': typeof PlayersUsernameRoute
   '/train/brilliant': typeof TrainBrilliantRoute
   '/train/play': typeof TrainPlayRoute
+  '/train/progress': typeof TrainProgressRoute
   '/train/puzzles': typeof TrainPuzzlesRoute
   '/train/': typeof TrainIndexRoute
   '/players/$username_/lesson': typeof PlayersUsernameLessonRoute
@@ -194,6 +203,7 @@ export interface FileRouteTypes {
     | '/players/$username'
     | '/train/brilliant'
     | '/train/play'
+    | '/train/progress'
     | '/train/puzzles'
     | '/train/'
     | '/players/$username/lesson'
@@ -214,6 +224,7 @@ export interface FileRouteTypes {
     | '/players/$username'
     | '/train/brilliant'
     | '/train/play'
+    | '/train/progress'
     | '/train/puzzles'
     | '/train'
     | '/players/$username/lesson'
@@ -234,6 +245,7 @@ export interface FileRouteTypes {
     | '/players/$username'
     | '/train/brilliant'
     | '/train/play'
+    | '/train/progress'
     | '/train/puzzles'
     | '/train/'
     | '/players/$username_/lesson'
@@ -255,6 +267,7 @@ export interface RootRouteChildren {
   PlayersUsernameRoute: typeof PlayersUsernameRoute
   TrainBrilliantRoute: typeof TrainBrilliantRoute
   TrainPlayRoute: typeof TrainPlayRoute
+  TrainProgressRoute: typeof TrainProgressRoute
   TrainPuzzlesRoute: typeof TrainPuzzlesRoute
   TrainIndexRoute: typeof TrainIndexRoute
   PlayersUsernameLessonRoute: typeof PlayersUsernameLessonRoute
@@ -350,6 +363,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainPlayRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/train/progress': {
+      id: '/train/progress'
+      path: '/train/progress'
+      fullPath: '/train/progress'
+      preLoaderRoute: typeof TrainProgressRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/train/puzzles': {
       id: '/train/puzzles'
       path: '/train/puzzles'
@@ -407,6 +427,7 @@ const rootRouteChildren: RootRouteChildren = {
   PlayersUsernameRoute: PlayersUsernameRoute,
   TrainBrilliantRoute: TrainBrilliantRoute,
   TrainPlayRoute: TrainPlayRoute,
+  TrainProgressRoute: TrainProgressRoute,
   TrainPuzzlesRoute: TrainPuzzlesRoute,
   TrainIndexRoute: TrainIndexRoute,
   PlayersUsernameLessonRoute: PlayersUsernameLessonRoute,
@@ -418,3 +439,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

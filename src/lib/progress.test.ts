@@ -1,12 +1,20 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { EMPTY, streak, withDrill, withGuess, withPuzzle } from './progress.ts'
+import {
+  EMPTY,
+  streak,
+  weakestThemes,
+  withDrill,
+  withGuess,
+  withPuzzle,
+} from './progress.ts'
 
 test('a puzzle counts once per theme, clean or not', () => {
   let p = withPuzzle(EMPTY, ['fork', 'short'], true, '2026-10-14')
   p = withPuzzle(p, ['fork'], false, '2026-10-14')
   assert.deepEqual(p.puzzles.fork, { done: 2, clean: 1 })
   assert.deepEqual(p.puzzles.short, { done: 1, clean: 1 })
+  assert.deepEqual(p.solved, { done: 2, clean: 1 }, 'each puzzle counted once')
   assert.deepEqual(p.days, ['2026-10-14'], 'one day, recorded once')
 })
 
@@ -33,4 +41,17 @@ test('the streak counts back from today, or from yesterday if today is not done 
   assert.equal(streak([...days, '2026-10-14'], '2026-10-14'), 4)
   assert.equal(streak(days, '2026-10-16'), 0, 'a missed day breaks it')
   assert.equal(streak([], '2026-10-14'), 0)
+})
+
+test('weakest themes: lowest clean rate first, only themes tried enough', () => {
+  const puzzles = {
+    fork: { done: 10, clean: 9 },
+    pin: { done: 4, clean: 1 },
+    skewer: { done: 5, clean: 2 },
+    mateIn2: { done: 2, clean: 0 },
+  }
+  assert.deepEqual(
+    weakestThemes(puzzles, 3, 2).map((w) => w.theme),
+    ['pin', 'skewer'],
+  )
 })

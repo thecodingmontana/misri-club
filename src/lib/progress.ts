@@ -9,6 +9,8 @@ import { z } from 'zod'
 const tally = z.object({ done: z.number(), clean: z.number() })
 
 const progressSchema = z.object({
+  /** Every finished puzzle, once, whatever its themes. */
+  solved: tally.default({ done: 0, clean: 0 }),
   /** Puzzles by Lichess theme; `clean` = solved without a mistake or help. */
   puzzles: z.record(z.string(), tally),
   /** Opening drills by course slug; `clean` = played through without a slip. */
@@ -25,6 +27,7 @@ const progressSchema = z.object({
 export type Progress = z.infer<typeof progressSchema>
 
 export const EMPTY: Progress = {
+  solved: { done: 0, clean: 0 },
   puzzles: {},
   openings: {},
   masters: {},
@@ -79,7 +82,11 @@ export function withPuzzle(
 ): Progress {
   let puzzles = progress.puzzles
   for (const theme of themes) puzzles = bump(puzzles, theme, clean)
-  return { ...progress, puzzles, days: markDay(progress.days, day) }
+  const solved = {
+    done: progress.solved.done + 1,
+    clean: progress.solved.clean + (clean ? 1 : 0),
+  }
+  return { ...progress, solved, puzzles, days: markDay(progress.days, day) }
 }
 
 export function withDrill(
@@ -133,3 +140,19 @@ export const recordDrill = (slug: string, clean: boolean) =>
   save((p) => withDrill(p, slug, clean))
 export const recordGuess = (slug: string, found: number, tried: number) =>
   save((p) => withGuess(p, slug, found, tried))
+
+/**
+ * The themes to practise next: lowest clean-solve rate first, among themes
+ * tried at least `min` times so one unlucky puzzle does not count.
+ */
+export function weakestThemes(
+  puzzles: Progress['puzzles'],
+  min = 3,
+  count = 3,
+): Array<{ theme: string; rate: number }> {
+  return Object.entries(puzzles)
+    .filter(([, tally]) => tally.done >= min)
+    .map(([theme, tally]) => ({ theme, rate: tally.clean / tally.done }))
+    .sort((a, b) => a.rate - b.rate || a.theme.localeCompare(b.theme))
+    .slice(0, count)
+}

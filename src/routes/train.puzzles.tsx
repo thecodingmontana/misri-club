@@ -49,7 +49,7 @@ export const Route = createFileRoute('/train/puzzles')({
   head: ({ match }) => {
     const theme = match.search.theme
     return seo({
-      title: theme ? `${THEMES[theme]} puzzles` : 'Chess puzzles',
+      title: theme ? `Chess puzzles: ${THEMES[theme]}` : 'Chess puzzles',
       description: theme
         ? `Practise ${THEMES[theme].toLowerCase()} with endless Lichess puzzles on a touch-friendly board, with hints and full solutions.`
         : 'Solve endless chess puzzles from Lichess by theme and difficulty, on a touch-friendly board with hints and full solutions.',

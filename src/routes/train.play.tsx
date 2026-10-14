@@ -1,7 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { play } from 'cuelume'
 import { useEffect, useMemo, useState } from 'react'
-import { z } from 'zod'
 import { Cpu } from '#/components/icons'
 import { PlayBoard } from '#/components/play-board'
 import { TrainHeader } from '#/components/train-header'
@@ -14,8 +13,16 @@ import {
   SelectValue,
 } from '#/components/ui/select'
 import { Engine } from '#/lib/engine'
-import type { Colour, Outcome } from '#/lib/play'
-import { LEVELS, loadGame, outcomeFor, takeBack, withReply } from '#/lib/play'
+import type { Colour, Outcome, SavedGame as Saved } from '#/lib/play'
+import {
+  PLAY_KEY as KEY,
+  LEVELS,
+  loadGame,
+  outcomeFor,
+  savedGame as saved,
+  takeBack,
+  withReply,
+} from '#/lib/play'
 import { seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/train/play')({
@@ -28,24 +35,6 @@ export const Route = createFileRoute('/train/play')({
     }),
   component: PlayScreen,
 })
-
-const KEY = 'misri:play:v1'
-
-const saved = z.object({
-  pgn: z.string(),
-  colour: z.enum(['white', 'black']),
-  level: z
-    .number()
-    .int()
-    .min(0)
-    .max(LEVELS.length - 1),
-  /** Results per level, so a player can see how they fare at each. */
-  record: z.record(
-    z.string(),
-    z.object({ win: z.number(), draw: z.number(), loss: z.number() }),
-  ),
-})
-type Saved = z.infer<typeof saved>
 
 const FRESH: Saved = { pgn: '', colour: 'white', level: 1, record: {} }
 

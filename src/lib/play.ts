@@ -1,4 +1,5 @@
 import { Chess } from 'chess.js'
+import { z } from 'zod'
 
 export type Colour = 'white' | 'black'
 export type Outcome = 'win' | 'draw' | 'loss'
@@ -50,3 +51,22 @@ export function withReply(
   chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] })
   return chess.pgn()
 }
+
+/** Where the game against Stockfish, and the record, are kept in the browser. */
+export const PLAY_KEY = 'misri:play:v1'
+
+export const savedGame = z.object({
+  pgn: z.string(),
+  colour: z.enum(['white', 'black']),
+  level: z
+    .number()
+    .int()
+    .min(0)
+    .max(LEVELS.length - 1),
+  /** Results per level, so a player can see how they fare at each. */
+  record: z.record(
+    z.string(),
+    z.object({ win: z.number(), draw: z.number(), loss: z.number() }),
+  ),
+})
+export type SavedGame = z.infer<typeof savedGame>

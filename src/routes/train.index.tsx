@@ -5,6 +5,7 @@ import {
   Cpu,
   Fire,
   Lightbulb,
+  Target,
   Trophy,
 } from '#/components/icons'
 import { seo } from '#/lib/seo'
@@ -67,6 +68,17 @@ function TrainScreen() {
           How do you want to train today?
         </p>
       </header>
+
+      <Link
+        to="/train/progress"
+        className="flex items-center gap-3 rounded-2xl bg-primary px-4 py-3 text-primary-foreground shadow-card transition-opacity duration-150 hover:opacity-90"
+      >
+        <Target className="size-5 shrink-0" />
+        <span className="flex-1 text-sm font-semibold">
+          Your progress: streak, themes and records
+        </span>
+        <ChevronRight className="size-4 shrink-0" />
+      </Link>
 
       <nav className="space-y-3" aria-label="Training modes">
         {MODES.map((mode) => (
