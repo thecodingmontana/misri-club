@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
 import { Cpu } from '#/components/icons'
 import { PlayBoard } from '#/components/play-board'
+import { TrainHeader } from '#/components/train-header'
 import { Button } from '#/components/ui/button'
 import {
   Select,
@@ -167,7 +168,8 @@ function PlayScreen() {
         : ''
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pt-2">
+      <TrainHeader title="Play Stockfish" />
       <div className="flex items-center justify-between gap-3">
         <span id="strength-label" className="text-sm font-medium">
           Stockfish strength

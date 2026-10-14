@@ -15,10 +15,10 @@ import { Route as ClubRouteImport } from './routes/club'
 import { Route as FixturesRouteImport } from './routes/fixtures'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as TableRouteImport } from './routes/table'
-import { Route as TrainRouteImport } from './routes/train'
 import { Route as PlayersUsernameRouteImport } from './routes/players.$username'
 import { Route as TrainIndexRouteImport } from './routes/train.index'
 import { Route as TrainPlayRouteImport } from './routes/train.play'
+import { Route as TrainPuzzlesRouteImport } from './routes/train.puzzles'
 import { Route as PlayersUsernameLessonRouteImport } from './routes/players.$username_.lesson'
 
 const IndexRoute = IndexRouteImport.update({
@@ -51,25 +51,25 @@ const TableRoute = TableRouteImport.update({
   path: '/table',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TrainRoute = TrainRouteImport.update({
-  id: '/train',
-  path: '/train',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const PlayersUsernameRoute = PlayersUsernameRouteImport.update({
   id: '/players/$username',
   path: '/players/$username',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TrainIndexRoute = TrainIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => TrainRoute,
+  id: '/train/',
+  path: '/train/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const TrainPlayRoute = TrainPlayRouteImport.update({
-  id: '/play',
-  path: '/play',
-  getParentRoute: () => TrainRoute,
+  id: '/train/play',
+  path: '/train/play',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TrainPuzzlesRoute = TrainPuzzlesRouteImport.update({
+  id: '/train/puzzles',
+  path: '/train/puzzles',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const PlayersUsernameLessonRoute = PlayersUsernameLessonRouteImport.update({
   id: '/players/$username_/lesson',
@@ -84,9 +84,9 @@ export interface FileRoutesByFullPath {
   '/fixtures': typeof FixturesRoute
   '/login': typeof LoginRoute
   '/table': typeof TableRoute
-  '/train': typeof TrainRouteWithChildren
   '/players/$username': typeof PlayersUsernameRoute
   '/train/play': typeof TrainPlayRoute
+  '/train/puzzles': typeof TrainPuzzlesRoute
   '/train/': typeof TrainIndexRoute
   '/players/$username/lesson': typeof PlayersUsernameLessonRoute
 }
@@ -99,6 +99,7 @@ export interface FileRoutesByTo {
   '/table': typeof TableRoute
   '/players/$username': typeof PlayersUsernameRoute
   '/train/play': typeof TrainPlayRoute
+  '/train/puzzles': typeof TrainPuzzlesRoute
   '/train': typeof TrainIndexRoute
   '/players/$username/lesson': typeof PlayersUsernameLessonRoute
 }
@@ -110,9 +111,9 @@ export interface FileRoutesById {
   '/fixtures': typeof FixturesRoute
   '/login': typeof LoginRoute
   '/table': typeof TableRoute
-  '/train': typeof TrainRouteWithChildren
   '/players/$username': typeof PlayersUsernameRoute
   '/train/play': typeof TrainPlayRoute
+  '/train/puzzles': typeof TrainPuzzlesRoute
   '/train/': typeof TrainIndexRoute
   '/players/$username_/lesson': typeof PlayersUsernameLessonRoute
 }
@@ -125,9 +126,9 @@ export interface FileRouteTypes {
     | '/fixtures'
     | '/login'
     | '/table'
-    | '/train'
     | '/players/$username'
     | '/train/play'
+    | '/train/puzzles'
     | '/train/'
     | '/players/$username/lesson'
   fileRoutesByTo: FileRoutesByTo
@@ -140,6 +141,7 @@ export interface FileRouteTypes {
     | '/table'
     | '/players/$username'
     | '/train/play'
+    | '/train/puzzles'
     | '/train'
     | '/players/$username/lesson'
   id:
@@ -150,9 +152,9 @@ export interface FileRouteTypes {
     | '/fixtures'
     | '/login'
     | '/table'
-    | '/train'
     | '/players/$username'
     | '/train/play'
+    | '/train/puzzles'
     | '/train/'
     | '/players/$username_/lesson'
   fileRoutesById: FileRoutesById
@@ -164,8 +166,10 @@ export interface RootRouteChildren {
   FixturesRoute: typeof FixturesRoute
   LoginRoute: typeof LoginRoute
   TableRoute: typeof TableRoute
-  TrainRoute: typeof TrainRouteWithChildren
   PlayersUsernameRoute: typeof PlayersUsernameRoute
+  TrainPlayRoute: typeof TrainPlayRoute
+  TrainPuzzlesRoute: typeof TrainPuzzlesRoute
+  TrainIndexRoute: typeof TrainIndexRoute
   PlayersUsernameLessonRoute: typeof PlayersUsernameLessonRoute
 }
 
@@ -213,13 +217,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TableRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/train': {
-      id: '/train'
-      path: '/train'
-      fullPath: '/train'
-      preLoaderRoute: typeof TrainRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/players/$username': {
       id: '/players/$username'
       path: '/players/$username'
@@ -229,17 +226,24 @@ declare module '@tanstack/react-router' {
     }
     '/train/': {
       id: '/train/'
-      path: '/'
+      path: '/train'
       fullPath: '/train/'
       preLoaderRoute: typeof TrainIndexRouteImport
-      parentRoute: typeof TrainRoute
+      parentRoute: typeof rootRouteImport
     }
     '/train/play': {
       id: '/train/play'
-      path: '/play'
+      path: '/train/play'
       fullPath: '/train/play'
       preLoaderRoute: typeof TrainPlayRouteImport
-      parentRoute: typeof TrainRoute
+      parentRoute: typeof rootRouteImport
+    }
+    '/train/puzzles': {
+      id: '/train/puzzles'
+      path: '/train/puzzles'
+      fullPath: '/train/puzzles'
+      preLoaderRoute: typeof TrainPuzzlesRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/players/$username_/lesson': {
       id: '/players/$username_/lesson'
@@ -251,18 +255,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface TrainRouteChildren {
-  TrainPlayRoute: typeof TrainPlayRoute
-  TrainIndexRoute: typeof TrainIndexRoute
-}
-
-const TrainRouteChildren: TrainRouteChildren = {
-  TrainPlayRoute: TrainPlayRoute,
-  TrainIndexRoute: TrainIndexRoute,
-}
-
-const TrainRouteWithChildren = TrainRoute._addFileChildren(TrainRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AllTimeRoute: AllTimeRoute,
@@ -270,8 +262,10 @@ const rootRouteChildren: RootRouteChildren = {
   FixturesRoute: FixturesRoute,
   LoginRoute: LoginRoute,
   TableRoute: TableRoute,
-  TrainRoute: TrainRouteWithChildren,
   PlayersUsernameRoute: PlayersUsernameRoute,
+  TrainPlayRoute: TrainPlayRoute,
+  TrainPuzzlesRoute: TrainPuzzlesRoute,
+  TrainIndexRoute: TrainIndexRoute,
   PlayersUsernameLessonRoute: PlayersUsernameLessonRoute,
 }
 export const routeTree = rootRouteImport
