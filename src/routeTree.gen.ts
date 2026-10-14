@@ -14,6 +14,8 @@ import { Route as AllTimeRouteImport } from './routes/all-time'
 import { Route as ClubRouteImport } from './routes/club'
 import { Route as FixturesRouteImport } from './routes/fixtures'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TableRouteImport } from './routes/table'
 import { Route as PlayersUsernameRouteImport } from './routes/players.$username'
 import { Route as TrainIndexRouteImport } from './routes/train.index'
@@ -44,6 +46,16 @@ const FixturesRoute = FixturesRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
+  id: '/robots.txt',
+  path: '/robots.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TableRoute = TableRouteImport.update({
@@ -83,6 +95,8 @@ export interface FileRoutesByFullPath {
   '/club': typeof ClubRoute
   '/fixtures': typeof FixturesRoute
   '/login': typeof LoginRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/table': typeof TableRoute
   '/players/$username': typeof PlayersUsernameRoute
   '/train/play': typeof TrainPlayRoute
@@ -96,6 +110,8 @@ export interface FileRoutesByTo {
   '/club': typeof ClubRoute
   '/fixtures': typeof FixturesRoute
   '/login': typeof LoginRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/table': typeof TableRoute
   '/players/$username': typeof PlayersUsernameRoute
   '/train/play': typeof TrainPlayRoute
@@ -110,6 +126,8 @@ export interface FileRoutesById {
   '/club': typeof ClubRoute
   '/fixtures': typeof FixturesRoute
   '/login': typeof LoginRoute
+  '/robots.txt': typeof RobotsDottxtRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/table': typeof TableRoute
   '/players/$username': typeof PlayersUsernameRoute
   '/train/play': typeof TrainPlayRoute
@@ -125,6 +143,8 @@ export interface FileRouteTypes {
     | '/club'
     | '/fixtures'
     | '/login'
+    | '/robots.txt'
+    | '/sitemap.xml'
     | '/table'
     | '/players/$username'
     | '/train/play'
@@ -138,6 +158,8 @@ export interface FileRouteTypes {
     | '/club'
     | '/fixtures'
     | '/login'
+    | '/robots.txt'
+    | '/sitemap.xml'
     | '/table'
     | '/players/$username'
     | '/train/play'
@@ -151,6 +173,8 @@ export interface FileRouteTypes {
     | '/club'
     | '/fixtures'
     | '/login'
+    | '/robots.txt'
+    | '/sitemap.xml'
     | '/table'
     | '/players/$username'
     | '/train/play'
@@ -165,6 +189,8 @@ export interface RootRouteChildren {
   ClubRoute: typeof ClubRoute
   FixturesRoute: typeof FixturesRoute
   LoginRoute: typeof LoginRoute
+  RobotsDottxtRoute: typeof RobotsDottxtRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TableRoute: typeof TableRoute
   PlayersUsernameRoute: typeof PlayersUsernameRoute
   TrainPlayRoute: typeof TrainPlayRoute
@@ -208,6 +234,20 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/robots.txt': {
+      id: '/robots.txt'
+      path: '/robots.txt'
+      fullPath: '/robots.txt'
+      preLoaderRoute: typeof RobotsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/table': {
@@ -261,6 +301,8 @@ const rootRouteChildren: RootRouteChildren = {
   ClubRoute: ClubRoute,
   FixturesRoute: FixturesRoute,
   LoginRoute: LoginRoute,
+  RobotsDottxtRoute: RobotsDottxtRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   TableRoute: TableRoute,
   PlayersUsernameRoute: PlayersUsernameRoute,
   TrainPlayRoute: TrainPlayRoute,

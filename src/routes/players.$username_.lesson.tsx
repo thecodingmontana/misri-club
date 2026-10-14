@@ -19,11 +19,19 @@ import { Card } from '#/components/ui/card'
 import type { LessonMoment, QuizQuestion } from '#/lib/lesson'
 import { buildLesson } from '#/lib/lesson'
 import { playerGamesQuery } from '#/lib/queries'
+import { seo } from '#/lib/seo'
 import { useEngineAnalysis, useStoredScores } from '#/lib/use-engine-analysis'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/players/$username_/lesson')({
   validateSearch: z.object({ game: z.string().url() }),
+  // One page per game and per visitor's analysis: nothing for search to index.
+  head: ({ params }) =>
+    seo({
+      title: `Lesson for ${params.username}`,
+      description: 'A lesson built from Stockfish’s review of one game.',
+      noindex: true,
+    }),
   loader: ({ context, params }) =>
     context.queryClient.ensureQueryData(playerGamesQuery(params.username)),
   component: LessonScreen,

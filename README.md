@@ -25,6 +25,7 @@ pnpm dev              # http://localhost:3005
 | `ADMIN_PASSWORD_HASH` | The admin passphrase hash from `pnpm auth:set-password`. Changing it signs every admin out. |
 | `CHESSCOM_CLUB_ID` | chess.com club slug. Default `misri`. |
 | `CHESSCOM_USER_AGENT` | User-Agent sent to chess.com. Defaults to one with contact details. |
+| `VITE_SITE_URL` | The public site address, e.g. `https://misri.vercel.app`. Used for canonical links and share images; set it at build time. |
 
 ## Scripts
 
@@ -52,6 +53,10 @@ pnpm dev              # http://localhost:3005
   the Lichess API (no key, CORS-open), and games against Stockfish 19 lite
   running in a Web Worker at five strengths. Games and results are kept in
   the visitor's browser only.
+- **SEO** (`src/lib/seo.ts`): every page sets its title, description,
+  canonical link, Open Graph and Twitter tags through `seo()`; `/robots.txt`
+  and `/sitemap.xml` are generated server routes, the sitemap listing the
+  live roster.
 - **Sound** (`src/lib/sound.ts`): cuelume synthesizes interface sounds in the
   browser. Buttons, inputs, tabs and toasts sound through `data-cuelume-*`
   attributes; a top-bar toggle turns them off per browser.

@@ -23,10 +23,18 @@ import {
 } from '#/components/ui/table'
 import { formatDate, record, winRate } from '#/lib/format'
 import { allTimeQuery } from '#/lib/queries'
+import { seo } from '#/lib/seo'
 import { cn } from '#/lib/utils'
 import type { AllTimeData, AllTimeRow } from '#/server/queries.server'
 
 export const Route = createFileRoute('/all-time')({
+  head: () =>
+    seo({
+      title: 'All-time records',
+      description:
+        'Career totals for every Misri chess club member across all league seasons: points, results and score percentage.',
+      path: '/all-time',
+    }),
   loader: ({ context }) => context.queryClient.ensureQueryData(allTimeQuery),
   component: AllTimePage,
 })

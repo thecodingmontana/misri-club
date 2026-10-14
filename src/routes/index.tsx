@@ -8,10 +8,13 @@ import { Button } from '#/components/ui/button'
 import { Card, CardContent } from '#/components/ui/card'
 import { countdown, relativeTime } from '#/lib/format'
 import { leaderboardQuery, useSyncNow } from '#/lib/queries'
+import { HOME_DESCRIPTION, SITE_NAME, seo } from '#/lib/seo'
 import { cn } from '#/lib/utils'
 import type { FixtureView } from '#/server/queries.server'
 
 export const Route = createFileRoute('/')({
+  head: () =>
+    seo({ title: SITE_NAME, description: HOME_DESCRIPTION, path: '/' }),
   loader: ({ context }) =>
     context.queryClient.ensureQueryData(leaderboardQuery),
   component: HomeScreen,

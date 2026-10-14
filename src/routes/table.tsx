@@ -7,10 +7,18 @@ import { Card } from '#/components/ui/card'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { countdown, relativeTime } from '#/lib/format'
 import { leaderboardQuery } from '#/lib/queries'
+import { seo } from '#/lib/seo'
 import { cn } from '#/lib/utils'
 import type { FixtureStatus, Outcome } from '#/server/queries.server'
 
 export const Route = createFileRoute('/table')({
+  head: () =>
+    seo({
+      title: 'Standings',
+      description:
+        'Live Misri chess club league table: points, wins, draws, losses and missed fixtures for every member, matchday by matchday.',
+      path: '/table',
+    }),
   loader: ({ context }) =>
     context.queryClient.ensureQueryData(leaderboardQuery),
   component: TableScreen,

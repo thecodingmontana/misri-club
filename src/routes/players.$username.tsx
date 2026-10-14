@@ -17,13 +17,34 @@ import {
   winRate,
 } from '#/lib/format'
 import { playerGamesQuery, playerQuery, useAvatarUrl } from '#/lib/queries'
+import { seo } from '#/lib/seo'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/players/$username')({
-  loader: async ({ context, params }) => {
+  loader: ({ context, params }) => {
     // Analysis data is heavier and below the fold: start it, don't wait on it.
     void context.queryClient.prefetchQuery(playerGamesQuery(params.username))
-    await context.queryClient.ensureQueryData(playerQuery(params.username))
+    return context.queryClient.ensureQueryData(playerQuery(params.username))
+  },
+  head: ({ loaderData, params }) => {
+    const name = loaderData?.player.displayName ?? params.username
+    const totals = loaderData?.totals
+    return seo({
+      title: name,
+      description: totals
+        ? `${name} in the Misri chess club league: ${totals.points} points from ${totals.played} games (${totals.wins} wins, ${totals.draws} draws, ${totals.losses} losses), with a chess.com game analysis.`
+        : `${name}'s Misri chess club league record and game analysis.`,
+      path: `/players/${params.username}`,
+      jsonLd: {
+        '@type': 'ProfilePage',
+        mainEntity: {
+          '@type': 'Person',
+          name,
+          image: loaderData?.player.avatar ?? undefined,
+          sameAs: [`https://www.chess.com/member/${params.username}`],
+        },
+      },
+    })
   },
   component: PlayerScreen,
   notFoundComponent: () => (

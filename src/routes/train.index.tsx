@@ -1,7 +1,15 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { ChevronRight, Cpu, Lightbulb } from '#/components/icons'
+import { seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/train/')({
+  head: () =>
+    seo({
+      title: 'Train',
+      description:
+        'Free chess training: endless tactics puzzles and full games against Stockfish, right in your browser.',
+      path: '/train',
+    }),
   component: TrainScreen,
 })
 

@@ -7,10 +7,19 @@ import { KeyRound, ShieldCheck } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
+import { seo } from '#/lib/seo'
 import { useAdmin } from '#/lib/use-admin'
 import { loginFn } from '#/server/auth.functions'
 
-export const Route = createFileRoute('/login')({ component: LoginPage })
+export const Route = createFileRoute('/login')({
+  head: () =>
+    seo({
+      title: 'Admin sign-in',
+      description: 'Sign in to manage the Misri chess club league.',
+      noindex: true,
+    }),
+  component: LoginPage,
+})
 
 function LoginPage() {
   const auth = useAdmin()

@@ -16,8 +16,16 @@ import {
 import { Engine } from '#/lib/engine'
 import type { Colour, Outcome } from '#/lib/play'
 import { LEVELS, loadGame, outcomeFor, takeBack, withReply } from '#/lib/play'
+import { seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/train/play')({
+  head: () =>
+    seo({
+      title: 'Play Stockfish',
+      description:
+        'Play a full game of chess against Stockfish at five strengths, from Beginner to Max, and track your record.',
+      path: '/train/play',
+    }),
   component: PlayScreen,
 })
 

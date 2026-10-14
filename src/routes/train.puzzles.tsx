@@ -16,8 +16,16 @@ import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
 import { Skeleton } from '#/components/ui/skeleton'
 import { fetchPuzzle, fromUci, judgeMove } from '#/lib/puzzle'
+import { seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/train/puzzles')({
+  head: () =>
+    seo({
+      title: 'Chess puzzles',
+      description:
+        'Solve endless chess puzzles from Lichess on a touch-friendly board, with hints and full solutions.',
+      path: '/train/puzzles',
+    }),
   component: PuzzlesScreen,
 })
 

@@ -6,8 +6,16 @@ import { RosterCard } from '#/components/roster-card'
 import { Card, CardContent } from '#/components/ui/card'
 import { formatDate, relativeTime } from '#/lib/format'
 import { leaderboardQuery } from '#/lib/queries'
+import { seo } from '#/lib/seo'
 
 export const Route = createFileRoute('/club')({
+  head: () =>
+    seo({
+      title: 'Club',
+      description:
+        'The Misri chess.com club: members, seasons and the league roster.',
+      path: '/club',
+    }),
   loader: ({ context }) =>
     context.queryClient.ensureQueryData(leaderboardQuery),
   component: ClubScreen,

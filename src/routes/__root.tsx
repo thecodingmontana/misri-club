@@ -13,6 +13,7 @@ import { TopBar } from '#/components/top-bar'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { Toaster } from '#/components/ui/sonner'
 import { rosterAvatarsQuery, useAutoSync } from '#/lib/queries'
+import { CLUB_URL, HOME_DESCRIPTION, SITE_NAME, SITE_URL, seo } from '#/lib/seo'
 import { useInterfaceSounds } from '#/lib/sound'
 import { getSessionFn } from '#/server/auth.functions'
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
@@ -23,29 +24,42 @@ interface MyRouterContext {
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      {
-        name: 'viewport',
-        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
+  head: () => {
+    // Defaults every page inherits; each route sets its own title and path.
+    const page = seo({
+      title: SITE_NAME,
+      description: HOME_DESCRIPTION,
+      jsonLd: {
+        '@graph': [
+          { '@type': 'WebSite', name: SITE_NAME, url: SITE_URL || undefined },
+          {
+            '@type': 'SportsOrganization',
+            name: SITE_NAME,
+            sport: 'Chess',
+            url: SITE_URL || undefined,
+            sameAs: [CLUB_URL],
+          },
+        ],
       },
-      { title: 'Misri Chess Club League' },
-      {
-        name: 'description',
-        content:
-          'Season standings, fixtures and all-time records for the Misri chess.com club.',
-      },
-      { name: 'theme-color', content: '#fbf8e6' },
-    ],
-    links: [
-      { rel: 'stylesheet', href: appCss },
-      {
-        rel: 'icon',
-        href: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">♞</text></svg>',
-      },
-    ],
-  }),
+    })
+
+    return {
+      meta: [
+        { charSet: 'utf-8' },
+        {
+          name: 'viewport',
+          content: 'width=device-width, initial-scale=1, viewport-fit=cover',
+        },
+        ...page.meta,
+      ],
+      links: [
+        { rel: 'stylesheet', href: appCss },
+        { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+        { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+        { rel: 'manifest', href: '/manifest.webmanifest' },
+      ],
+    }
+  },
   loader: async ({ context }) => {
     // Avatars are looked up by username on every screen; warm them once.
     void context.queryClient.prefetchQuery(rosterAvatarsQuery)
@@ -105,6 +119,17 @@ function RootDocument({ children }: { children: React.ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
+        {/* Here, not in head(): the router keeps one meta per name. */}
+        <meta
+          name="theme-color"
+          content="#fbf8e6"
+          media="(prefers-color-scheme: light)"
+        />
+        <meta
+          name="theme-color"
+          content="#0e100e"
+          media="(prefers-color-scheme: dark)"
+        />
       </head>
       <body>
         <ThemeProvider

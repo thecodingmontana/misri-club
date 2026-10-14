@@ -21,6 +21,7 @@ import { Button } from '#/components/ui/button'
 import { Card, CardContent } from '#/components/ui/card'
 import { countdown, formatDate } from '#/lib/format'
 import { fixturesQuery, useRefreshLeague } from '#/lib/queries'
+import { seo } from '#/lib/seo'
 import { useAdmin } from '#/lib/use-admin'
 import { cn } from '#/lib/utils'
 import {
@@ -31,6 +32,13 @@ import {
 import type { FixtureView } from '#/server/queries.server'
 
 export const Route = createFileRoute('/fixtures')({
+  head: () =>
+    seo({
+      title: 'Fixtures',
+      description:
+        'The Misri chess club double round-robin: every pairing, its playing window and its result, matchday by matchday.',
+      path: '/fixtures',
+    }),
   loader: ({ context }) => context.queryClient.ensureQueryData(fixturesQuery),
   component: FixturesScreen,
 })
