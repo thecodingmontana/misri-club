@@ -68,6 +68,7 @@ const FRESH_ONLY = new Set([
   '/passkey/generate-register-options',
   '/passkey/verify-registration',
   '/passkey/delete-passkey',
+  '/delete-user',
 ])
 
 async function requireFreshSignIn(ctx: AuthContext) {
@@ -122,13 +123,34 @@ const google =
 /** Whether "Continue with Google" can work here (keys set). */
 export const googleEnabled = Boolean(google)
 
+const production = process.env.NODE_ENV === 'production'
+
 export const auth = betterAuth({
   appName: SITE_NAME,
   secret: requireEnv('BETTER_AUTH_SECRET'),
+  // Explicit, so Origin checks and emailed links never trust a request's Host.
+  baseURL: production
+    ? requireEnv('BETTER_AUTH_URL')
+    : process.env.BETTER_AUTH_URL,
   database: drizzleAdapter(db, { provider: 'pg', schema }),
-  advanced: { database: { generateId: () => generateNanoId() } },
+  advanced: {
+    database: { generateId: () => generateNanoId() },
+    useSecureCookies: production, // HTTPS-only __Secure- cookies
+  },
   // counted in Postgres, not each instance's memory, so limits hold on Vercel
-  rateLimit: { enabled: true, storage: 'database' },
+  rateLimit: {
+    enabled: true,
+    storage: 'database',
+    // Guessing a 6-digit code or flooding sign-in emails is the attack here.
+    customRules: {
+      '/two-factor/verify-totp': { window: 60, max: 5 },
+      '/two-factor/verify-backup-code': { window: 60, max: 5 },
+      '/sign-in/magic-link': { window: 60, max: 3 },
+    },
+  },
+  // Google proves the email, so it can join an account made with an email link.
+  account: { accountLinking: { enabled: true, trustedProviders: ['google'] } },
+  user: { deleteUser: { enabled: true } },
   databaseHooks: {
     user: {
       update: {

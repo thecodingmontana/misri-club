@@ -4,6 +4,17 @@ import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Spinner } from '#/components/auth'
 import { KeyRound, LogOut, ShieldCheck, Trash } from '#/components/icons'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '#/components/ui/alert-dialog'
 import { Button } from '#/components/ui/button'
 import { Card, CardContent } from '#/components/ui/card'
 import { Input } from '#/components/ui/input'
@@ -59,20 +70,91 @@ function AccountPage() {
         <TwoFactor enabled={user.twoFactorEnabled} />
       </Section>
 
-      <Button
-        variant="outline"
-        className="w-full"
-        onClick={async () => {
-          await authClient.signOut()
-          await router.invalidate()
-          await navigate({ to: '/' })
-          toast.success('Signed out')
-        }}
+      <Section
+        title="Devices"
+        lead="Lost a phone or used a shared computer? Sign everywhere else out."
       >
-        <LogOut className="size-4" aria-hidden />
-        Sign out
-      </Button>
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={async () => {
+            try {
+              await unwrap(authClient.revokeOtherSessions())
+              toast.success('Signed out of every other device')
+            } catch (error) {
+              toast.error("Couldn't sign the others out", {
+                description: (error as Error).message,
+              })
+            }
+          }}
+        >
+          Sign out of other devices
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={async () => {
+            await authClient.signOut()
+            await router.invalidate()
+            await navigate({ to: '/' })
+            toast.success('Signed out')
+          }}
+        >
+          <LogOut className="size-4" aria-hidden />
+          Sign out
+        </Button>
+      </Section>
+
+      <DeleteAccount />
     </div>
+  )
+}
+
+/** Deletes the account and everything tied to it (sessions, passkeys, two-step). */
+function DeleteAccount() {
+  const navigate = useNavigate()
+  const router = useRouter()
+
+  async function remove() {
+    try {
+      await unwrap(authClient.deleteUser({ callbackURL: '/' }))
+      await router.invalidate()
+      await navigate({ to: '/' })
+      toast.success('Your account was deleted')
+    } catch (error) {
+      toast.error("Couldn't delete your account", {
+        description: (error as Error).message,
+      })
+    }
+  }
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="ghost" className="w-full text-destructive">
+          <Trash className="size-4" aria-hidden />
+          Delete my account
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Your sign-in, passkeys and two-step settings are removed for good.
+            League games already played stay in the standings.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep my account</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-white hover:bg-destructive/90"
+            onClick={remove}
+          >
+            Delete it
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
