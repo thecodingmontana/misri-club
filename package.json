@@ -13,6 +13,15 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "check": "pnpm -r --if-present check",
     "db:generate": "pnpm --filter @misri/web db:generate",
-    "db:migrate": "pnpm --filter @misri/web db:migrate"
+    "db:migrate": "pnpm --filter @misri/web db:migrate",
+    "prepare": "simple-git-hooks"
+  },
+  "simple-git-hooks": {
+    "commit-msg": "pnpm exec commitlint --edit \"$1\""
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "simple-git-hooks": "^2.14.0"
   }
 }
