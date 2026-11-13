@@ -8,3 +8,5 @@ allowBuilds:
   better-sqlite3: true
   esbuild: true
   lightningcss: true
+  # its install script would set up git hooks; the root prepare script does that instead
+  simple-git-hooks: false
