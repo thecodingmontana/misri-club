@@ -1,9 +1,4 @@
-import {
-  createFileRoute,
-  redirect,
-  useNavigate,
-  useRouter,
-} from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { QRCodeSVG } from 'qrcode.react'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { toast } from 'sonner'
@@ -16,14 +11,8 @@ import { authClient, passkeyCancelled } from '#/lib/auth-client'
 import { formatDate } from '#/lib/format'
 import { seo } from '#/lib/seo'
 import { useAdmin } from '#/lib/use-admin'
-import { getSessionFn } from '#/server/auth.functions'
 
-export const Route = createFileRoute('/account')({
-  beforeLoad: async () => {
-    if (!(await getSessionFn()).user) {
-      throw redirect({ to: '/auth/signin', search: { redirect: '/account' } })
-    }
-  },
+export const Route = createFileRoute('/_authed/account')({
   head: () =>
     seo({
       title: 'Your account',

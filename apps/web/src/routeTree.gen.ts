@@ -10,13 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AccountRouteImport } from './routes/account'
+import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AllTimeRouteImport } from './routes/all-time'
 import { Route as ClubRouteImport } from './routes/club'
 import { Route as FixturesRouteImport } from './routes/fixtures'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TableRouteImport } from './routes/table'
+import { Route as AuthedAccountRouteImport } from './routes/_authed.account'
 import { Route as AuthConfirmSignInRouteImport } from './routes/auth.confirm-sign-in'
 import { Route as AuthSigninRouteImport } from './routes/auth.signin'
 import { Route as AuthTwoFactorRouteImport } from './routes/auth.two-factor'
@@ -38,9 +39,8 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AccountRoute = AccountRouteImport.update({
-  id: '/account',
-  path: '/account',
+const AuthedRoute = AuthedRouteImport.update({
+  id: '/_authed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AllTimeRoute = AllTimeRouteImport.update({
@@ -72,6 +72,11 @@ const TableRoute = TableRouteImport.update({
   id: '/table',
   path: '/table',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedAccountRoute = AuthedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthConfirmSignInRoute = AuthConfirmSignInRouteImport.update({
   id: '/auth/confirm-sign-in',
@@ -151,13 +156,13 @@ const TrainOpeningsSlugRoute = TrainOpeningsSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/account': typeof AccountRoute
   '/all-time': typeof AllTimeRoute
   '/club': typeof ClubRoute
   '/fixtures': typeof FixturesRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/table': typeof TableRoute
+  '/account': typeof AuthedAccountRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
@@ -176,13 +181,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/account': typeof AccountRoute
   '/all-time': typeof AllTimeRoute
   '/club': typeof ClubRoute
   '/fixtures': typeof FixturesRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/table': typeof TableRoute
+  '/account': typeof AuthedAccountRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
@@ -202,13 +207,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/account': typeof AccountRoute
+  '/_authed': typeof AuthedRouteWithChildren
   '/all-time': typeof AllTimeRoute
   '/club': typeof ClubRoute
   '/fixtures': typeof FixturesRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/table': typeof TableRoute
+  '/_authed/account': typeof AuthedAccountRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
@@ -229,13 +235,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/account'
     | '/all-time'
     | '/club'
     | '/fixtures'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/table'
+    | '/account'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
     | '/auth/two-factor'
@@ -254,13 +260,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/account'
     | '/all-time'
     | '/club'
     | '/fixtures'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/table'
+    | '/account'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
     | '/auth/two-factor'
@@ -279,13 +285,14 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/account'
+    | '/_authed'
     | '/all-time'
     | '/club'
     | '/fixtures'
     | '/robots.txt'
     | '/sitemap.xml'
     | '/table'
+    | '/_authed/account'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
     | '/auth/two-factor'
@@ -305,7 +312,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AccountRoute: typeof AccountRoute
+  AuthedRoute: typeof AuthedRouteWithChildren
   AllTimeRoute: typeof AllTimeRoute
   ClubRoute: typeof ClubRoute
   FixturesRoute: typeof FixturesRoute
@@ -338,11 +345,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/account': {
-      id: '/account'
-      path: '/account'
-      fullPath: '/account'
-      preLoaderRoute: typeof AccountRouteImport
+    '/_authed': {
+      id: '/_authed'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/all-time': {
@@ -386,6 +393,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/table'
       preLoaderRoute: typeof TableRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/account': {
+      id: '/_authed/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthedAccountRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/auth/confirm-sign-in': {
       id: '/auth/confirm-sign-in'
@@ -495,9 +509,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthedRouteChildren {
+  AuthedAccountRoute: typeof AuthedAccountRoute
+}
+
+const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedAccountRoute: AuthedAccountRoute,
+}
+
+const AuthedRouteWithChildren =
+  AuthedRoute._addFileChildren(AuthedRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AccountRoute: AccountRoute,
+  AuthedRoute: AuthedRouteWithChildren,
   AllTimeRoute: AllTimeRoute,
   ClubRoute: ClubRoute,
   FixturesRoute: FixturesRoute,

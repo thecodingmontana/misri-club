@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { ThemeProvider } from 'next-themes'
+import { AppSidebar } from '#/components/app-sidebar'
 import { BottomNav } from '#/components/bottom-nav'
 import { TopBar } from '#/components/top-bar'
 import { ScrollArea } from '#/components/ui/scroll-area'
@@ -78,26 +79,31 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 function RootLayout() {
   useAutoSync()
   useInterfaceSounds()
+  const { sidebarOpen } = Route.useLoaderData().auth
 
   return (
     // Pinned to the window (fixed, inset 0), which every browser sizes the
     // same, so the tab bar is always on screen. The scroll area spans the full
-    // width so the wheel works anywhere; only its content is phone-width.
-    <div className="fixed inset-0 flex flex-col bg-background">
-      <TopBar />
-      <ScrollArea
-        className="min-h-0 flex-1"
-        viewportProps={{
-          id: 'app-main',
-          'data-scroll-restoration-id': 'app-main',
-          className: 'overscroll-contain',
-        }}
-      >
-        <main className="mx-auto w-full max-w-[27rem] px-4 pb-6 pt-2">
-          <Outlet />
-        </main>
-      </ScrollArea>
-      <BottomNav />
+    // width so the wheel works anywhere; only its content is column-width.
+    // From `md` up the sidebar replaces the tab bar, as in Zadaci.
+    <div className="fixed inset-0 flex bg-background">
+      <AppSidebar open={sidebarOpen} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TopBar />
+        <ScrollArea
+          className="min-h-0 flex-1"
+          viewportProps={{
+            id: 'app-main',
+            'data-scroll-restoration-id': 'app-main',
+            className: 'overscroll-contain',
+          }}
+        >
+          <main className="mx-auto w-full max-w-[27rem] px-4 pb-6 pt-2 md:max-w-2xl md:pt-4">
+            <Outlet />
+          </main>
+        </ScrollArea>
+        <BottomNav />
+      </div>
     </div>
   )
 }

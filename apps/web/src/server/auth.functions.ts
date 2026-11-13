@@ -1,5 +1,5 @@
 import { createMiddleware, createServerFn } from '@tanstack/react-start'
-import { getRequestHeaders } from '@tanstack/react-start/server'
+import { getCookie, getRequestHeaders } from '@tanstack/react-start/server'
 import { auth, googleEnabled } from './auth.server'
 
 /**
@@ -50,6 +50,8 @@ export const getSessionFn = createServerFn({ method: 'GET' }).handler(
       },
       isAdmin: user ? isAdminEmail(user) : false,
       googleEnabled,
+      // Read on the server so a collapsed sidebar doesn't flash open on reload.
+      sidebarOpen: getCookie('sidebar_state') !== 'false',
     }
   },
 )

@@ -1,46 +1,16 @@
 import { Link } from '@tanstack/react-router'
-import {
-  CalendarFilled,
-  CalendarOutline,
-  CrownFilled,
-  CrownOutline,
-  HomeFilled,
-  HomeOutline,
-  TrainFilled,
-  TrainOutline,
-  UsersFilled,
-  UsersOutline,
-} from '#/components/icons'
-
-const TABS = [
-  {
-    to: '/',
-    label: 'Home',
-    icon: HomeOutline,
-    active: HomeFilled,
-    exact: true,
-  },
-  { to: '/table', label: 'Table', icon: CrownOutline, active: CrownFilled },
-  {
-    to: '/fixtures',
-    label: 'Fixtures',
-    icon: CalendarOutline,
-    active: CalendarFilled,
-  },
-  { to: '/train', label: 'Train', icon: TrainOutline, active: TrainFilled },
-  { to: '/club', label: 'Club', icon: UsersOutline, active: UsersFilled },
-] as const
+import { MAIN_NAV } from '#/components/nav'
 
 /**
- * Tab bar along the bottom of the phone column. The active tab swaps to a
- * filled icon on a green pill and a bolder label, so it reads at a glance
- * without relying on colour alone.
+ * Tab bar along the bottom of the phone column; the desktop sidebar takes over
+ * from `md` up. The active tab swaps to a filled icon on a green pill and a
+ * bolder label, so it reads at a glance without relying on colour alone.
  */
 export function BottomNav() {
   return (
-    <nav className="shrink-0 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]">
+    <nav className="shrink-0 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
       <div className="mx-auto grid w-full max-w-[27rem] grid-cols-5">
-        {TABS.map((tab) => (
+        {MAIN_NAV.map((tab) => (
           <Link
             key={tab.to}
             to={tab.to}
