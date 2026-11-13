@@ -1,3 +1,8 @@
+# apps/* are the things people run (the web app now; desktop and React Native later),
+# packages/* is code they share once a second app needs it.
+packages:
+  - apps/*
+  - packages/*
 allowBuilds:
   libsql: true
   better-sqlite3: true
