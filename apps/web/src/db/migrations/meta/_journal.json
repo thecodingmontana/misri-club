@@ -15,6 +15,13 @@
       "when": 1791835430128,
       "tag": "0001_player_games_walkovers_one_open_season",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794556566173,
+      "tag": "0002_accounts",
+      "breakpoints": true
     }
   ]
 }

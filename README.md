@@ -4,17 +4,25 @@ Season standings, fixtures and all-time records for the Misri chess.com club.
 Games are pulled from the chess.com public API and matched to a two-leg
 round-robin schedule; player pages run Stockfish in the visitor's browser.
 
-Stack: TanStack Start (React), Drizzle ORM on Supabase Postgres, deployed to
-Vercel (`dub1`, next to the database).
+Stack: TanStack Start (React), Drizzle ORM on Supabase Postgres, Better Auth,
+deployed to Vercel (`dub1`, next to the database).
+
+## Layout
+
+A pnpm monorepo. `apps/*` are things people run: today only `apps/web`; a
+desktop or React Native app joins it later. `packages/*` is for code they
+share, once there is a second app to share it with. Vercel builds `apps/web`.
 
 ## Setup
 
 ```bash
-pnpm install          # also copies Stockfish into public/stockfish/
-pnpm auth:set-password  # prints the ADMIN_PASSWORD_HASH line for .env
+pnpm install          # also copies Stockfish into apps/web/public/stockfish/
 pnpm db:migrate
 pnpm dev              # http://localhost:3005
 ```
+
+Put local settings in `apps/web/.env.local`. Without `RESEND_API_KEY`, sign-in
+links are printed in the terminal instead of emailed.
 
 ## Environment
 
@@ -22,7 +30,11 @@ pnpm dev              # http://localhost:3005
 | --- | --- |
 | `DATABASE_URL` | Postgres for the app — Supabase's **transaction** pooler (port 6543). |
 | `DIRECT_DATABASE_URL` | Postgres for migrations — the **session** pooler (port 5432). Falls back to `DATABASE_URL`. |
-| `ADMIN_PASSWORD_HASH` | The admin passphrase hash from `pnpm auth:set-password`. Changing it signs every admin out. |
+| `BETTER_AUTH_SECRET` | Signs sessions. `openssl rand -base64 32`; changing it signs everyone out. |
+| `BETTER_AUTH_URL` | The site's address, e.g. `https://misri-club.vercel.app`. |
+| `ADMIN_EMAILS` | Comma-separated emails of club admins (verified accounts only). |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | "Continue with Google". The button is hidden without them. Redirect URI: `<site>/api/auth/callback/google`. |
+| `RESEND_API_KEY`, `EMAIL_FROM` | Sends sign-in links, from e.g. `Misri <noreply@your-domain>` (a domain verified in Resend). |
 | `CHESSCOM_CLUB_ID` | chess.com club slug. Default `misri`. |
 | `CHESSCOM_USER_AGENT` | User-Agent sent to chess.com. Defaults to one with contact details. |
 | `VITE_SITE_URL` | The public site address, e.g. `https://misri.vercel.app`. Used for canonical links and share images; set it at build time. |
@@ -46,10 +58,11 @@ pnpm dev              # http://localhost:3005
 - **Scoring** (`src/server/standings.ts`): win 3, draw 1, loss 0. A fixture
   that expires unplayed costs both players a point, unless one has left the
   club or an admin awards a walkover.
-- **Admin**: one shared passphrase; every mutating server function goes through
-  `adminMiddleware` in `src/server/auth.functions.ts`.
-  The session is an HMAC-signed cookie (`src/server/session.ts`) keyed off
-  the passphrase hash, so changing the passphrase signs everyone out.
+- **Accounts** (`src/server/auth.server.ts`, Better Auth): sign in with
+  Google, an emailed link or a passkey, with optional two-step verification
+  (authenticator app or passkey, plus backup codes). Manage it at `/account`.
+- **Admin**: accounts listed in `ADMIN_EMAILS`; every mutating server function
+  goes through `adminMiddleware` in `src/server/auth.functions.ts`.
 - **Train** (`src/routes/train.*`): a hub of free practice, mostly built on
   Lichess:
   - **Puzzles** from the Lichess puzzle API, by theme and difficulty.

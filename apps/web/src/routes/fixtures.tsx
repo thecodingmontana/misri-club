@@ -271,7 +271,11 @@ function Header({ data }: { data: Data }) {
         </div>
       ) : (
         <p className="text-xs text-muted-foreground">
-          <Link to="/login" className="text-primary">
+          <Link
+            to="/auth/signin"
+            search={{ redirect: '/fixtures' }}
+            className="text-primary"
+          >
             Sign in as admin
           </Link>{' '}
           to draw fixtures or start a season.

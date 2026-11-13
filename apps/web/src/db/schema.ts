@@ -1,5 +1,6 @@
 import { relations, sql } from 'drizzle-orm'
 import {
+  bigint,
   boolean,
   index,
   integer,
@@ -9,7 +10,9 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  varchar,
 } from 'drizzle-orm/pg-core'
+import { generateNanoId } from './utils'
 
 /**
  * Every table here has RLS enabled with **no policies**, which is a deny-all.
@@ -196,6 +199,136 @@ export const appMeta = pgTable('app_meta', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
   updatedAt: ts('updated_at').notNull(),
+}).enableRLS()
+
+// ---------------------------------------------------------------------------
+// Accounts (Better Auth). Field names are Better Auth's own; the adapter maps
+// them by these keys. RLS stays on: session tokens must never reach PostgREST.
+// ---------------------------------------------------------------------------
+
+const createdAt = () => ts('created_at').defaultNow().notNull()
+const updatedAt = () =>
+  ts('updated_at')
+    .defaultNow()
+    .notNull()
+    .$onUpdateFn(() => new Date())
+
+export const user = pgTable('user', {
+  id: varchar('id', { length: 16 })
+    .primaryKey()
+    .$defaultFn(() => generateNanoId()),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  emailVerified: boolean('email_verified').default(false).notNull(),
+  image: text('image'),
+  twoFactorEnabled: boolean('two_factor_enabled').default(false),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}).enableRLS()
+
+export const session = pgTable(
+  'session',
+  {
+    id: text('id').primaryKey(),
+    expiresAt: ts('expires_at').notNull(),
+    token: text('token').notNull().unique(),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    userId: varchar('user_id', { length: 16 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('session_user_id_idx').on(t.userId)],
+).enableRLS()
+
+export const account = pgTable(
+  'account',
+  {
+    id: text('id').primaryKey(),
+    accountId: text('account_id').notNull(),
+    providerId: text('provider_id').notNull(),
+    userId: varchar('user_id', { length: 16 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    accessToken: text('access_token'),
+    refreshToken: text('refresh_token'),
+    idToken: text('id_token'),
+    accessTokenExpiresAt: ts('access_token_expires_at'),
+    refreshTokenExpiresAt: ts('refresh_token_expires_at'),
+    scope: text('scope'),
+    password: text('password'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('account_user_id_idx').on(t.userId)],
+).enableRLS()
+
+export const verification = pgTable(
+  'verification',
+  {
+    id: text('id').primaryKey(),
+    identifier: text('identifier').notNull(),
+    value: text('value').notNull(),
+    expiresAt: ts('expires_at').notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index('verification_identifier_idx').on(t.identifier)],
+).enableRLS()
+
+export const twoFactor = pgTable(
+  'two_factor',
+  {
+    id: text('id').primaryKey(),
+    secret: text('secret').notNull(),
+    backupCodes: text('backup_codes').notNull(),
+    userId: varchar('user_id', { length: 16 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    verified: boolean('verified').default(true),
+    failedVerificationCount: integer('failed_verification_count').default(0),
+    lockedUntil: ts('locked_until'),
+  },
+  (t) => [
+    index('two_factor_secret_idx').on(t.secret),
+    index('two_factor_user_id_idx').on(t.userId),
+  ],
+).enableRLS()
+
+export const passkey = pgTable(
+  'passkey',
+  {
+    id: text('id').primaryKey(),
+    name: text('name'),
+    publicKey: text('public_key').notNull(),
+    userId: varchar('user_id', { length: 16 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    credentialID: text('credential_id').notNull(),
+    counter: integer('counter').notNull(),
+    deviceType: text('device_type').notNull(),
+    backedUp: boolean('backed_up').notNull(),
+    transports: text('transports'),
+    aaguid: text('aaguid'),
+    createdAt: ts('created_at'),
+  },
+  (t) => [
+    index('passkey_user_id_idx').on(t.userId),
+    index('passkey_credential_id_idx').on(t.credentialID),
+  ],
+).enableRLS()
+
+/**
+ * Request counters for Better Auth's rate limit and our own `takeAllowance`,
+ * in Postgres so a limit holds across every Vercel instance.
+ */
+export const rateLimit = pgTable('rate_limit', {
+  id: text('id').primaryKey(),
+  key: text('key').notNull().unique(),
+  count: integer('count').notNull(),
+  lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
 }).enableRLS()
 
 export const playersRelations = relations(players, ({ many }) => ({

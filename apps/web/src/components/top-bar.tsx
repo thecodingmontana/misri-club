@@ -1,28 +1,14 @@
-import { useMutation } from '@tanstack/react-query'
-import { Link, useRouter } from '@tanstack/react-router'
-import { useServerFn } from '@tanstack/react-start'
-import { toast } from 'sonner'
-import { LogOut, RefreshCw, ShieldCheck, UserRound } from '#/components/icons'
+import { Link } from '@tanstack/react-router'
+import { RefreshCw, ShieldCheck, UserRound } from '#/components/icons'
 import { SoundToggle } from '#/components/sound-toggle'
 import { ThemeToggle } from '#/components/theme-toggle'
 import { Button } from '#/components/ui/button'
 import { useSyncNow } from '#/lib/queries'
 import { useAdmin } from '#/lib/use-admin'
 import { cn } from '#/lib/utils'
-import { logoutFn } from '#/server/auth.functions'
 
 export function TopBar() {
   const auth = useAdmin()
-  const router = useRouter()
-  const logout = useServerFn(logoutFn)
-
-  const signOut = useMutation({
-    mutationFn: () => logout(),
-    onSuccess: async () => {
-      await router.invalidate()
-      toast.success('Signed out')
-    },
-  })
 
   // Lives here rather than on a single screen so it is reachable from anywhere,
   // including an empty database where no matchday card exists yet.
@@ -56,22 +42,23 @@ export function TopBar() {
       </Link>
 
       <div className="flex justify-end">
-        {auth.isAdmin ? (
+        {auth.user ? (
           <Button
+            asChild
             variant="ghost"
             size="sm"
-            className="rounded-full text-primary"
-            onClick={() => signOut.mutate()}
-            disabled={signOut.isPending}
-            title="Sign out of admin"
+            className={cn('rounded-full', auth.isAdmin && 'text-primary')}
           >
-            <ShieldCheck />
-            Admin
-            <LogOut className="opacity-70" />
+            <Link to="/account" title="Your account">
+              {auth.isAdmin ? <ShieldCheck /> : <UserRound />}
+              <span className="max-w-[6rem] truncate">
+                {auth.user.name.split(' ')[0]}
+              </span>
+            </Link>
           </Button>
         ) : (
           <Button asChild variant="ghost" size="icon" className="rounded-full">
-            <Link to="/login" aria-label="Admin sign in" title="Admin sign in">
+            <Link to="/auth/signin" aria-label="Sign in" title="Sign in">
               <UserRound className="size-[1.15rem]" />
             </Link>
           </Button>

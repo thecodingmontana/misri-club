@@ -1,163 +1,263 @@
-import { createHash } from 'node:crypto'
+import { passkey } from '@better-auth/passkey'
+import { betterAuth } from 'better-auth'
+import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import {
-  deleteCookie,
-  getCookie,
-  getRequestIP,
-  setCookie,
-} from '@tanstack/react-start/server'
-import { eq, sql } from 'drizzle-orm'
+  APIError,
+  createAuthMiddleware,
+  getSessionFromCtx,
+} from 'better-auth/api'
+import { deleteSessionCookie } from 'better-auth/cookies'
+import { generateRandomString } from 'better-auth/crypto'
+import { magicLink, twoFactor } from 'better-auth/plugins'
+import { tanstackStartCookies } from 'better-auth/tanstack-start'
+import { eq } from 'drizzle-orm'
+import { createElement } from 'react'
 import { db } from '#/db/client.server'
-import { appMeta } from '#/db/schema'
-import { openSession, sealSession, verifyPassword } from './session'
+import * as schema from '#/db/schema'
+import { generateNanoId } from '#/db/utils'
+import MagicLinkEmail from '#/emails/magic-link'
+import { SITE_NAME, SITE_URL } from '#/lib/seo'
+import { sendEmail } from './email.server'
+import { takeAllowance } from './rate-limit.server'
 
 /**
- * Admin authentication: a single shared passphrase, verified against a scrypt
- * hash held in `ADMIN_PASSWORD_HASH`, exchanged for a signed session cookie.
- *
- * Consequences of the shared-secret model, stated plainly:
- *  - There is no per-admin attribution. The audit trail can say "an admin
- *    regenerated fixtures", never which one.
- *  - Rotating the passphrase signs everyone out at once (by design — the
- *    session-sealing key is derived from the hash, so a new passphrase
- *    invalidates every outstanding cookie).
- *
- * scrypt comes from `node:crypto`, so there is no native addon to compile.
+ * Accounts: Google, an emailed sign-in link and passkeys, with optional
+ * two-step verification (authenticator app or passkey, plus backup codes).
+ * Same setup as Zadaci's, minus its Supabase-Realtime and AI-agent plugins.
  */
 
-const SESSION_NAME = 'misri_admin'
-const SESSION_MAX_AGE = 60 * 60 * 12 // 12 hours
+const TWO_FACTOR_COOKIE_MAX_AGE = 600
+const MAGIC_LINK_MINUTES = 10
+const MAGIC_LINKS_PER_HOUR = 5
+const FRESH_MINUTES = 10
 
-export class NotConfiguredError extends Error {
-  constructor() {
-    super(
-      'Admin access is not configured. Run `pnpm auth:set-password` and put the printed ADMIN_PASSWORD_HASH line in your .env file.',
-    )
-    this.name = 'NotConfiguredError'
-  }
+function requireEnv(name: string): string {
+  const value = process.env[name]
+  if (!value) throw new Error(`Missing environment variable ${name}`)
+  return value
 }
 
-export class UnauthorizedError extends Error {
-  constructor(message = 'Admin sign-in required.') {
-    super(message)
-    this.name = 'UnauthorizedError'
-  }
-}
+type AuthContext = Parameters<Parameters<typeof createAuthMiddleware>[0]>[0]
 
-// ---------------------------------------------------------------------------
-// Session
-// ---------------------------------------------------------------------------
-
-function adminHash(): string {
-  const hash = process.env.ADMIN_PASSWORD_HASH
-  if (!hash) throw new NotConfiguredError()
-  return hash
-}
-
-export function isAuthConfigured(): boolean {
-  return Boolean(process.env.ADMIN_PASSWORD_HASH)
+/** Second steps a user has set up: an authenticator app and/or passkeys. */
+async function secondFactors(user: {
+  id: string
+  twoFactorEnabled?: boolean | null
+}) {
+  const [key] = await db
+    .select({ id: schema.passkey.id })
+    .from(schema.passkey)
+    .where(eq(schema.passkey.userId, user.id))
+    .limit(1)
+  return [
+    ...(user.twoFactorEnabled ? ['totp'] : []),
+    ...(key ? ['passkey'] : []),
+  ]
 }
 
 /**
- * Signing key derived from the password hash, so rotating the passphrase
- * automatically invalidates every existing session.
+ * Turning two-step on or off, showing its secret or backup codes, and adding
+ * or removing a passkey need a recent sign-in: with no password to ask for, a
+ * stolen cookie could otherwise swap the second factor for the thief's own.
  */
-function sessionKey(): string {
-  return createHash('sha256')
-    .update(`misri-session:${adminHash()}`)
-    .digest('hex')
-}
+const FRESH_ONLY = new Set([
+  '/two-factor/enable',
+  '/two-factor/disable',
+  '/two-factor/generate-backup-codes',
+  '/two-factor/get-totp-uri',
+  '/passkey/generate-register-options',
+  '/passkey/verify-registration',
+  '/passkey/delete-passkey',
+])
 
-const SESSION_COOKIE = {
-  httpOnly: true,
-  sameSite: 'strict' as const,
-  path: '/',
-  // Browsers reject `Secure` cookies over plain http, which would make
-  // local development impossible; localhost is treated as a secure context
-  // regardless, so the cookie is still not exposed to the network there.
-  secure: process.env.NODE_ENV === 'production',
-}
-
-export function isAdmin(): boolean {
-  if (!isAuthConfigured()) return false
-  // A cookie signed under a previous passphrase simply fails to open.
-  return openSession(sessionKey(), getCookie(SESSION_NAME))
-}
-
-/** Throws unless the caller holds a valid admin session. */
-export function requireAdmin(): void {
-  if (!isAuthConfigured()) throw new NotConfiguredError()
-  if (!isAdmin()) throw new UnauthorizedError()
-}
-
-// ---------------------------------------------------------------------------
-// Sign in / out
-// ---------------------------------------------------------------------------
-
-/**
- * With one shared secret, brute force is the whole threat model, so sign-in
- * attempts are capped per client address. The count lives in `app_meta` (value
- * = attempts, `updated_at` = window start) because Vercel runs many instances
- * and an in-memory count would reset on each one. Counting is one upsert, so
- * parallel attempts cannot slip past the cap.
- */
-const ATTEMPT_LIMIT = 8
-const ATTEMPT_WINDOW_MS = 15 * 60 * 1000
-
-async function checkRateLimit(key: string) {
-  const now = new Date()
-  // Raw `sql` params skip the column's Date mapping, hence ISO plus a cast.
-  const windowStart = new Date(now.getTime() - ATTEMPT_WINDOW_MS).toISOString()
-  const expired = sql`${appMeta.updatedAt} < ${windowStart}::timestamptz`
-
-  const [entry] = await db
-    .insert(appMeta)
-    .values({ key, value: '1', updatedAt: now })
-    .onConflictDoUpdate({
-      target: appMeta.key,
-      set: {
-        value: sql`case when ${expired} then '1' else (${appMeta.value}::int + 1)::text end`,
-        updatedAt: sql`case when ${expired} then excluded.updated_at else ${appMeta.updatedAt} end`,
-      },
+async function requireFreshSignIn(ctx: AuthContext) {
+  const session = await getSessionFromCtx(ctx)
+  if (!session) return // the endpoint itself turns signed-out callers away
+  const age = Date.now() - new Date(session.session.createdAt).getTime()
+  if (age > FRESH_MINUTES * 60_000) {
+    throw new APIError('FORBIDDEN', {
+      message: `For your security, sign out and back in, then try again within ${FRESH_MINUTES} minutes.`,
     })
-    .returning({ count: appMeta.value, startedAt: appMeta.updatedAt })
-
-  if (Number(entry.count) > ATTEMPT_LIMIT) {
-    const minutes = Math.ceil(
-      (entry.startedAt.getTime() + ATTEMPT_WINDOW_MS - now.getTime()) / 60000,
-    )
-    throw new UnauthorizedError(
-      `Too many sign-in attempts. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`,
-    )
   }
 }
 
-// shortcut: rows for addresses that never sign in successfully are never
-// deleted; prune 'login:%' rows older than the window if app_meta ever grows.
-async function clearRateLimit(key: string) {
-  await db.delete(appMeta).where(eq(appMeta.key, key))
+/**
+ * A sign-in link opened from an email app or another site first shows whose
+ * account it signs into: otherwise someone could get you to open a link for
+ * THEIR account and you would play on it unawares. Continuing from that page is
+ * same-origin, which signs in.
+ */
+function confirmLinkFirst(ctx: AuthContext) {
+  const site = (ctx.request?.headers ?? ctx.headers)?.get('sec-fetch-site')
+  if (!site || site === 'same-origin') return
+  const query = new URLSearchParams(
+    Object.entries((ctx.query ?? {}) as Record<string, string>),
+  )
+  throw ctx.redirect(`/auth/confirm-sign-in?${query}`)
 }
 
-export async function signIn(password: string): Promise<void> {
-  if (!isAuthConfigured()) throw new NotConfiguredError()
-
-  // Behind Vercel's proxy the socket address is the proxy's, not the visitor's;
-  // Vercel sets x-forwarded-for itself, so it is the address to trust.
-  const key = `login:${getRequestIP({ xForwardedFor: true }) ?? 'unknown'}`
-  await checkRateLimit(key)
-
-  if (!verifyPassword(password, adminHash())) {
-    throw new UnauthorizedError('Incorrect passphrase.')
+/** A picture can only be Google's or none, so nobody points theirs at a tracker. */
+function isAllowedPicture(value: string) {
+  try {
+    const url = new URL(value)
+    return (
+      url.protocol === 'https:' &&
+      url.hostname.endsWith('.googleusercontent.com')
+    )
+  } catch {
+    return false
   }
-
-  await clearRateLimit(key)
-
-  const expiresAt = Date.now() + SESSION_MAX_AGE * 1000
-  setCookie(SESSION_NAME, sealSession(sessionKey(), expiresAt), {
-    ...SESSION_COOKIE,
-    maxAge: SESSION_MAX_AGE,
-  })
 }
 
-export function signOut(): void {
-  deleteCookie(SESSION_NAME, SESSION_COOKIE)
-}
+const google =
+  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+    ? {
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        // ID-token sign-in skips the /callback hook below, and with it two-step.
+        disableIdTokenSignIn: true,
+      }
+    : undefined
+
+/** Whether "Continue with Google" can work here (keys set). */
+export const googleEnabled = Boolean(google)
+
+export const auth = betterAuth({
+  appName: SITE_NAME,
+  secret: requireEnv('BETTER_AUTH_SECRET'),
+  database: drizzleAdapter(db, { provider: 'pg', schema }),
+  advanced: { database: { generateId: () => generateNanoId() } },
+  // counted in Postgres, not each instance's memory, so limits hold on Vercel
+  rateLimit: { enabled: true, storage: 'database' },
+  databaseHooks: {
+    user: {
+      update: {
+        before: async (user) => {
+          const image = (user as { image?: string | null }).image
+          if (image && !isAllowedPicture(image)) {
+            throw new APIError('BAD_REQUEST', {
+              message: 'That picture address is not allowed.',
+            })
+          }
+          return { data: user }
+        },
+      },
+      create: {
+        // email-link sign-ups arrive without a name: "amina.k@…" → "Amina K"
+        before: async (user) => ({
+          data: {
+            ...user,
+            name:
+              user.name?.trim() ||
+              user.email
+                .split('@')[0]
+                .split(/[._+-]+/)
+                .filter(Boolean)
+                .map((word) => word[0].toUpperCase() + word.slice(1))
+                .join(' ') ||
+              'New player',
+          },
+        }),
+      },
+    },
+  },
+  socialProviders: google ? { google } : {},
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (FRESH_ONLY.has(ctx.path)) return requireFreshSignIn(ctx)
+      if (ctx.path === '/magic-link/verify') return confirmLinkFirst(ctx)
+    }),
+    // Better Auth only asks for the second step after a password sign-in; do
+    // the same after Google and after an emailed link, so neither skips it.
+    after: createAuthMiddleware(async (ctx) => {
+      if (
+        !ctx.path.startsWith('/callback/') &&
+        ctx.path !== '/magic-link/verify'
+      ) {
+        return
+      }
+      const data = ctx.context.newSession
+      if (!data) return
+      const methods = await secondFactors(data.user)
+      if (!methods.length) return
+
+      deleteSessionCookie(ctx, true)
+      await ctx.context.internalAdapter.deleteSession(data.session.token)
+      ctx.context.setNewSession(null)
+
+      const twoFactorCookie = ctx.context.createAuthCookie('two_factor', {
+        maxAge: TWO_FACTOR_COOKIE_MAX_AGE,
+      })
+      const identifier = `2fa-${generateRandomString(20)}`
+      const expiresAt = new Date(Date.now() + TWO_FACTOR_COOKIE_MAX_AGE * 1000)
+      await ctx.context.internalAdapter.createVerificationValue({
+        value: data.user.id,
+        identifier,
+        expiresAt,
+      })
+      // verify-totp counts failed attempts against this record
+      await ctx.context.internalAdapter.createVerificationValue({
+        value: '0',
+        identifier: `2fa-attempts-${identifier}`,
+        expiresAt,
+      })
+      await ctx.setSignedCookie(
+        twoFactorCookie.name,
+        identifier,
+        ctx.context.secret,
+        twoFactorCookie.attributes,
+      )
+      throw ctx.redirect(`/auth/two-factor?methods=${methods.join(',')}`)
+    }),
+  },
+  plugins: [
+    twoFactor({
+      issuer: SITE_NAME,
+      allowPasswordless: true, // nobody here has a password
+      twoFactorCookieMaxAge: TWO_FACTOR_COOKIE_MAX_AGE,
+    }),
+    passkey({ rpName: SITE_NAME }),
+    // "Email me a sign-in link": single use, stored hashed, valid 10 minutes
+    magicLink({
+      expiresIn: MAGIC_LINK_MINUTES * 60,
+      storeToken: 'hashed',
+      sendMagicLink: async ({ email, url }) => {
+        // per address as well as per IP: nobody floods one inbox or our quota
+        const allowed = await takeAllowance(
+          `magic-link:${email.toLowerCase()}`,
+          1,
+          MAGIC_LINKS_PER_HOUR,
+          60 * 60 * 1000,
+        )
+        if (!allowed) {
+          throw new APIError('TOO_MANY_REQUESTS', {
+            message:
+              'Too many sign-in links for this email. Use the last one sent, or try again in an hour.',
+          })
+        }
+        const sent = await sendEmail(
+          email,
+          `Your ${SITE_NAME} sign-in link`,
+          createElement(MagicLinkEmail, {
+            link: url,
+            baseUrl: SITE_URL || new URL(url).origin,
+            minutes: MAGIC_LINK_MINUTES,
+          }),
+        )
+        if (sent) return
+        // local development without Resend: the link goes to the terminal
+        if (
+          !process.env.RESEND_API_KEY &&
+          process.env.NODE_ENV !== 'production'
+        ) {
+          console.info(`[auth] sign-in link for ${email}: ${url}`)
+          return
+        }
+        throw new Error(
+          "Couldn't send the sign-in email. Try again in a moment.",
+        )
+      },
+    }),
+    tanstackStartCookies(), // must stay last
+  ],
+})

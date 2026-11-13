@@ -17,3 +17,4 @@ data/
 
 # Copied from node_modules on install
 public/stockfish
+!.env.example
