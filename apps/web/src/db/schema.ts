@@ -331,6 +331,24 @@ export const rateLimit = pgTable('rate_limit', {
   lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
 }).enableRLS()
 
+/**
+ * A chess.com account its owner has proven is theirs (code in their profile).
+ * One per user, and a username can belong to only one user. Codes waiting to
+ * be checked live in `verification`, not here.
+ */
+export const chessAccounts = pgTable('chess_accounts', {
+  id: varchar('id', { length: 16 })
+    .primaryKey()
+    .$defaultFn(() => generateNanoId()),
+  userId: varchar('user_id', { length: 16 })
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  /** chess.com username, lowercase like `players.username` */
+  username: text('username').notNull().unique(),
+  verifiedAt: ts('verified_at').notNull(),
+}).enableRLS()
+
 export const playersRelations = relations(players, ({ many }) => ({
   standings: many(seasonStandings),
 }))

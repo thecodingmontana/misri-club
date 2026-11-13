@@ -27,6 +27,15 @@ async function currentUser() {
  * page that calls them was ever loaded. Hiding a button in the UI is presentation;
  * this middleware is the thing that actually stops an unauthenticated caller.
  */
+/** For server functions any signed-in player may call; hands them the user. */
+export const userMiddleware = createMiddleware({ type: 'function' }).server(
+  async ({ next }) => {
+    const user = await currentUser()
+    if (!user) throw new Error('Sign in first.')
+    return next({ context: { user } })
+  },
+)
+
 export const adminMiddleware = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
     const user = await currentUser()

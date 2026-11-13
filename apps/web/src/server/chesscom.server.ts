@@ -106,6 +106,8 @@ export interface PlayerProfile {
   avatar?: string
   country?: string
   status?: string
+  /** free text the player edits; also where they paste a verification code */
+  location?: string
 }
 
 interface StatsBucket {
