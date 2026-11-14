@@ -57,6 +57,8 @@ export function AppSidebar({ open }: { open: boolean }) {
           type="button"
           onClick={toggle}
           aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+          data-tip={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+          data-tip-pos="right"
           aria-expanded={expanded}
           className="grid size-8 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         >

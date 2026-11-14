@@ -14,6 +14,7 @@ export function SoundToggle() {
       size="icon"
       className="rounded-full"
       aria-label="Interface sounds"
+      data-tip="Sounds"
       aria-pressed={on}
       data-cuelume-tap="toggle"
       onClick={() => {

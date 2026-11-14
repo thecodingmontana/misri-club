@@ -285,16 +285,19 @@ function Standings({ data }: { data: Data }) {
           <tr className="border-b border-border">
             <th className="w-8 py-2 pl-3 text-left font-semibold">#</th>
             <th className="py-2 text-left font-semibold">Player</th>
-            <th className="py-2 text-center font-semibold" title="Wins">
+            <th className="py-2 text-center font-semibold" data-tip="Wins">
               W
             </th>
-            <th className="py-2 text-center font-semibold" title="Draws">
+            <th className="py-2 text-center font-semibold" data-tip="Draws">
               D
             </th>
-            <th className="py-2 text-center font-semibold" title="Losses">
+            <th className="py-2 text-center font-semibold" data-tip="Losses">
               L
             </th>
-            <th className="py-2 pr-3 text-right font-semibold" title="Points">
+            <th
+              className="py-2 pr-3 text-right font-semibold"
+              data-tip="Points"
+            >
               Pts
             </th>
           </tr>

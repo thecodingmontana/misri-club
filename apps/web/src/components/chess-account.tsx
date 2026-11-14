@@ -92,6 +92,7 @@ export function ChessAccount({
             variant="ghost"
             size="icon-sm"
             aria-label="Copy code"
+            data-tip="Copy code"
             className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground"
             onClick={() => copy(data.code, 'code')}
           >

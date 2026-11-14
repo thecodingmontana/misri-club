@@ -32,6 +32,7 @@ export function SpeakButton({ text }: { text: string }) {
       className="shrink-0 rounded-full"
       onClick={toggle}
       aria-label={speaking ? 'Stop reading' : 'Read aloud'}
+      data-tip={speaking ? 'Stop reading' : 'Read aloud'}
       aria-pressed={speaking}
     >
       {speaking ? <Pause /> : <Volume />}

@@ -28,7 +28,7 @@ export function TopBar() {
             size="sm"
             className={cn('rounded-full', auth.isAdmin && 'text-primary')}
           >
-            <Link to="/account" title="Your account">
+            <Link to="/account" data-tip="Your account">
               {auth.isAdmin ? <ShieldCheck /> : <UserRound />}
               <span className="max-w-[6rem] truncate">
                 {auth.user.name.split(' ')[0]}
@@ -37,7 +37,7 @@ export function TopBar() {
           </Button>
         ) : (
           <Button asChild variant="ghost" size="icon" className="rounded-full">
-            <Link to="/auth/signin" aria-label="Sign in" title="Sign in">
+            <Link to="/auth/signin" aria-label="Sign in" data-tip="Sign in">
               <UserRound className="size-[1.15rem]" />
             </Link>
           </Button>

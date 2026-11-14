@@ -14,6 +14,7 @@ import { BottomNav } from '#/components/bottom-nav'
 import { Toaster } from '#/components/toast/toaster'
 import { TopBar } from '#/components/top-bar'
 import { ScrollArea } from '#/components/ui/scroll-area'
+import { DataTips, TooltipProvider } from '#/components/ui/tooltip'
 import { CLUB_URL, HOME_DESCRIPTION, SITE_NAME, SITE_URL, seo } from '#/lib/seo'
 import { useInterfaceSounds } from '#/lib/sound'
 import { getSessionFn } from '#/server/auth.functions'
@@ -148,7 +149,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <TooltipProvider delayDuration={200}>
+            {children}
+            <DataTips />
+          </TooltipProvider>
           <Toaster position="top-center" />
         </ThemeProvider>
         <TanStackDevtools

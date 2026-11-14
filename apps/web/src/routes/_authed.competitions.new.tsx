@@ -163,7 +163,7 @@ function NewCompetition() {
               variant="ghost"
               size="icon-sm"
               aria-label="Suggest a name"
-              title="Suggest a name"
+              data-tip="Suggest a name"
               className="absolute top-1/2 right-1.5 -translate-y-1/2 text-primary"
               disabled={nameCheck.suggesting}
               onClick={nameCheck.suggestNames}

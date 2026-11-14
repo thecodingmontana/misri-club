@@ -215,7 +215,10 @@ function CloudEval({ fen }: { fen: string }) {
       ? `#${data.mate}`
       : `${(data.cp ?? 0) >= 0 ? '+' : ''}${((data.cp ?? 0) / 100).toFixed(1)}`
   return (
-    <span className="ml-2" title="Lichess cloud evaluation, from White’s side">
+    <span
+      className="ml-2"
+      data-tip="Lichess cloud evaluation, from White’s side"
+    >
       · Eval {value}
     </span>
   )

@@ -76,7 +76,7 @@ export function MatchCard({
               href={href}
               target="_blank"
               rel="noreferrer noopener"
-              title="Open the game on chess.com"
+              data-tip="Open the game on chess.com"
               className="rounded-lg px-1.5 py-0.5 transition-[background-color] duration-150 hover:bg-secondary"
             >
               {result}

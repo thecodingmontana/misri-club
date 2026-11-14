@@ -15,6 +15,7 @@ export function ThemeToggle() {
       size="icon"
       className="rounded-full"
       aria-label="Toggle light and dark theme"
+      data-tip="Light or dark"
       onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
     >
       <Sun className="size-[1.15rem] dark:hidden" />
