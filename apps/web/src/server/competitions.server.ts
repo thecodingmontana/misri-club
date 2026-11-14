@@ -1,3 +1,4 @@
+import { faker } from '@faker-js/faker'
 import { getRequestHeaders } from '@tanstack/react-start/server'
 import { and, asc, count, eq, inArray, max, or, sql } from 'drizzle-orm'
 import { db } from '#/db/client.server'
@@ -94,6 +95,23 @@ async function uniqueSlug(name: string) {
 const NAME_TAKEN = 'That name is taken.'
 const SUGGESTIONS = 3
 
+const capitalise = (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
+
+/** Fresh one-word adjectives and cities from Faker, mixed with the chess flavours. */
+function fakerFlavours() {
+  const words = [
+    ...faker.helpers.multiple(
+      () => faker.word.adjective({ length: { min: 4, max: 9 } }),
+      { count: 8 },
+    ),
+    ...faker.helpers.multiple(() => faker.location.city(), { count: 8 }),
+  ]
+  // one word each, so names stay short and read like "Brave Rooks Cup"
+  return [
+    ...new Set(words.filter((w) => /^[A-Za-z]+$/.test(w)).map(capitalise)),
+  ]
+}
+
 /** Which of `keys` (normalized names) already name a competition. */
 async function takenKeys(keys: string[]) {
   if (!keys.length) return new Set<string>()
@@ -111,10 +129,11 @@ async function available(names: string[]) {
 }
 
 export async function suggestCompetitionNames() {
-  return (await available(suggestNames(SUGGESTIONS * 3, new Set()))).slice(
-    0,
-    SUGGESTIONS,
-  )
+  return (
+    await available(
+      suggestNames(SUGGESTIONS * 3, new Set(), Date.now(), fakerFlavours()),
+    )
+  ).slice(0, SUGGESTIONS)
 }
 
 export async function checkCompetitionName(name: string) {
@@ -122,7 +141,13 @@ export async function checkCompetitionName(name: string) {
   if (!(await takenKeys([key])).size)
     return { available: true, suggestions: [] }
   const close = await available(
-    suggestFrom(name, SUGGESTIONS * 3, new Set([key])),
+    suggestFrom(
+      name,
+      SUGGESTIONS * 3,
+      new Set([key]),
+      Date.now(),
+      fakerFlavours(),
+    ),
   )
   return { available: false, suggestions: close.slice(0, SUGGESTIONS) }
 }

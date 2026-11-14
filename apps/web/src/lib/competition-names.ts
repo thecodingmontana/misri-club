@@ -63,13 +63,14 @@ export function suggestNames(
   count: number,
   taken: Set<string>,
   seed = Date.now(),
+  flavours: string[] = FLAVOURS,
 ): string[] {
   const next = random(seed)
   const seen = new Set(taken)
   const names: string[] = []
-  // 12 × 12 × 6 combinations, so a bounded number of tries finds `count`.
+  // ≥12 × 12 × 6 combinations, so a bounded number of tries finds `count`.
   for (let tries = 0; names.length < count && tries < count * 50; tries++) {
-    const name = `${pick(FLAVOURS, next)} ${pick(PIECES, next)} ${pick(TYPES, next)}`
+    const name = `${pick(flavours, next)} ${pick(PIECES, next)} ${pick(TYPES, next)}`
     const key = normalizeName(name)
     if (seen.has(key)) continue
     seen.add(key)
@@ -87,6 +88,7 @@ export function suggestFrom(
   count: number,
   taken: Set<string>,
   seed = Date.now(),
+  extraFlavours: string[] = [],
 ): string[] {
   const words = name.trim().split(/\s+/)
   const last = words.at(-1) ?? ''
@@ -95,7 +97,7 @@ export function suggestFrom(
     (type) => normalizeName(type) === last.toLowerCase(),
   )
   const next = random(seed)
-  const flavours = [...FLAVOURS].sort(() => next() - 0.5)
+  const flavours = [...extraFlavours, ...FLAVOURS].sort(() => next() - 0.5)
   const candidates = endsInType
     ? flavours.map((f) => [head, f, last].filter(Boolean).join(' '))
     : [
@@ -112,5 +114,11 @@ export function suggestFrom(
     seen.add(key)
     names.push(candidate)
   }
-  return [...names, ...suggestNames(count - names.length, seen, seed)]
+  return [
+    ...names,
+    ...suggestNames(count - names.length, seen, seed, [
+      ...extraFlavours,
+      ...FLAVOURS,
+    ]),
+  ]
 }

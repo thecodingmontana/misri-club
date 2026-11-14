@@ -5,7 +5,7 @@ import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { Spinner } from '#/components/auth'
 import { Choice } from '#/components/competitions'
-import { Check } from '#/components/icons'
+import { Check, MagicWand } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { normalizeName } from '#/lib/competition-names'
@@ -79,12 +79,7 @@ function useNameCheck(name: string) {
 
   return {
     available: current?.available,
-    chips:
-      current?.available === false
-        ? current.suggestions
-        : name.trim()
-          ? []
-          : ideas,
+    chips: current?.available === false ? current.suggestions : ideas,
     suggesting,
     suggestNames,
   }
@@ -145,15 +140,30 @@ function NewCompetition() {
           <label htmlFor="competition-name" className="text-sm font-medium">
             Name
           </label>
-          <Input
-            id="competition-name"
-            maxLength={60}
-            placeholder={league ? 'Friday league' : 'Summer cup'}
-            value={name}
-            aria-describedby="competition-name-status"
-            aria-invalid={nameCheck.available === false || undefined}
-            onChange={(event) => setName(event.target.value)}
-          />
+          <div className="relative">
+            <Input
+              id="competition-name"
+              maxLength={60}
+              className="pr-11"
+              placeholder={league ? 'Friday league' : 'Summer cup'}
+              value={name}
+              aria-describedby="competition-name-status"
+              aria-invalid={nameCheck.available === false || undefined}
+              onChange={(event) => setName(event.target.value)}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Suggest a name"
+              title="Suggest a name"
+              className="absolute top-1/2 right-1.5 -translate-y-1/2 text-primary"
+              disabled={nameCheck.suggesting}
+              onClick={nameCheck.suggestNames}
+            >
+              {nameCheck.suggesting ? <Spinner /> : <MagicWand />}
+            </Button>
+          </div>
           <p
             id="competition-name-status"
             aria-live="polite"
@@ -182,19 +192,6 @@ function NewCompetition() {
                 </button>
               ))}
             </div>
-          )}
-          {!name.trim() && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="self-start"
-              disabled={nameCheck.suggesting}
-              onClick={nameCheck.suggestNames}
-            >
-              {nameCheck.suggesting && <Spinner />}
-              Suggest a name
-            </Button>
           )}
         </Field>
 
