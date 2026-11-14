@@ -2,9 +2,10 @@ import { createMiddleware } from '@tanstack/react-start'
 import { crossSite, SAFE_METHODS } from '#/lib/same-origin'
 
 /**
- * CSRF guard: a request that can change data must come from this site. Runs
- * globally from src/start.ts, and on server routes (which global request
- * middleware does not reach) through their `server.middleware`.
+ * CSRF guard for server routes, through their `server.middleware`: a request
+ * that can change data must come from this site, while reads (like Google's
+ * cross-site sign-in redirect) pass. Server functions use TanStack's own
+ * guard, set up in src/start.ts.
  */
 export const sameOriginWrites = createMiddleware().server(
   ({ next, request }) => {
