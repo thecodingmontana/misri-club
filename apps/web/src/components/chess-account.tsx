@@ -2,11 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 import { Spinner } from '#/components/auth'
-import { ShieldCheck } from '#/components/icons'
+import { Copy, ShieldCheck } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { formatDate } from '#/lib/format'
-import { toast } from '#/lib/toast'
+import { copy, toast } from '#/lib/toast'
 import {
   checkChessVerificationFn,
   getChessAccountFn,
@@ -84,9 +84,20 @@ export function ChessAccount({
           open <b>Settings → Profile</b> on chess.com, put this code in{' '}
           <b>Location</b> and save:
         </p>
-        <p className="rounded-xl bg-secondary py-3 text-center font-mono text-lg tracking-widest select-all">
-          {data.code}
-        </p>
+        <div className="relative">
+          <p className="rounded-xl bg-secondary px-12 py-3 text-center font-mono text-lg tracking-widest select-all">
+            {data.code}
+          </p>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Copy code"
+            className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground"
+            onClick={() => copy(data.code, 'code')}
+          >
+            <Copy />
+          </Button>
+        </div>
         <p className="text-xs text-muted-foreground">
           The code works for 30 minutes. Once you&apos;re linked you can take it
           off your profile.
