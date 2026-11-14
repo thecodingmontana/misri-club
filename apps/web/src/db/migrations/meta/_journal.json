@@ -36,6 +36,13 @@
       "when": 1794695386901,
       "tag": "0004_fresh_start",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794697087021,
+      "tag": "0005_chess_avatar",
+      "breakpoints": true
     }
   ]
 }

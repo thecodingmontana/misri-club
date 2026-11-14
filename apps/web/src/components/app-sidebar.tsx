@@ -90,15 +90,11 @@ export function AppSidebar({ open }: { open: boolean }) {
           title={expanded ? undefined : 'Your account'}
           className={itemClass}
         >
-          {auth.user.image ? (
-            <img
-              src={auth.user.image}
-              alt=""
-              className="size-6 shrink-0 rounded-full"
-            />
-          ) : (
-            <PlayerAvatar username={auth.user.name} className="size-6" />
-          )}
+          <PlayerAvatar
+            username={auth.user.name}
+            image={auth.user.chessAvatar || auth.user.image}
+            className="size-6"
+          />
           {expanded && (
             <span className="min-w-0 flex-1 truncate">{auth.user.name}</span>
           )}

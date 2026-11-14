@@ -1,0 +1,1 @@
+ALTER TABLE "chess_accounts" ADD COLUMN "avatar" text;

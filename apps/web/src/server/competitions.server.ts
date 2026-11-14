@@ -14,6 +14,7 @@ import { generateKnockoutRound1 } from '#/lib/bracket'
 import { canJoin, lateEntryMatches } from '#/lib/join-policy'
 import { generateDoubleRoundRobin, matchdayCount } from '#/lib/round-robin'
 import { auth } from './auth.server'
+import { fetchPlayerProfile } from './chesscom.server'
 import { type Tally, tallyStandings } from './standings'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -410,6 +411,7 @@ export async function getCompetition(slug: string, viewerId: string | null) {
         name: user.name,
         image: user.image,
         chessUsername: chessAccounts.username,
+        chessAvatar: chessAccounts.avatar,
         joinedAt: competitionMembers.joinedAt,
       })
       .from(competitionMembers)
@@ -424,6 +426,23 @@ export async function getCompetition(slug: string, viewerId: string | null) {
       .orderBy(asc(matches.round), asc(matches.leg), asc(matches.id)),
   ])
 
+  // Accounts linked before avatars were stored: look each up once, then keep it.
+  await Promise.all(
+    memberRows
+      .filter((m) => m.chessUsername && m.chessAvatar === null)
+      .map(async (m) => {
+        const profile = await fetchPlayerProfile(
+          m.chessUsername as string,
+        ).catch(() => null)
+        if (!profile) return
+        m.chessAvatar = profile.avatar ?? ''
+        await db
+          .update(chessAccounts)
+          .set({ avatar: m.chessAvatar })
+          .where(eq(chessAccounts.userId, m.id))
+      }),
+  )
+
   const now = Date.now()
   const players = new Map<string, PlayerView>(
     memberRows.map((m) => [
@@ -431,7 +450,8 @@ export async function getCompetition(slug: string, viewerId: string | null) {
       {
         id: m.id,
         name: m.name,
-        image: m.image,
+        // chess.com picture first, then the sign-in picture, then a generated face
+        image: m.chessAvatar || m.image,
         chessUsername: m.chessUsername,
       },
     ]),

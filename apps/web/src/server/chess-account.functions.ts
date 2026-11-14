@@ -130,6 +130,7 @@ export const checkChessVerificationFn = createServerFn({ method: 'POST' })
         userId: context.user.id,
         username: pending.username,
         verifiedAt: new Date(),
+        avatar: profile.avatar ?? '',
       })
       .onConflictDoNothing()
       .returning({ username: chessAccounts.username })

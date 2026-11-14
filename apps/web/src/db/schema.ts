@@ -184,6 +184,8 @@ export const chessAccounts = pgTable('chess_accounts', {
   /** chess.com username, lowercase (the API's own form) */
   username: text('username').notNull().unique(),
   verifiedAt: ts('verified_at').notNull(),
+  /** chess.com picture: null = not looked up yet, '' = the player has none */
+  avatar: text('avatar'),
 }).enableRLS()
 
 // ---------------------------------------------------------------------------

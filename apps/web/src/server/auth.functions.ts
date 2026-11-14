@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import { chessAccounts } from '#/db/schema'
 import { auth, googleEnabled } from './auth.server'
+import { fetchPlayerProfile } from './chesscom.server'
 
 /**
  * Club admins are the accounts whose verified email is in `ADMIN_EMAILS`
@@ -54,11 +55,25 @@ export const getSessionFn = createServerFn({ method: 'GET' }).handler(
     const user = await currentUser()
     const [chess] = user
       ? await db
-          .select({ username: chessAccounts.username })
+          .select({
+            username: chessAccounts.username,
+            avatar: chessAccounts.avatar,
+          })
           .from(chessAccounts)
           .where(eq(chessAccounts.userId, user.id))
           .limit(1)
       : []
+    // Linked before chess.com pictures were stored: look it up once, then keep it.
+    if (user && chess && chess.avatar === null) {
+      const profile = await fetchPlayerProfile(chess.username).catch(() => null)
+      if (profile) {
+        chess.avatar = profile.avatar ?? ''
+        await db
+          .update(chessAccounts)
+          .set({ avatar: chess.avatar })
+          .where(eq(chessAccounts.userId, user.id))
+      }
+    }
     return {
       user: user && {
         id: user.id,
@@ -68,6 +83,8 @@ export const getSessionFn = createServerFn({ method: 'GET' }).handler(
         twoFactorEnabled: Boolean(user.twoFactorEnabled),
         /** null until onboarding links and verifies a chess.com account */
         chessUsername: chess?.username ?? null,
+        /** chess.com picture when they have one */
+        chessAvatar: chess?.avatar || null,
       },
       isAdmin: user ? isAdminEmail(user) : false,
       googleEnabled,
