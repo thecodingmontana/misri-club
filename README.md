@@ -45,6 +45,10 @@ links are printed in the terminal instead of emailed.
 - `pnpm typecheck`, `pnpm check` — TypeScript and Biome
 - `pnpm db:generate` — new migration after editing `src/db/schema.ts`
 - `pnpm db:migrate` — apply migrations (Vercel runs this on production builds)
+  Production migrates after a successful build, before the new deployment goes
+  live, so the old deployment briefly runs on the new schema. Keep migrations
+  additive (add columns/tables; backfill; drop only in a later deploy once no
+  code reads the old shape).
 
 ## How it works
 
