@@ -151,11 +151,12 @@ function Calendar({ days }: { days: Array<string> }) {
   return (
     <Card className="gap-2 px-4 py-3">
       <p className="text-sm font-semibold">Training days</p>
-      <div className="grid grid-cols-14 gap-1" aria-hidden>
+      <div className="grid grid-cols-14 gap-1">
         {squares.map((square) => (
           <span
             key={square.key}
-            title={`${square.key}${square.on ? ': trained' : ''}`}
+            aria-hidden
+            data-tip={`${square.key}${square.on ? ': trained' : ''}`}
             className={cn(
               'aspect-square rounded-[4px]',
               square.on ? 'bg-primary' : 'bg-secondary',

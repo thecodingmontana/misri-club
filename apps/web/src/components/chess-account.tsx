@@ -2,11 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 import { Spinner } from '#/components/auth'
-import { Copy, ShieldCheck } from '#/components/icons'
+import { Check, Copy, ShieldCheck } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { formatDate } from '#/lib/format'
-import { copy, toast } from '#/lib/toast'
+import { toast } from '#/lib/toast'
+import { useCopy } from '#/lib/use-copy'
 import {
   checkChessVerificationFn,
   getChessAccountFn,
@@ -31,6 +32,7 @@ export function ChessAccount({
     queryKey: ['chess-account'],
     queryFn: () => getAccount(),
   })
+  const { copied, copy } = useCopy()
   const [username, setUsername] = useState('')
   // A typo in the username: go back to the form; starting again replaces the code.
   const [changing, setChanging] = useState(false)
@@ -91,12 +93,12 @@ export function ChessAccount({
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label="Copy code"
-            data-tip="Copy code"
+            aria-label={copied ? 'Copied' : 'Copy code'}
+            data-tip={copied ? 'Copied' : 'Copy code'}
             className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground"
-            onClick={() => copy(data.code, 'code')}
+            onClick={() => copy(data.code, "Couldn't copy the code")}
           >
-            <Copy />
+            {copied ? <Check className="text-primary" /> : <Copy />}
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">

@@ -183,6 +183,7 @@ function Replay({ game, startAt }: { game: MasterGame; startAt: number }) {
               variant="secondary"
               size="icon"
               aria-label="Previous move"
+              data-tip="Previous move"
               disabled={ply === 0}
               onClick={() => go(ply - 1)}
             >
@@ -203,6 +204,7 @@ function Replay({ game, startAt }: { game: MasterGame; startAt: number }) {
               variant="secondary"
               size="icon"
               aria-label="Next move"
+              data-tip="Next move"
               disabled={last}
               onClick={() => go(ply + 1)}
             >

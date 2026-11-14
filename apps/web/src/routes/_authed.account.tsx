@@ -256,6 +256,7 @@ function Passkeys() {
                 variant="ghost"
                 size="icon-sm"
                 aria-label={`Remove ${key.name || 'passkey'}`}
+                data-tip="Remove passkey"
                 onClick={() => remove(key.id)}
               >
                 <Trash className="size-4" aria-hidden />

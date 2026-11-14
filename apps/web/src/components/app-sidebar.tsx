@@ -76,7 +76,9 @@ export function AppSidebar({ open }: { open: boolean }) {
             key={item.to}
             to={item.to}
             activeOptions={{ exact: 'exact' in item }}
-            title={expanded ? undefined : item.label}
+            aria-label={expanded ? undefined : item.label}
+            data-tip={expanded ? undefined : item.label}
+            data-tip-pos="right"
             className={itemClass}
           >
             <item.icon className="size-5 shrink-0 group-data-[status=active]:hidden" />
@@ -89,7 +91,9 @@ export function AppSidebar({ open }: { open: boolean }) {
       {auth.user ? (
         <Link
           to="/account"
-          title={expanded ? undefined : 'Your account'}
+          aria-label={expanded ? undefined : 'Your account'}
+          data-tip={expanded ? undefined : 'Your account'}
+          data-tip-pos="right"
           className={itemClass}
         >
           <PlayerAvatar
@@ -107,7 +111,9 @@ export function AppSidebar({ open }: { open: boolean }) {
       ) : (
         <Link
           to="/auth/signin"
-          title={expanded ? undefined : 'Sign in'}
+          aria-label={expanded ? undefined : 'Sign in'}
+          data-tip={expanded ? undefined : 'Sign in'}
+          data-tip-pos="right"
           className={itemClass}
         >
           <UserRound className="size-5 shrink-0" />

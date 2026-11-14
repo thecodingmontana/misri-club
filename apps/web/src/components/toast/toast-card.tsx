@@ -188,6 +188,7 @@ export function ToastCard({
                 <button
                   type="button"
                   aria-label="Dismiss"
+                  data-tip="Dismiss"
                   className="mt-px grid size-6 shrink-0 place-items-center rounded-[7px] text-[13px] leading-none outline-none transition-[color,transform] duration-100 hover:text-(--tst-mute) focus-visible:ring-2 focus-visible:ring-(--tst-line) active:scale-90 motion-reduce:active:scale-100"
                   style={{ color: 'var(--tst-faint)' }}
                   onClick={onClose}

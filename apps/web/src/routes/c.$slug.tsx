@@ -13,7 +13,7 @@ import {
   JoinButton,
   STATUS_LABEL,
 } from '#/components/competitions'
-import { Copy } from '#/components/icons'
+import { Check, Copy } from '#/components/icons'
 import { displayName, FixtureCard } from '#/components/match-card'
 import { PlayerChip } from '#/components/player-chip'
 import { ScoringRules, scoringSummary } from '#/components/scoring-rules'
@@ -22,6 +22,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { seo } from '#/lib/seo'
 import { toast } from '#/lib/toast'
 import { useAdmin } from '#/lib/use-admin'
+import { useCopy } from '#/lib/use-copy'
 import { cn } from '#/lib/utils'
 import {
   getCompetitionFn,
@@ -177,15 +178,12 @@ function OwnerPanel({ data }: { data: Data }) {
       }),
     )
 
-  async function copyLink() {
-    const link = `${window.location.origin}/join/${competition.inviteCode}`
-    try {
-      await navigator.clipboard.writeText(link)
-      toast.success('Invite link copied')
-    } catch {
-      toast.error("Couldn't copy. Share the code instead.")
-    }
-  }
+  const { copied, copy } = useCopy()
+  const copyLink = () =>
+    copy(
+      `${window.location.origin}/join/${competition.inviteCode}`,
+      "Couldn't copy. Share the code instead.",
+    )
 
   const canTakePlayers =
     competition.status === 'open' ||
@@ -209,8 +207,8 @@ function OwnerPanel({ data }: { data: Data }) {
             className="rounded-full"
             onClick={copyLink}
           >
-            <Copy />
-            Copy link
+            {copied ? <Check /> : <Copy />}
+            {copied ? 'Copied' : 'Copy link'}
           </Button>
         </div>
       )}
