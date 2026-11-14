@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
-import { toast } from 'sonner'
 import { Spinner } from '#/components/auth'
 import { ShieldCheck } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { formatDate } from '#/lib/format'
+import { toast } from '#/lib/toast'
 import {
   checkChessVerificationFn,
   getChessAccountFn,

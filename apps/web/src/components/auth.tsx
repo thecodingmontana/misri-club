@@ -1,10 +1,10 @@
 import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { type ReactNode, useState } from 'react'
-import { toast } from 'sonner'
 import { KeyRound, Loader } from '#/components/icons'
 import { ThemeToggle } from '#/components/theme-toggle'
 import { Button } from '#/components/ui/button'
 import { authClient, passkeyCancelled } from '#/lib/auth-client'
+import { toast } from '#/lib/toast'
 
 /** The whole screen for each sign-in step, laid out like Zadaci's. */
 export function AuthShell({
@@ -70,7 +70,7 @@ export function PasskeySignInButton({
         }
         setBusy(false)
         if (!passkeyCancelled(error)) {
-          toast.error('Passkey sign-in failed', { description: error.message })
+          toast.error('Passkey sign-in failed', { desc: error.message })
         }
       }}
     >

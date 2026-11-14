@@ -1,11 +1,11 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { type FormEvent, useState } from 'react'
-import { toast } from 'sonner'
 import { Spinner } from '#/components/auth'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { seo } from '#/lib/seo'
+import { toast } from '#/lib/toast'
 import { joinCompetitionFn } from '#/server/competitions.functions'
 
 export const Route = createFileRoute('/_authed/join')({

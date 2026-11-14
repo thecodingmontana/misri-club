@@ -5,13 +5,13 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
-import { toast } from 'sonner'
 import { z } from 'zod'
 import { AuthShell, PasskeySignInButton, Spinner } from '#/components/auth'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { authClient } from '#/lib/auth-client'
 import { seo } from '#/lib/seo'
+import { toast } from '#/lib/toast'
 import { getSessionFn } from '#/server/auth.functions'
 
 export const Route = createFileRoute('/auth/two-factor')({

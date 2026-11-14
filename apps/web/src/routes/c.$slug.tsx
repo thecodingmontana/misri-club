@@ -6,7 +6,6 @@ import {
 } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
-import { toast } from 'sonner'
 import { Spinner } from '#/components/auth'
 import {
   Choice,
@@ -20,6 +19,7 @@ import { PlayerChip } from '#/components/player-chip'
 import { Button } from '#/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { seo } from '#/lib/seo'
+import { toast } from '#/lib/toast'
 import { useAdmin } from '#/lib/use-admin'
 import { cn } from '#/lib/utils'
 import {

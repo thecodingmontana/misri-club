@@ -5,7 +5,6 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
-import { toast } from 'sonner'
 import { z } from 'zod'
 import { AuthShell, Spinner } from '#/components/auth'
 import { ChessAccount } from '#/components/chess-account'
@@ -13,6 +12,7 @@ import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { authClient, safePath } from '#/lib/auth-client'
 import { seo } from '#/lib/seo'
+import { toast } from '#/lib/toast'
 
 /**
  * First sign-in, like Zadaci's onboarding: your name, then your chess.com

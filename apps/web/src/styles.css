@@ -189,3 +189,34 @@ body {
     font-family: var(--font-display);
   }
 }
+
+/* Toast surfaces (components/toast), built on the theme tokens. */
+.tst-root {
+  --tst-text: var(--popover-foreground);
+  --tst-mute: var(--muted-foreground);
+  --tst-faint: color-mix(in oklab, var(--muted-foreground) 65%, transparent);
+  --tst-panel: var(--popover);
+  --tst-bezel: var(--card);
+  --tst-well: var(--secondary);
+  --tst-line: var(--border);
+  --tst-px-off: color-mix(in oklab, var(--foreground) 7%, transparent);
+  --tst-bezel-shadow: 0 22px 44px -18px rgba(27, 27, 25, 0.22), 0 0 0 1px var(--border);
+  --tst-panel-inset: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.dark .tst-root {
+  --tst-bezel-shadow: 0 22px 44px -18px rgba(0, 0, 0, 0.7), 0 0 0 1px var(--border);
+  --tst-panel-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+@keyframes tst-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.tst-spin {
+  animation: tst-spin 0.9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tst-spin {
+    animation: none;
+  }
+}

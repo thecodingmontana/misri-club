@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { QRCodeSVG } from 'qrcode.react'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
-import { toast } from 'sonner'
 import { Spinner } from '#/components/auth'
 import { ChessAccount } from '#/components/chess-account'
 import { KeyRound, LogOut, ShieldCheck, Trash } from '#/components/icons'
@@ -22,6 +21,7 @@ import { Input } from '#/components/ui/input'
 import { authClient, passkeyCancelled } from '#/lib/auth-client'
 import { formatDate } from '#/lib/format'
 import { seo } from '#/lib/seo'
+import { toast } from '#/lib/toast'
 import { useAdmin } from '#/lib/use-admin'
 
 export const Route = createFileRoute('/_authed/account')({
@@ -91,7 +91,7 @@ function AccountPage() {
               toast.success('Signed out of every other device')
             } catch (error) {
               toast.error("Couldn't sign the others out", {
-                description: (error as Error).message,
+                desc: (error as Error).message,
               })
             }
           }}
@@ -131,7 +131,7 @@ function DeleteAccount() {
       toast.success('Your account was deleted')
     } catch (error) {
       toast.error("Couldn't delete your account", {
-        description: (error as Error).message,
+        desc: (error as Error).message,
       })
     }
   }
@@ -211,12 +211,12 @@ function Passkeys() {
     setBusy(false)
     if (!error) {
       toast.success('Passkey added', {
-        description: 'Next time, sign in with your passkey.',
+        desc: 'Next time, sign in with your passkey.',
       })
       return load()
     }
     if (!passkeyCancelled(error)) {
-      toast.error("Couldn't add a passkey", { description: error.message })
+      toast.error("Couldn't add a passkey", { desc: error.message })
     }
   }
 
@@ -227,7 +227,7 @@ function Passkeys() {
       await load()
     } catch (error) {
       toast.error("Couldn't remove it", {
-        description: (error as Error).message,
+        desc: (error as Error).message,
       })
     }
   }
@@ -292,7 +292,7 @@ function TwoFactor({ enabled }: { enabled: boolean }) {
     try {
       return await work()
     } catch (error) {
-      toast.error(failure, { description: (error as Error).message })
+      toast.error(failure, { desc: (error as Error).message })
       return null
     } finally {
       setBusy(false)
