@@ -32,12 +32,17 @@ export function ChessAccount({
     queryFn: () => getAccount(),
   })
   const [username, setUsername] = useState('')
+  // A typo in the username: go back to the form; starting again replaces the code.
+  const [changing, setChanging] = useState(false)
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ['chess-account'] })
 
   const begin = useMutation({
     mutationFn: () => start({ data: { username } }),
-    onSuccess: refresh,
+    onSuccess: async () => {
+      await refresh()
+      setChanging(false)
+    },
     onError: (error: Error) => toast.error(error.message),
   })
   const verify = useMutation({
@@ -71,7 +76,7 @@ export function ChessAccount({
     )
   }
 
-  if (data.status === 'pending') {
+  if (data.status === 'pending' && !changing) {
     return (
       <div className="space-y-3 text-sm">
         <p>
@@ -94,6 +99,16 @@ export function ChessAccount({
           {verify.isPending && <Spinner />}
           Check my profile
         </Button>
+        <button
+          type="button"
+          className="w-full text-sm text-muted-foreground hover:text-foreground"
+          onClick={() => {
+            setUsername(data.username)
+            setChanging(true)
+          }}
+        >
+          Use a different username
+        </button>
       </div>
     )
   }
