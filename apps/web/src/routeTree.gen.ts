@@ -18,6 +18,7 @@ import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as TableRouteImport } from './routes/table'
 import { Route as AuthedAccountRouteImport } from './routes/_authed.account'
+import { Route as AuthedOnboardingRouteImport } from './routes/_authed.onboarding'
 import { Route as AuthConfirmSignInRouteImport } from './routes/auth.confirm-sign-in'
 import { Route as AuthSigninRouteImport } from './routes/auth.signin'
 import { Route as AuthTwoFactorRouteImport } from './routes/auth.two-factor'
@@ -76,6 +77,11 @@ const TableRoute = TableRouteImport.update({
 const AuthedAccountRoute = AuthedAccountRouteImport.update({
   id: '/account',
   path: '/account',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthConfirmSignInRoute = AuthConfirmSignInRouteImport.update({
@@ -163,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/table': typeof TableRoute
   '/account': typeof AuthedAccountRoute
+  '/onboarding': typeof AuthedOnboardingRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
@@ -188,6 +195,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/table': typeof TableRoute
   '/account': typeof AuthedAccountRoute
+  '/onboarding': typeof AuthedOnboardingRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
@@ -215,6 +223,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/table': typeof TableRoute
   '/_authed/account': typeof AuthedAccountRoute
+  '/_authed/onboarding': typeof AuthedOnboardingRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
@@ -242,6 +251,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/table'
     | '/account'
+    | '/onboarding'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
     | '/auth/two-factor'
@@ -267,6 +277,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/table'
     | '/account'
+    | '/onboarding'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
     | '/auth/two-factor'
@@ -293,6 +304,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/table'
     | '/_authed/account'
+    | '/_authed/onboarding'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
     | '/auth/two-factor'
@@ -399,6 +411,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/account'
       preLoaderRoute: typeof AuthedAccountRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/onboarding': {
+      id: '/_authed/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof AuthedOnboardingRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/auth/confirm-sign-in': {
@@ -511,10 +530,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthedRouteChildren {
   AuthedAccountRoute: typeof AuthedAccountRoute
+  AuthedOnboardingRoute: typeof AuthedOnboardingRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccountRoute: AuthedAccountRoute,
+  AuthedOnboardingRoute: AuthedOnboardingRoute,
 }
 
 const AuthedRouteWithChildren =
@@ -550,10 +571,11 @@ export const routeTree = rootRouteImport
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
+import type { startInstance } from './start.ts'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }

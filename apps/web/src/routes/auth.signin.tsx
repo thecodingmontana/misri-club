@@ -58,6 +58,8 @@ function SignIn() {
     const { error } = await authClient.signIn.social({
       provider: 'google',
       callbackURL: next,
+      // a brand-new account starts with onboarding, like Zadaci's
+      newUserCallbackURL: `/onboarding?redirect=${encodeURIComponent(next)}`,
       errorCallbackURL: '/auth/signin',
     })
     if (error) {
@@ -122,7 +124,7 @@ function MagicLinkForm({ next, onBack }: { next: string; onBack: () => void }) {
     const { error } = await authClient.signIn.magicLink({
       email: address,
       callbackURL: next,
-      newUserCallbackURL: next,
+      newUserCallbackURL: `/onboarding?redirect=${encodeURIComponent(next)}`,
       errorCallbackURL: '/auth/signin',
     })
     setSending(false)

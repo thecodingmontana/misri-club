@@ -1,10 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
-import { useServerFn } from '@tanstack/react-start'
 import { QRCodeSVG } from 'qrcode.react'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Spinner } from '#/components/auth'
+import { ChessAccount } from '#/components/chess-account'
 import { KeyRound, LogOut, ShieldCheck, Trash } from '#/components/icons'
 import {
   AlertDialog,
@@ -24,11 +23,6 @@ import { authClient, passkeyCancelled } from '#/lib/auth-client'
 import { formatDate } from '#/lib/format'
 import { seo } from '#/lib/seo'
 import { useAdmin } from '#/lib/use-admin'
-import {
-  checkChessVerificationFn,
-  getChessAccountFn,
-  startChessVerificationFn,
-} from '#/server/chess-account.functions'
 
 export const Route = createFileRoute('/_authed/account')({
   head: () =>
@@ -121,102 +115,6 @@ function AccountPage() {
 
       <DeleteAccount />
     </div>
-  )
-}
-
-/** Link a chess.com account by putting a code in its profile's Location. */
-function ChessAccount() {
-  const queryClient = useQueryClient()
-  const getAccount = useServerFn(getChessAccountFn)
-  const start = useServerFn(startChessVerificationFn)
-  const check = useServerFn(checkChessVerificationFn)
-  const account = useQuery({
-    queryKey: ['chess-account'],
-    queryFn: () => getAccount(),
-  })
-  const [username, setUsername] = useState('')
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ['chess-account'] })
-
-  const begin = useMutation({
-    mutationFn: () => start({ data: { username } }),
-    onSuccess: refresh,
-    onError: (error: Error) => toast.error(error.message),
-  })
-  const verify = useMutation({
-    mutationFn: () => check(),
-    onSuccess: async ({ username }) => {
-      await refresh()
-      toast.success(`Linked to ${username} on chess.com`)
-    },
-    onError: (error: Error) => toast.error(error.message),
-  })
-
-  const data = account.data
-  if (!data) return <p className="text-sm text-muted-foreground">Loading…</p>
-
-  if (data.status === 'verified') {
-    return (
-      <p className="flex items-center gap-2 text-sm">
-        <ShieldCheck className="size-4 shrink-0 text-primary" aria-hidden />
-        Linked to <b>{data.username}</b> on chess.com since{' '}
-        {formatDate(data.verifiedAt)}.
-      </p>
-    )
-  }
-
-  if (data.status === 'pending') {
-    return (
-      <div className="space-y-3 text-sm">
-        <p>
-          On chess.com, open <b>Settings → Profile</b> and put this code in{' '}
-          <b>Location</b>, then save:
-        </p>
-        <p className="rounded-xl bg-secondary py-3 text-center font-mono text-lg tracking-widest select-all">
-          {data.code}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          For <b>{data.username}</b>. The code works for 30 minutes; you can
-          remove it from your profile once you&apos;re linked.
-        </p>
-        <Button
-          className="w-full"
-          disabled={verify.isPending}
-          onClick={() => verify.mutate()}
-        >
-          {verify.isPending && <Spinner />}
-          Check my profile
-        </Button>
-      </div>
-    )
-  }
-
-  return (
-    <form
-      className="flex gap-2"
-      onSubmit={(event) => {
-        event.preventDefault()
-        if (username.trim()) begin.mutate()
-      }}
-    >
-      <Input
-        aria-label="chess.com username"
-        placeholder="Your chess.com username"
-        autoCapitalize="none"
-        autoComplete="off"
-        spellCheck={false}
-        value={username}
-        onChange={(event) => setUsername(event.target.value)}
-      />
-      <Button
-        type="submit"
-        className="shrink-0"
-        disabled={begin.isPending || !username.trim()}
-      >
-        {begin.isPending && <Spinner />}
-        Get my code
-      </Button>
-    </form>
   )
 }
 

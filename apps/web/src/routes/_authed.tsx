@@ -32,6 +32,14 @@ export const Route = createFileRoute('/_authed')({
         search: { redirect: location.href },
       })
     }
+    // Like Zadaci: nothing else until onboarding is done (a verified chess.com
+    // account is what makes a player's results count).
+    if (!session.user.chessUsername && location.pathname !== '/onboarding') {
+      throw redirect({
+        to: '/onboarding',
+        search: { redirect: location.href },
+      })
+    }
     return { user: session.user, isAdmin: session.isAdmin }
   },
   component: Outlet,

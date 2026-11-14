@@ -1,5 +1,8 @@
 import { createMiddleware, createServerFn } from '@tanstack/react-start'
 import { getCookie, getRequestHeaders } from '@tanstack/react-start/server'
+import { eq } from 'drizzle-orm'
+import { db } from '#/db/client.server'
+import { chessAccounts } from '#/db/schema'
 import { auth, googleEnabled } from './auth.server'
 
 /**
@@ -49,6 +52,13 @@ export const adminMiddleware = createMiddleware({ type: 'function' }).server(
 export const getSessionFn = createServerFn({ method: 'GET' }).handler(
   async () => {
     const user = await currentUser()
+    const [chess] = user
+      ? await db
+          .select({ username: chessAccounts.username })
+          .from(chessAccounts)
+          .where(eq(chessAccounts.userId, user.id))
+          .limit(1)
+      : []
     return {
       user: user && {
         id: user.id,
@@ -56,6 +66,8 @@ export const getSessionFn = createServerFn({ method: 'GET' }).handler(
         email: user.email,
         image: user.image ?? null,
         twoFactorEnabled: Boolean(user.twoFactorEnabled),
+        /** null until onboarding links and verifies a chess.com account */
+        chessUsername: chess?.username ?? null,
       },
       isAdmin: user ? isAdminEmail(user) : false,
       googleEnabled,
