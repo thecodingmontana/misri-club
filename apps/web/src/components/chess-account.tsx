@@ -55,11 +55,19 @@ export function ChessAccount({
 
   if (data.status === 'verified') {
     return (
-      <p className="flex items-center gap-2 text-sm">
-        <ShieldCheck className="size-4 shrink-0 text-primary" aria-hidden />
-        Linked to <b>{data.username}</b> on chess.com since{' '}
-        {formatDate(data.verifiedAt)}.
-      </p>
+      <div className="flex flex-col gap-3">
+        <p className="flex items-center gap-2 text-sm">
+          <ShieldCheck className="size-4 shrink-0 text-primary" aria-hidden />
+          Linked to <b>{data.username}</b> on chess.com since{' '}
+          {formatDate(data.verifiedAt)}.
+        </p>
+        {/* Onboarding moves on from here, even if the link was made earlier. */}
+        {onLinked && (
+          <Button size="lg" onClick={() => onLinked(data.username)}>
+            Continue
+          </Button>
+        )}
+      </div>
     )
   }
 

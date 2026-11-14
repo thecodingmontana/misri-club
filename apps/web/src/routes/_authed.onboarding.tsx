@@ -1,4 +1,9 @@
-import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  redirect,
+  useNavigate,
+  useRouter,
+} from '@tanstack/react-router'
 import { type FormEvent, useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -16,6 +21,12 @@ import { seo } from '#/lib/seo'
  */
 export const Route = createFileRoute('/_authed/onboarding')({
   validateSearch: z.object({ redirect: z.string().optional() }),
+  // Already onboarded: nothing to do here.
+  beforeLoad: ({ context, search }) => {
+    if (context.user.chessUsername) {
+      throw redirect({ href: safePath(search.redirect) ?? '/start' })
+    }
+  },
   head: () =>
     seo({
       title: 'Welcome',
