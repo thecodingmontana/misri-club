@@ -3,21 +3,8 @@ import { getCookie, getRequestHeaders } from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import { chessAccounts } from '#/db/schema'
-import { auth, googleEnabled } from './auth.server'
+import { auth, googleEnabled, isAdminEmail } from './auth.server'
 import { fetchPlayerProfile } from './chesscom.server'
-
-/**
- * Club admins are the accounts whose verified email is in `ADMIN_EMAILS`
- * (comma-separated). A bridge until each competition has its own organiser.
- */
-function isAdminEmail(user: { email: string; emailVerified: boolean }) {
-  if (!user.emailVerified) return false
-  const admins = (process.env.ADMIN_EMAILS ?? '')
-    .split(',')
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean)
-  return admins.includes(user.email.toLowerCase())
-}
 
 async function currentUser() {
   const session = await auth.api.getSession({ headers: getRequestHeaders() })
@@ -36,16 +23,9 @@ export const userMiddleware = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
     const user = await currentUser()
     if (!user) throw new Error('Sign in first.')
-    return next({ context: { user } })
-  },
-)
-
-export const adminMiddleware = createMiddleware({ type: 'function' }).server(
-  async ({ next }) => {
-    const user = await currentUser()
-    if (!user) throw new Error('Sign in first.')
-    if (!isAdminEmail(user)) throw new Error('Only club admins can do that.')
-    return next()
+    return next({
+      context: { user, viewer: { id: user.id, isAdmin: isAdminEmail(user) } },
+    })
   },
 )
 

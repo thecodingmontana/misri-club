@@ -4,6 +4,7 @@ import { userMiddleware } from './auth.functions'
 import {
   checkCompetitionName,
   createCompetition,
+  currentViewer,
   getCompetition,
   getInvite,
   joinCompetition,
@@ -106,7 +107,7 @@ export const getOpenCompetitionsFn = createServerFn({ method: 'GET' }).handler(
 export const getCompetitionFn = createServerFn({ method: 'GET' })
   .validator(z.object({ slug }))
   .handler(async ({ data }) => {
-    return getCompetition(data.slug, await viewerId())
+    return getCompetition(data.slug, await currentViewer())
   })
 
 /** What an invite link points at; null for an unknown code. */
@@ -118,7 +119,7 @@ export const startCompetitionFn = createServerFn({ method: 'POST' })
   .middleware([userMiddleware])
   .validator(z.object({ slug }))
   .handler(async ({ context, data }) => {
-    await startCompetition(data.slug, context.user.id)
+    await startCompetition(data.slug, context.viewer)
     return { ok: true }
   })
 
@@ -135,6 +136,6 @@ export const updateCompetitionSettingsFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ context, data }) => {
     const { slug, ...settings } = data
-    await updateCompetitionSettings(slug, context.user.id, settings)
+    await updateCompetitionSettings(slug, context.viewer, settings)
     return { ok: true }
   })

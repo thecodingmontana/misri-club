@@ -42,7 +42,7 @@ export const Route = createFileRoute('/c/$slug')({
     seo({
       title: loaderData?.competition.name ?? 'Competition',
       description: loaderData
-        ? `${FORMAT_LABEL[loaderData.competition.format]} on Misri with ${loaderData.members.length} players.`
+        ? `${FORMAT_LABEL[loaderData.competition.format]} on Misri with ${loaderData.playerCount} players.`
         : 'A chess competition on Misri.',
       path: `/c/${params.slug}`,
       noindex: loaderData?.competition.visibility !== 'public',
@@ -54,7 +54,15 @@ type Data = ReturnType<typeof Route.useLoaderData>
 
 function CompetitionPage() {
   const data = Route.useLoaderData()
-  const { competition, members, isOwner, isMember, join } = data
+  const {
+    competition,
+    members,
+    playerCount,
+    canManage,
+    canSeeDetails,
+    isMember,
+    join,
+  } = data
   const { user } = useAdmin()
   const league = competition.format === 'league'
 
@@ -67,7 +75,7 @@ function CompetitionPage() {
         </p>
         <h1 className="display mt-1 text-3xl">{competition.name}</h1>
         <p className="numeric mt-1 text-xs text-muted-foreground">
-          {members.length} player{members.length === 1 ? '' : 's'}
+          {playerCount} player{playerCount === 1 ? '' : 's'}
           {league && competition.legs === 2 && ' · home & away'} ·{' '}
           {competition.matchdayDays} day
           {competition.matchdayDays === 1 ? '' : 's'} per round
@@ -81,7 +89,7 @@ function CompetitionPage() {
         </p>
       </header>
 
-      {isOwner && <OwnerPanel data={data} />}
+      {canManage && <OwnerPanel data={data} />}
 
       {!isMember &&
         (join.ok ? (
@@ -109,34 +117,45 @@ function CompetitionPage() {
           </p>
         ))}
 
-      <Tabs defaultValue={competition.status === 'open' ? 'players' : 'table'}>
-        <TabsList className="w-full">
-          <TabsTrigger value="table">
-            {league ? 'Table' : 'Bracket'}
-          </TabsTrigger>
-          <TabsTrigger value="fixtures">Fixtures</TabsTrigger>
-          <TabsTrigger value="players">Players</TabsTrigger>
-        </TabsList>
-        <TabsContent value="table" className="pt-2">
-          {league ? <Standings data={data} /> : <Bracket data={data} />}
-        </TabsContent>
-        <TabsContent value="fixtures" className="pt-2">
-          <Fixtures data={data} />
-        </TabsContent>
-        <TabsContent value="players" className="space-y-2 pt-2">
-          {members.map((member) => (
-            <div
-              key={member.id}
-              className="flex items-center justify-between gap-2 rounded-2xl bg-card px-3 py-2.5 shadow-card"
-            >
-              <PlayerChip username={displayName(member)} image={member.image} />
-              {member.id === competition.ownerId && (
-                <span className="kicker">Organiser</span>
-              )}
-            </div>
-          ))}
-        </TabsContent>
-      </Tabs>
+      {canSeeDetails ? (
+        <Tabs
+          defaultValue={competition.status === 'open' ? 'players' : 'table'}
+        >
+          <TabsList className="w-full">
+            <TabsTrigger value="table">
+              {league ? 'Table' : 'Bracket'}
+            </TabsTrigger>
+            <TabsTrigger value="fixtures">Fixtures</TabsTrigger>
+            <TabsTrigger value="players">Players</TabsTrigger>
+          </TabsList>
+          <TabsContent value="table" className="pt-2">
+            {league ? <Standings data={data} /> : <Bracket data={data} />}
+          </TabsContent>
+          <TabsContent value="fixtures" className="pt-2">
+            <Fixtures data={data} />
+          </TabsContent>
+          <TabsContent value="players" className="space-y-2 pt-2">
+            {members.map((member) => (
+              <div
+                key={member.id}
+                className="flex items-center justify-between gap-2 rounded-2xl bg-card px-3 py-2.5 shadow-card"
+              >
+                <PlayerChip
+                  username={displayName(member)}
+                  image={member.image}
+                />
+                {member.id === competition.ownerId && (
+                  <span className="kicker">Organiser</span>
+                )}
+              </div>
+            ))}
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <p className="rounded-2xl bg-card px-4 py-5 text-center text-sm text-muted-foreground shadow-card">
+          Invite only. Players, fixtures and the table are for people in it.
+        </p>
+      )}
     </div>
   )
 }

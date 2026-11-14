@@ -11,6 +11,7 @@ import {
   user,
 } from '#/db/schema'
 import { generateInviteCode, generateNanoId } from '#/db/utils'
+import { authorize, can, roleOf, type Viewer } from '#/lib/access'
 import { generateKnockoutRound1 } from '#/lib/bracket'
 import {
   normalizeName,
@@ -19,7 +20,7 @@ import {
 } from '#/lib/competition-names'
 import { canJoin, lateEntryMatches } from '#/lib/join-policy'
 import { generateDoubleRoundRobin, matchdayCount } from '#/lib/round-robin'
-import { auth } from './auth.server'
+import { auth, isAdminEmail } from './auth.server'
 import { fetchPlayerProfile } from './chesscom.server'
 import {
   type Points,
@@ -34,6 +35,26 @@ const DAY = 24 * 60 * 60 * 1000
 export async function viewerId() {
   const session = await auth.api.getSession({ headers: getRequestHeaders() })
   return session?.user.id ?? null
+}
+
+/** The signed-in viewer with their site role, or null. */
+export async function currentViewer(): Promise<Viewer | null> {
+  const session = await auth.api.getSession({ headers: getRequestHeaders() })
+  return session
+    ? { id: session.user.id, isAdmin: isAdminEmail(session.user) }
+    : null
+}
+
+/** Managing doesn't depend on membership, so the cheap role is enough. */
+function authorizeManage(
+  viewer: Viewer,
+  competition: Pick<Competition, 'ownerId' | 'visibility'>,
+) {
+  authorize('manage', {
+    role: roleOf(viewer, competition, false),
+    isAdmin: viewer.isAdmin,
+    visibility: competition.visibility,
+  })
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -292,13 +313,11 @@ export async function joinCompetition(
 }
 
 /** Builds the schedule and moves the competition from open to running. */
-export async function startCompetition(slug: string, userId: string) {
+export async function startCompetition(slug: string, viewer: Viewer) {
   await db.transaction(async (tx) => {
     const competition = await lockCompetition(tx, eq(competitions.slug, slug))
     if (!competition) throw new Error('Not found.')
-    if (competition.ownerId !== userId) {
-      throw new Error('Only the organiser can start it.')
-    }
+    authorizeManage(viewer, competition)
     if (competition.status !== 'open')
       throw new Error('It has already started.')
 
@@ -355,13 +374,14 @@ export type EditableSettings = Pick<
 
 export async function updateCompetitionSettings(
   slug: string,
-  userId: string,
+  viewer: Viewer,
   settings: EditableSettings,
 ) {
   const [competition] = await db
     .select({
       id: competitions.id,
       ownerId: competitions.ownerId,
+      visibility: competitions.visibility,
       format: competitions.format,
       unplayedRule: competitions.unplayedRule,
       points: competitions.points,
@@ -370,9 +390,7 @@ export async function updateCompetitionSettings(
     .where(eq(competitions.slug, slug))
     .limit(1)
   if (!competition) throw new Error('Not found.')
-  if (competition.ownerId !== userId) {
-    throw new Error('Only the organiser can change this.')
-  }
+  authorizeManage(viewer, competition)
   checkFormatRules({ ...settings, format: competition.format })
   const scoringChanged =
     settings.unplayedRule !== competition.unplayedRule ||
@@ -535,7 +553,8 @@ function matchStatus(m: typeof matches.$inferSelect, now: number): MatchStatus {
  * Everything the competition page shows. Public read; the invite code only
  * reaches the organiser.
  */
-export async function getCompetition(slug: string, viewerId: string | null) {
+export async function getCompetition(slug: string, viewer: Viewer | null) {
+  const viewerId = viewer?.id ?? null
   const [competition] = await db
     .select()
     .from(competitions)
@@ -647,7 +666,14 @@ export async function getCompetition(slug: string, viewerId: string | null) {
           )
       : null
 
-  const isOwner = viewerId === competition.ownerId
+  const isMember = viewerId !== null && players.has(viewerId)
+  const access = {
+    role: roleOf(viewer, competition, isMember),
+    isAdmin: viewer?.isAdmin ?? false,
+    visibility: competition.visibility,
+  }
+  // Invite-only details stay with the people in it (and admins).
+  const details = can('viewDetails', access)
   return {
     competition: {
       slug: competition.slug,
@@ -662,14 +688,17 @@ export async function getCompetition(slug: string, viewerId: string | null) {
       points: competition.points,
       ownerId: competition.ownerId,
       startedAt: competition.startedAt?.getTime() ?? null,
-      inviteCode: isOwner ? competition.inviteCode : null,
+      inviteCode: can('seeInviteCode', access) ? competition.inviteCode : null,
     },
-    isOwner,
-    isMember: viewerId !== null && players.has(viewerId),
+    isOrganiser: access.role === 'organiser',
+    isMember,
+    canManage: can('manage', access),
+    canSeeDetails: details,
+    playerCount: players.size,
     join: canJoin(competition),
-    members: [...players.values()],
-    matches: matchViews,
+    members: details ? [...players.values()] : [],
+    matches: details ? matchViews : [],
     scheduledRounds,
-    standings,
+    standings: details ? standings : null,
   }
 }
