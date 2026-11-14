@@ -35,6 +35,7 @@ export default {
         'db',
         'competitions',
         'deps',
+        'notifications',
       ],
     ],
     // The repository owner is the sole author of every commit.
