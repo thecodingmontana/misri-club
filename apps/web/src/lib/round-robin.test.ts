@@ -30,3 +30,12 @@ test('every ordered pair meets once, nobody plays twice on a matchday', () => {
       assert.equal(day.size, n, `n=${n}: everyone each day`)
   }
 })
+
+test('works with string ids, and the first leg alone is a single round-robin', () => {
+  const ids = ['a', 'b', 'c', 'd', 'e']
+  const firstLeg = generateDoubleRoundRobin(ids).filter((f) => f.leg === 1)
+  const pairs = firstLeg.filter((f) => f.homeId !== null)
+  assert.equal(pairs.length, (ids.length * (ids.length - 1)) / 2)
+  const met = new Set(pairs.map((f) => [f.homeId, f.awayId].sort().join('-')))
+  assert.equal(met.size, pairs.length, 'nobody meets twice in one leg')
+})

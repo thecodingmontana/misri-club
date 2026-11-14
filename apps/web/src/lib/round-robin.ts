@@ -6,23 +6,24 @@
  * first with home and away swapped, for `2 * (n - 1)` matchdays total.
  *
  * With an odd number of players a `null` placeholder joins the circle, and
- * whoever is drawn against it that round sits out (a bye).
+ * whoever is drawn against it that round sits out (a bye). A single-leg league
+ * keeps only the `leg: 1` fixtures.
  */
 
-export interface GeneratedFixture {
+export interface GeneratedFixture<Id = string> {
   matchday: number
   leg: 1 | 2
-  homeId: number | null
-  awayId: number | null
-  byeId: number | null
+  homeId: Id | null
+  awayId: Id | null
+  byeId: Id | null
 }
 
-export function generateDoubleRoundRobin(
-  playerIds: Array<number>,
-): Array<GeneratedFixture> {
+export function generateDoubleRoundRobin<Id extends string | number>(
+  playerIds: Array<Id>,
+): Array<GeneratedFixture<Id>> {
   if (playerIds.length < 2) return []
 
-  const circle: Array<number | null> = [...playerIds]
+  const circle: Array<Id | null> = [...playerIds]
   if (circle.length % 2 !== 0) circle.push(null) // odd count -> one bye per round
 
   const size = circle.length
@@ -32,7 +33,7 @@ export function generateDoubleRoundRobin(
   const fixed = circle[0]
   let rotating = circle.slice(1)
 
-  const firstLeg: Array<GeneratedFixture> = []
+  const firstLeg: Array<GeneratedFixture<Id>> = []
 
   for (let round = 0; round < rounds; round++) {
     const arrangement = [fixed, ...rotating]
@@ -68,7 +69,7 @@ export function generateDoubleRoundRobin(
     rotating = [rotating[rotating.length - 1], ...rotating.slice(0, -1)]
   }
 
-  const secondLeg = firstLeg.map<GeneratedFixture>((fixture) => ({
+  const secondLeg = firstLeg.map<GeneratedFixture<Id>>((fixture) => ({
     matchday: fixture.matchday + rounds,
     leg: 2,
     homeId: fixture.awayId,
