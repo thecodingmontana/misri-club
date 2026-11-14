@@ -1,7 +1,7 @@
 {
   "name": "Misri Chess Club",
   "short_name": "Misri",
-  "description": "League standings, fixtures, puzzles, master games and Stockfish practice for the Misri chess.com club.",
+  "description": "Run chess leagues and tournaments on chess.com, with fixtures, tables, match reminders and training.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -15,6 +15,10 @@ const config = defineConfig({
   // Pre-bundle at startup: found late, Vite re-optimizes mid-session and
   // serves the old chunk as 504, so the page never hydrates.
   optimizeDeps: { include: ['motion/react'] },
+  // one id for client and server, so an open tab can spot a newer deploy
+  define: {
+    __BUILD_ID__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev'),
+  },
   plugins: [
     devtools(),
     nitro(),

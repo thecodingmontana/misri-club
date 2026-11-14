@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { OpenCompetitions, StartChoices } from '#/components/competitions'
+import { InstallCard } from '#/components/install-card'
 import { seo } from '#/lib/seo'
 import { getOpenCompetitionsFn } from '#/server/competitions.functions'
 
@@ -26,6 +27,7 @@ function Start() {
         </p>
       </header>
       <StartChoices />
+      <InstallCard />
       <OpenCompetitions competitions={open} />
     </div>
   )

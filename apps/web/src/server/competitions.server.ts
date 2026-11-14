@@ -22,6 +22,7 @@ import { canJoin, lateEntryMatches } from '#/lib/join-policy'
 import { generateDoubleRoundRobin, matchdayCount } from '#/lib/round-robin'
 import { auth, isAdminEmail } from './auth.server'
 import { fetchPlayerProfile } from './chesscom.server'
+import { notifyJoined, notifyStarted } from './notifications.server'
 import {
   type Points,
   type Tally,
@@ -250,7 +251,8 @@ export async function joinCompetition(
   userId: string,
   where: { code: string } | { slug: string },
 ) {
-  return db.transaction(async (tx) => {
+  let joinedId: string | null = null
+  const slug = await db.transaction(async (tx) => {
     const competition = await lockCompetition(
       tx,
       'code' in where
@@ -279,6 +281,7 @@ export async function joinCompetition(
     await tx
       .insert(competitionMembers)
       .values({ competitionId: competition.id, userId })
+    joinedId = competition.id
 
     if (competition.status === 'running') {
       const [latest] = await tx
@@ -310,11 +313,14 @@ export async function joinCompetition(
     }
     return competition.slug
   })
+  // after commit, so the organiser never hears about a join that rolled back
+  if (joinedId) await notifyJoined(joinedId, userId)
+  return slug
 }
 
 /** Builds the schedule and moves the competition from open to running. */
 export async function startCompetition(slug: string, viewer: Viewer) {
-  await db.transaction(async (tx) => {
+  const startedId = await db.transaction(async (tx) => {
     const competition = await lockCompetition(tx, eq(competitions.slug, slug))
     if (!competition) throw new Error('Not found.')
     authorizeManage(viewer, competition)
@@ -364,7 +370,9 @@ export async function startCompetition(slug: string, viewer: Viewer) {
       .update(competitions)
       .set({ status: 'running', startedAt: new Date(now) })
       .where(eq(competitions.id, competition.id))
+    return competition.id
   })
+  await notifyStarted(startedId)
 }
 
 export type EditableSettings = Pick<

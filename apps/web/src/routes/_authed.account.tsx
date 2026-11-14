@@ -4,6 +4,7 @@ import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { Spinner } from '#/components/auth'
 import { ChessAccount } from '#/components/chess-account'
 import { KeyRound, LogOut, ShieldCheck, Trash } from '#/components/icons'
+import { PushDevice } from '#/components/push-device'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +63,13 @@ function AccountPage() {
         lead="Prove which player you are, so your results can be trusted."
       >
         <ChessAccount />
+      </Section>
+
+      <Section
+        title="Notifications"
+        lead="Push notifications on this phone or computer. No emails."
+      >
+        <PushDevice />
       </Section>
 
       <Section

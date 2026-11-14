@@ -17,6 +17,7 @@ import { Route as AuthedAccountRouteImport } from './routes/_authed.account'
 import { Route as AuthedJoinRouteImport } from './routes/_authed.join'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed.onboarding'
 import { Route as AuthedStartRouteImport } from './routes/_authed.start'
+import { Route as ApiVersionRouteImport } from './routes/api/version'
 import { Route as AuthConfirmSignInRouteImport } from './routes/auth.confirm-sign-in'
 import { Route as AuthSigninRouteImport } from './routes/auth.signin'
 import { Route as AuthTwoFactorRouteImport } from './routes/auth.two-factor'
@@ -29,6 +30,7 @@ import { Route as TrainProgressRouteImport } from './routes/train.progress'
 import { Route as TrainPuzzlesRouteImport } from './routes/train.puzzles'
 import { Route as AuthedCompetitionsNewRouteImport } from './routes/_authed.competitions.new'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCronDeadlinesRouteImport } from './routes/api/cron/deadlines'
 import { Route as TrainMastersIndexRouteImport } from './routes/train.masters.index'
 import { Route as TrainMastersSlugRouteImport } from './routes/train.masters.$slug'
 import { Route as TrainOpeningsIndexRouteImport } from './routes/train.openings.index'
@@ -72,6 +74,11 @@ const AuthedStartRoute = AuthedStartRouteImport.update({
   id: '/start',
   path: '/start',
   getParentRoute: () => AuthedRoute,
+} as any)
+const ApiVersionRoute = ApiVersionRouteImport.update({
+  id: '/api/version',
+  path: '/api/version',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthConfirmSignInRoute = AuthConfirmSignInRouteImport.update({
   id: '/auth/confirm-sign-in',
@@ -133,6 +140,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronDeadlinesRoute = ApiCronDeadlinesRouteImport.update({
+  id: '/api/cron/deadlines',
+  path: '/api/cron/deadlines',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TrainMastersIndexRoute = TrainMastersIndexRouteImport.update({
   id: '/train/masters/',
   path: '/train/masters/',
@@ -162,6 +174,7 @@ export interface FileRoutesByFullPath {
   '/join': typeof AuthedJoinRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/start': typeof AuthedStartRoute
+  '/api/version': typeof ApiVersionRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
@@ -174,6 +187,7 @@ export interface FileRoutesByFullPath {
   '/train/': typeof TrainIndexRoute
   '/competitions/new': typeof AuthedCompetitionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/deadlines': typeof ApiCronDeadlinesRoute
   '/train/masters/$slug': typeof TrainMastersSlugRoute
   '/train/openings/$slug': typeof TrainOpeningsSlugRoute
   '/train/masters/': typeof TrainMastersIndexRoute
@@ -186,6 +200,7 @@ export interface FileRoutesByTo {
   '/join': typeof AuthedJoinRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/start': typeof AuthedStartRoute
+  '/api/version': typeof ApiVersionRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
@@ -199,6 +214,7 @@ export interface FileRoutesByTo {
   '/train': typeof TrainIndexRoute
   '/competitions/new': typeof AuthedCompetitionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/deadlines': typeof ApiCronDeadlinesRoute
   '/train/masters/$slug': typeof TrainMastersSlugRoute
   '/train/openings/$slug': typeof TrainOpeningsSlugRoute
   '/train/masters': typeof TrainMastersIndexRoute
@@ -213,6 +229,7 @@ export interface FileRoutesById {
   '/_authed/join': typeof AuthedJoinRoute
   '/_authed/onboarding': typeof AuthedOnboardingRoute
   '/_authed/start': typeof AuthedStartRoute
+  '/api/version': typeof ApiVersionRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
@@ -226,6 +243,7 @@ export interface FileRoutesById {
   '/train/': typeof TrainIndexRoute
   '/_authed/competitions/new': typeof AuthedCompetitionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/deadlines': typeof ApiCronDeadlinesRoute
   '/train/masters/$slug': typeof TrainMastersSlugRoute
   '/train/openings/$slug': typeof TrainOpeningsSlugRoute
   '/train/masters/': typeof TrainMastersIndexRoute
@@ -241,6 +259,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/onboarding'
     | '/start'
+    | '/api/version'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
     | '/auth/two-factor'
@@ -253,6 +272,7 @@ export interface FileRouteTypes {
     | '/train/'
     | '/competitions/new'
     | '/api/auth/$'
+    | '/api/cron/deadlines'
     | '/train/masters/$slug'
     | '/train/openings/$slug'
     | '/train/masters/'
@@ -265,6 +285,7 @@ export interface FileRouteTypes {
     | '/join'
     | '/onboarding'
     | '/start'
+    | '/api/version'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
     | '/auth/two-factor'
@@ -278,6 +299,7 @@ export interface FileRouteTypes {
     | '/train'
     | '/competitions/new'
     | '/api/auth/$'
+    | '/api/cron/deadlines'
     | '/train/masters/$slug'
     | '/train/openings/$slug'
     | '/train/masters'
@@ -291,6 +313,7 @@ export interface FileRouteTypes {
     | '/_authed/join'
     | '/_authed/onboarding'
     | '/_authed/start'
+    | '/api/version'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
     | '/auth/two-factor'
@@ -304,6 +327,7 @@ export interface FileRouteTypes {
     | '/train/'
     | '/_authed/competitions/new'
     | '/api/auth/$'
+    | '/api/cron/deadlines'
     | '/train/masters/$slug'
     | '/train/openings/$slug'
     | '/train/masters/'
@@ -314,6 +338,7 @@ export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  ApiVersionRoute: typeof ApiVersionRoute
   AuthConfirmSignInRoute: typeof AuthConfirmSignInRoute
   AuthSigninRoute: typeof AuthSigninRoute
   AuthTwoFactorRoute: typeof AuthTwoFactorRoute
@@ -325,6 +350,7 @@ export interface RootRouteChildren {
   TrainPuzzlesRoute: typeof TrainPuzzlesRoute
   TrainIndexRoute: typeof TrainIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCronDeadlinesRoute: typeof ApiCronDeadlinesRoute
   TrainMastersSlugRoute: typeof TrainMastersSlugRoute
   TrainOpeningsSlugRoute: typeof TrainOpeningsSlugRoute
   TrainMastersIndexRoute: typeof TrainMastersIndexRoute
@@ -388,6 +414,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/start'
       preLoaderRoute: typeof AuthedStartRouteImport
       parentRoute: typeof AuthedRoute
+    }
+    '/api/version': {
+      id: '/api/version'
+      path: '/api/version'
+      fullPath: '/api/version'
+      preLoaderRoute: typeof ApiVersionRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/auth/confirm-sign-in': {
       id: '/auth/confirm-sign-in'
@@ -473,6 +506,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/deadlines': {
+      id: '/api/cron/deadlines'
+      path: '/api/cron/deadlines'
+      fullPath: '/api/cron/deadlines'
+      preLoaderRoute: typeof ApiCronDeadlinesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/train/masters/': {
       id: '/train/masters/'
       path: '/train/masters'
@@ -529,6 +569,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  ApiVersionRoute: ApiVersionRoute,
   AuthConfirmSignInRoute: AuthConfirmSignInRoute,
   AuthSigninRoute: AuthSigninRoute,
   AuthTwoFactorRoute: AuthTwoFactorRoute,
@@ -540,6 +581,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrainPuzzlesRoute: TrainPuzzlesRoute,
   TrainIndexRoute: TrainIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCronDeadlinesRoute: ApiCronDeadlinesRoute,
   TrainMastersSlugRoute: TrainMastersSlugRoute,
   TrainOpeningsSlugRoute: TrainOpeningsSlugRoute,
   TrainMastersIndexRoute: TrainMastersIndexRoute,

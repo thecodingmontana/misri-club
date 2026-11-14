@@ -298,6 +298,8 @@ export const matches = pgTable(
     ),
     gameUrl: text('game_url'),
     endedAt: ts('ended_at'),
+    /** When the 24-hour reminder went out; null until then (sent once). */
+    remindedAt: ts('reminded_at'),
     /** Who goes through (knockout), or who was awarded a walkover. */
     winnerUserId: varchar('winner_user_id', { length: 16 }).references(
       () => user.id,
@@ -305,6 +307,24 @@ export const matches = pgTable(
     ),
   },
   (t) => [index('matches_competition_round_idx').on(t.competitionId, t.round)],
+).enableRLS()
+
+/** A browser or phone that turned on push; one row per device. */
+export const pushSubscriptions = pgTable(
+  'push_subscriptions',
+  {
+    id: varchar('id', { length: 16 })
+      .primaryKey()
+      .$defaultFn(() => generateNanoId()),
+    userId: varchar('user_id', { length: 16 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull().unique(),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('push_subscriptions_user_idx').on(t.userId)],
 ).enableRLS()
 
 export type Competition = typeof competitions.$inferSelect

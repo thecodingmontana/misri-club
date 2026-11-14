@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { CompetitionCard, OpenCompetitions } from '#/components/competitions'
 import { Plus, UserPlus } from '#/components/icons'
+import { InstallCard } from '#/components/install-card'
 import { Button } from '#/components/ui/button'
 import { seo } from '#/lib/seo'
 import {
@@ -30,6 +31,7 @@ function Home() {
   const { mine, open } = Route.useLoaderData()
   return (
     <div className="space-y-6 pt-2">
+      <InstallCard />
       <header className="text-center">
         <h1 className="display text-3xl">Your competitions</h1>
       </header>
