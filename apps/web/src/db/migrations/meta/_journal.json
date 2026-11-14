@@ -50,6 +50,13 @@
       "when": 1794697607297,
       "tag": "0006_competition_name_key",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794698621327,
+      "tag": "0007_unplayed_rule",
+      "breakpoints": true
     }
   ]
 }

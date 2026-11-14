@@ -16,10 +16,18 @@ import {
   viewerId,
 } from './competitions.server'
 import { takeAllowance } from './rate-limit.server'
+import { POINTS, UNPLAYED_RULES } from './standings'
 
 const MINUTE = 60 * 1000
 const HOUR = 60 * MINUTE
 const slug = z.string().trim().min(1).max(80)
+const point = z.number().int().min(-10).max(10)
+const scoring = {
+  unplayedRule: z.enum(UNPLAYED_RULES).default('organiser'),
+  points: z
+    .object({ win: point, draw: point, loss: point, forfeit: point })
+    .default(POINTS),
+}
 const code = z
   .string()
   .trim()
@@ -42,6 +50,7 @@ export const createCompetitionFn = createServerFn({ method: 'POST' })
       matchdayDays: z.number().int().min(1).max(14).default(2),
       visibility: z.enum(['public', 'private']).default('private'),
       allowLateEntry: z.boolean().default(false),
+      ...scoring,
     }),
   )
   .handler(async ({ context, data }) => {
@@ -120,6 +129,8 @@ export const updateCompetitionSettingsFn = createServerFn({ method: 'POST' })
       slug,
       visibility: z.enum(['public', 'private']),
       allowLateEntry: z.boolean(),
+      unplayedRule: z.enum(UNPLAYED_RULES),
+      points: scoring.points.unwrap(),
     }),
   )
   .handler(async ({ context, data }) => {

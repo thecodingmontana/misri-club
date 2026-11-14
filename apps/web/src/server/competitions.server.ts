@@ -21,7 +21,12 @@ import { canJoin, lateEntryMatches } from '#/lib/join-policy'
 import { generateDoubleRoundRobin, matchdayCount } from '#/lib/round-robin'
 import { auth } from './auth.server'
 import { fetchPlayerProfile } from './chesscom.server'
-import { type Tally, tallyStandings } from './standings'
+import {
+  type Points,
+  type Tally,
+  tallyStandings,
+  type UnplayedRule,
+} from './standings'
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -40,6 +45,8 @@ export interface CompetitionSettings {
   matchdayDays: number
   visibility: Competition['visibility']
   allowLateEntry: boolean
+  unplayedRule: UnplayedRule
+  points: Points
 }
 
 /** Create and join need a verified chess.com account: results come from there. */
@@ -57,7 +64,15 @@ export function checkFormatRules(settings: {
   format: Competition['format']
   legs?: number
   allowLateEntry?: boolean
+  unplayedRule?: UnplayedRule
 }) {
+  // someone has to go through, so only the organiser can settle an unplayed tie
+  if (
+    settings.format === 'knockout' &&
+    (settings.unplayedRule ?? 'organiser') !== 'organiser'
+  ) {
+    throw new Error('In a tournament the organiser decides unplayed matches.')
+  }
   if (settings.format === 'knockout' && settings.allowLateEntry) {
     throw new Error("A tournament can't take late entries.")
   }
@@ -95,7 +110,8 @@ async function uniqueSlug(name: string) {
 const NAME_TAKEN = 'That name is taken.'
 const SUGGESTIONS = 3
 
-const capitalise = (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
+const capitalise = (word: string) =>
+  word.charAt(0).toUpperCase() + word.slice(1)
 
 /** Fresh one-word adjectives and cities from Faker, mixed with the chess flavours. */
 function fakerFlavours() {
@@ -332,13 +348,24 @@ export async function startCompetition(slug: string, userId: string) {
   })
 }
 
+export type EditableSettings = Pick<
+  CompetitionSettings,
+  'visibility' | 'allowLateEntry' | 'unplayedRule' | 'points'
+>
+
 export async function updateCompetitionSettings(
   slug: string,
   userId: string,
-  settings: Pick<CompetitionSettings, 'visibility' | 'allowLateEntry'>,
+  settings: EditableSettings,
 ) {
   const [competition] = await db
-    .select({ ownerId: competitions.ownerId, format: competitions.format })
+    .select({
+      id: competitions.id,
+      ownerId: competitions.ownerId,
+      format: competitions.format,
+      unplayedRule: competitions.unplayedRule,
+      points: competitions.points,
+    })
     .from(competitions)
     .where(eq(competitions.slug, slug))
     .limit(1)
@@ -347,7 +374,31 @@ export async function updateCompetitionSettings(
     throw new Error('Only the organiser can change this.')
   }
   checkFormatRules({ ...settings, format: competition.format })
+  const scoringChanged =
+    settings.unplayedRule !== competition.unplayedRule ||
+    JSON.stringify(settings.points) !== JSON.stringify(competition.points)
+  // Changing the rules mid-way would rewrite results players already have.
+  if (scoringChanged && (await hasResults(competition.id))) {
+    throw new Error("Scoring can't change once a result is in.")
+  }
   await db.update(competitions).set(settings).where(eq(competitions.slug, slug))
+}
+
+async function hasResults(competitionId: string) {
+  const [decided] = await db
+    .select({ id: matches.id })
+    .from(matches)
+    .where(
+      and(
+        eq(matches.competitionId, competitionId),
+        or(
+          sql`${matches.result} is not null`,
+          sql`${matches.winnerUserId} is not null`,
+        ),
+      ),
+    )
+    .limit(1)
+  return Boolean(decided)
 }
 
 const memberCount = db
@@ -574,7 +625,12 @@ export async function getCompetition(slug: string, viewerId: string | null) {
 
   const standings: Array<StandingRow> | null =
     competition.format === 'league'
-      ? [...tallyStandings(matchRows, [...players.keys()], new Date(now))]
+      ? [
+          ...tallyStandings(matchRows, [...players.keys()], new Date(now), {
+            unplayed: competition.unplayedRule,
+            points: competition.points,
+          }),
+        ]
           .map(([id, tally]) => ({
             player: player(id) as PlayerView,
             ...tally,
@@ -602,6 +658,8 @@ export async function getCompetition(slug: string, viewerId: string | null) {
       status: competition.status,
       visibility: competition.visibility,
       allowLateEntry: competition.allowLateEntry,
+      unplayedRule: competition.unplayedRule,
+      points: competition.points,
       ownerId: competition.ownerId,
       startedAt: competition.startedAt?.getTime() ?? null,
       inviteCode: isOwner ? competition.inviteCode : null,

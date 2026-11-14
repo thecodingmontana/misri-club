@@ -42,11 +42,42 @@ test('a draw gives both players a point', () => {
   assert.equal(tally.get('b')?.points, POINTS.draw)
 })
 
-test('an unplayed match costs both only once its window closes', () => {
-  const open = tallyStandings([match({ dueAt: future })], ['a', 'b'], now)
+const bothForfeit = { unplayed: 'both_forfeit', points: POINTS } as const
+
+test('an unplayed match waits for the organiser by default', () => {
+  const closed = tallyStandings([match()], ['a', 'b'], now)
+  assert.equal(closed.get('a')?.points, 0)
+  assert.equal(closed.get('a')?.forfeits, 0)
+})
+
+test('"no result" leaves an unplayed match out of the table', () => {
+  const rules = { unplayed: 'void', points: POINTS } as const
+  const closed = tallyStandings([match()], ['a', 'b'], now, rules)
+  assert.equal(closed.get('b')?.points, 0)
+})
+
+test('the organiser sets what each outcome is worth', () => {
+  const points = { win: 2, draw: 1, loss: 0, forfeit: -3 }
+  const tally = tallyStandings(
+    [match({ dueAt: future, winnerUserId: 'b' })],
+    ['a', 'b'],
+    now,
+    { unplayed: 'organiser', points },
+  )
+  assert.equal(tally.get('b')?.points, 2)
+  assert.equal(tally.get('a')?.points, -3)
+})
+
+test('"both lose it" costs both only once its window closes', () => {
+  const open = tallyStandings(
+    [match({ dueAt: future })],
+    ['a', 'b'],
+    now,
+    bothForfeit,
+  )
   assert.equal(open.get('a')?.points, 0)
 
-  const closed = tallyStandings([match()], ['a', 'b'], now)
+  const closed = tallyStandings([match()], ['a', 'b'], now, bothForfeit)
   assert.equal(closed.get('a')?.points, POINTS.forfeit)
   assert.equal(closed.get('b')?.points, POINTS.forfeit)
   assert.equal(closed.get('b')?.forfeits, 1)

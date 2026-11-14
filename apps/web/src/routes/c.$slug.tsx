@@ -16,6 +16,7 @@ import {
 import { Copy } from '#/components/icons'
 import { displayName, FixtureCard } from '#/components/match-card'
 import { PlayerChip } from '#/components/player-chip'
+import { ScoringRules, scoringSummary } from '#/components/scoring-rules'
 import { Button } from '#/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { seo } from '#/lib/seo'
@@ -69,6 +70,13 @@ function CompetitionPage() {
           {league && competition.legs === 2 && ' · home & away'} ·{' '}
           {competition.matchdayDays} day
           {competition.matchdayDays === 1 ? '' : 's'} per round
+        </p>
+        <p className="numeric mt-0.5 text-xs text-muted-foreground">
+          {scoringSummary(
+            competition.format,
+            competition.unplayedRule,
+            competition.points,
+          )}
         </p>
       </header>
 
@@ -153,10 +161,21 @@ function OwnerPanel({ data }: { data: Data }) {
     }
   }
 
-  const save = (settings: {
-    visibility: 'public' | 'private'
-    allowLateEntry: boolean
-  }) => run(() => update({ data: { slug: competition.slug, ...settings } }))
+  const save = (
+    patch: Partial<Omit<Parameters<typeof update>[0]['data'], 'slug'>>,
+  ) =>
+    run(() =>
+      update({
+        data: {
+          slug: competition.slug,
+          visibility: competition.visibility,
+          allowLateEntry: competition.allowLateEntry,
+          unplayedRule: competition.unplayedRule,
+          points: competition.points,
+          ...patch,
+        },
+      }),
+    )
 
   async function copyLink() {
     const link = `${window.location.origin}/join/${competition.inviteCode}`
@@ -199,9 +218,7 @@ function OwnerPanel({ data }: { data: Data }) {
       <Choice
         label="Who can join"
         value={competition.visibility}
-        onChange={(visibility) =>
-          save({ visibility, allowLateEntry: competition.allowLateEntry })
-        }
+        onChange={(visibility) => save({ visibility })}
         options={[
           { value: 'private', label: 'Invite only' },
           { value: 'public', label: 'Anyone' },
@@ -215,12 +232,7 @@ function OwnerPanel({ data }: { data: Data }) {
             className="mt-0.5 size-4 accent-primary"
             checked={competition.allowLateEntry}
             disabled={busy}
-            onChange={(event) =>
-              save({
-                visibility: competition.visibility,
-                allowLateEntry: event.target.checked,
-              })
-            }
+            onChange={(event) => save({ allowLateEntry: event.target.checked })}
           />
           <span>
             <span className="block font-medium">Allow late entry</span>
@@ -229,6 +241,16 @@ function OwnerPanel({ data }: { data: Data }) {
             </span>
           </span>
         </label>
+      )}
+
+      {competition.status !== 'finished' && (
+        <ScoringRules
+          format={competition.format}
+          unplayedRule={competition.unplayedRule}
+          points={competition.points}
+          disabled={busy}
+          onChange={(scoring) => save(scoring)}
+        />
       )}
 
       {competition.status === 'open' && (

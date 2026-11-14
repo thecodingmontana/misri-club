@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { Spinner } from '#/components/auth'
 import { Choice } from '#/components/competitions'
 import { Check, MagicWand } from '#/components/icons'
+import { ScoringRules } from '#/components/scoring-rules'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { normalizeName } from '#/lib/competition-names'
@@ -16,6 +17,7 @@ import {
   createCompetitionFn,
   suggestCompetitionNamesFn,
 } from '#/server/competitions.functions'
+import { POINTS, type Points, type UnplayedRule } from '#/server/standings'
 
 export const Route = createFileRoute('/_authed/competitions/new')({
   validateSearch: z.object({
@@ -93,6 +95,10 @@ function NewCompetition() {
   const [legs, setLegs] = useState<1 | 2>(1)
   const [matchdayDays, setMatchdayDays] = useState(2)
   const [visibility, setVisibility] = useState<'private' | 'public'>('private')
+  const [scoring, setScoring] = useState<{
+    unplayedRule: UnplayedRule
+    points: Points
+  }>({ unplayedRule: 'organiser', points: POINTS })
   const [allowLateEntry, setAllowLateEntry] = useState(false)
   const [busy, setBusy] = useState(false)
   const league = format === 'league'
@@ -110,6 +116,7 @@ function NewCompetition() {
           matchdayDays,
           visibility,
           allowLateEntry: league && allowLateEntry,
+          ...(league ? scoring : {}),
         },
       })
       await navigate({ to: '/c/$slug', params: { slug } })
@@ -255,6 +262,13 @@ function NewCompetition() {
             </span>
           </label>
         )}
+
+        <ScoringRules
+          format={format}
+          unplayedRule={scoring.unplayedRule}
+          points={scoring.points}
+          onChange={setScoring}
+        />
 
         <Button
           type="submit"

@@ -1,14 +1,27 @@
 import type { Match } from '#/db/schema'
 
 /**
- * Scoring. A match that expires unplayed costs **both** players a point —
- * chess.com's public API carries no challenge or decline data, so there is no
- * honest way to decide which of the two failed to arrange it. Punishing both is
- * the only rule the available data supports, and it still makes ducking a game
- * strictly worse than losing one. When the organiser knows who turned up, they
- * award a walkover instead: a win's points to one, a forfeit to the other.
+ * Scoring is the organiser's call, not ours. chess.com's public API carries no
+ * challenge or decline data, so when a match expires unplayed we can't tell who
+ * ducked it. The organiser picks what happens (`UnplayedRule`) and what each
+ * outcome is worth; a walkover they award counts as a win and a forfeit.
  */
-export const POINTS = { win: 3, draw: 1, loss: 0, forfeit: -1 } as const
+export type Outcome = 'win' | 'draw' | 'loss' | 'forfeit'
+export type Points = Record<Outcome, number>
+export const POINTS: Points = { win: 3, draw: 1, loss: 0, forfeit: -1 }
+
+/**
+ * organiser = it waits for the organiser to award a walkover or void it;
+ * both_forfeit = both take the forfeit; void = it simply doesn't count.
+ */
+export const UNPLAYED_RULES = ['organiser', 'both_forfeit', 'void'] as const
+export type UnplayedRule = (typeof UNPLAYED_RULES)[number]
+
+export interface Rules {
+  unplayed: UnplayedRule
+  points: Points
+}
+export const DEFAULT_RULES: Rules = { unplayed: 'organiser', points: POINTS }
 
 export interface Tally {
   points: number
@@ -36,8 +49,6 @@ export function fitsMatch(
   )
 }
 
-export type Outcome = 'win' | 'draw' | 'loss' | 'forfeit'
-
 const COUNTER = {
   win: 'wins',
   draw: 'draws',
@@ -64,6 +75,7 @@ export function matchOutcome(
   userId: string,
   members: Set<string>,
   now: Date,
+  unplayed: UnplayedRule = DEFAULT_RULES.unplayed,
 ): Outcome | null {
   if (!match.homeUserId || !match.awayUserId) return null
 
@@ -84,7 +96,8 @@ export function matchOutcome(
   if (!members.has(match.homeUserId) || !members.has(match.awayUserId)) {
     return null
   }
-  return 'forfeit'
+  // Otherwise only the organiser's own rule gives it a consequence.
+  return unplayed === 'both_forfeit' ? 'forfeit' : null
 }
 
 /** Pure: the table a league's matches add up to. */
@@ -92,6 +105,7 @@ export function tallyStandings(
   matches: Array<ScoredMatch>,
   memberIds: Array<string>,
   now: Date,
+  rules: Rules = DEFAULT_RULES,
 ): Map<string, Tally> {
   const tally = new Map<string, Tally>()
   const members = new Set(memberIds)
@@ -111,11 +125,11 @@ export function tallyStandings(
   for (const match of matches) {
     if (!match.homeUserId || !match.awayUserId) continue
     for (const userId of [match.homeUserId, match.awayUserId]) {
-      const outcome = matchOutcome(match, userId, members, now)
+      const outcome = matchOutcome(match, userId, members, now, rules.unplayed)
       if (!outcome) continue
       const entry = row(userId)
       entry[COUNTER[outcome]]++
-      entry.points += POINTS[outcome]
+      entry.points += rules.points[outcome]
     }
   }
 

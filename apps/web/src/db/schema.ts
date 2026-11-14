@@ -3,6 +3,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -205,6 +206,12 @@ export const competitionVisibility = pgEnum('competition_visibility', [
   'public',
   'private',
 ])
+/** What happens to a match nobody played; see `UnplayedRule`. */
+export const unplayedRule = pgEnum('unplayed_rule', [
+  'organiser',
+  'both_forfeit',
+  'void',
+])
 export const matchResult = pgEnum('match_result', ['white', 'black', 'draw'])
 
 export const competitions = pgTable('competitions', {
@@ -225,6 +232,13 @@ export const competitions = pgTable('competitions', {
   visibility: competitionVisibility('visibility').notNull().default('private'),
   /** Leagues only: players may still join once it is running. */
   allowLateEntry: boolean('allow_late_entry').notNull().default(false),
+  /** The organiser's rule for matches that expire unplayed. */
+  unplayedRule: unplayedRule('unplayed_rule').notNull().default('organiser'),
+  /** Leagues: what a win, draw, loss and forfeit are worth. */
+  points: jsonb('points')
+    .$type<{ win: number; draw: number; loss: number; forfeit: number }>()
+    .notNull()
+    .default({ win: 3, draw: 1, loss: 0, forfeit: -1 }),
   ownerId: varchar('owner_id', { length: 16 })
     .notNull()
     .references(() => user.id, { onDelete: 'cascade' }),
