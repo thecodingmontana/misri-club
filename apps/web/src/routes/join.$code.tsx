@@ -1,5 +1,10 @@
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
-import { FORMAT_LABEL, JoinButton } from '#/components/competitions'
+import {
+  FORMAT_INFO,
+  FORMAT_LABEL,
+  FormatExplainer,
+  JoinButton,
+} from '#/components/competitions'
 import { Trophy } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { seo } from '#/lib/seo'
@@ -40,6 +45,9 @@ function Invite() {
           {FORMAT_LABEL[invite.format]} · {invite.members} player
           {invite.members === 1 ? '' : 's'}
         </p>
+        <p className="text-sm text-muted-foreground">
+          {FORMAT_INFO[invite.format].summary}
+        </p>
 
         {!invite.canJoin ? (
           <>
@@ -66,6 +74,7 @@ function Invite() {
           <JoinButton code={code} label="Join" size="lg" />
         )}
       </div>
+      <FormatExplainer format={invite.format} />
     </div>
   )
 }

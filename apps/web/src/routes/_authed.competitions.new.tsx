@@ -4,7 +4,7 @@ import { useServerFn } from '@tanstack/react-start'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { Spinner } from '#/components/auth'
-import { Choice } from '#/components/competitions'
+import { Choice, FORMAT_INFO, FormatExplainer } from '#/components/competitions'
 import { Check, MagicWand } from '#/components/icons'
 import { ScoringRules } from '#/components/scoring-rules'
 import { Button } from '#/components/ui/button'
@@ -133,11 +133,11 @@ function NewCompetition() {
           {league ? 'New league' : 'New tournament'}
         </h1>
         <p className="mt-1 text-xs text-muted-foreground">
-          {league
-            ? 'Everyone plays everyone. Most points wins.'
-            : 'Knockout rounds. Win to go through.'}
+          {FORMAT_INFO[format].summary}
         </p>
       </header>
+
+      <FormatExplainer format={format} open />
 
       <form
         className="flex flex-col gap-5 rounded-2xl bg-card p-4 shadow-card"

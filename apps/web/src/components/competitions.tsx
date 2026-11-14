@@ -10,6 +10,54 @@ import { joinCompetitionFn } from '#/server/competitions.functions'
 import type { CompetitionSummary } from '#/server/competitions.server'
 
 export const FORMAT_LABEL = { league: 'League', knockout: 'Tournament' }
+
+/** What each format is, in plain words, wherever people choose or join one. */
+export const FORMAT_INFO = {
+  league: {
+    summary: 'Everyone plays everyone. Most points wins.',
+    points: [
+      'Every player meets every other player, once or home & away.',
+      'Each result earns points; the table ranks everyone.',
+      'Top of the table at the end wins.',
+      'Can take new players after it starts, if the organiser allows it.',
+    ],
+  },
+  knockout: {
+    summary: "Knockout rounds. Lose once and you're out.",
+    points: [
+      'Players are paired up; the winner of each game goes through.',
+      'Each round halves the field until the final.',
+      'One game per pairing. The organiser settles unplayed ones.',
+      'Closed to new players once it starts.',
+    ],
+  },
+} as const
+
+/** "How a league works": the format's rules, folded unless `open`. */
+export function FormatExplainer({
+  format,
+  open,
+}: {
+  format: keyof typeof FORMAT_INFO
+  open?: boolean
+}) {
+  return (
+    <details
+      open={open}
+      className="group rounded-2xl bg-card px-4 py-3 text-sm shadow-card"
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 font-medium [&::-webkit-details-marker]:hidden">
+        How a {FORMAT_LABEL[format].toLowerCase()} works
+        <ChevronRight className="size-4 text-muted-foreground transition-[rotate] duration-150 group-open:rotate-90" />
+      </summary>
+      <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+        {FORMAT_INFO[format].points.map((point) => (
+          <li key={point}>{point}</li>
+        ))}
+      </ul>
+    </details>
+  )
+}
 export const STATUS_LABEL = {
   open: 'Taking players',
   running: 'Under way',
@@ -131,13 +179,13 @@ const CHOICES = [
     to: '/competitions/new',
     search: { format: 'league' as const },
     title: 'Create a league',
-    description: 'Everyone plays everyone. Most points wins.',
+    description: FORMAT_INFO.league.summary,
   },
   {
     to: '/competitions/new',
     search: { format: 'knockout' as const },
     title: 'Create a tournament',
-    description: 'Knockout rounds. Win to go through.',
+    description: FORMAT_INFO.knockout.summary,
   },
 ] as const
 

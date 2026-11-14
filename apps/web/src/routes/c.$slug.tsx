@@ -10,6 +10,7 @@ import { Spinner } from '#/components/auth'
 import {
   Choice,
   FORMAT_LABEL,
+  FormatExplainer,
   JoinButton,
   STATUS_LABEL,
 } from '#/components/competitions'
@@ -90,6 +91,8 @@ function CompetitionPage() {
       </header>
 
       {canManage && <OwnerPanel data={data} />}
+
+      {!isMember && <FormatExplainer format={competition.format} />}
 
       {!isMember &&
         (join.ok ? (
