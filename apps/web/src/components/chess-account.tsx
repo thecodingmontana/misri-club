@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 import { Spinner } from '#/components/auth'
-import { Check, Copy, ShieldCheck } from '#/components/icons'
+import { CopyIcon } from '#/components/copy-icon'
+import { ShieldCheck } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { formatDate } from '#/lib/format'
@@ -98,7 +99,7 @@ export function ChessAccount({
             className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground"
             onClick={() => copy(data.code, "Couldn't copy the code")}
           >
-            {copied ? <Check className="text-primary" /> : <Copy />}
+            <CopyIcon copied={copied} />
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">

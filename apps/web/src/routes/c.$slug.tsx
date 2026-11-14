@@ -13,7 +13,7 @@ import {
   JoinButton,
   STATUS_LABEL,
 } from '#/components/competitions'
-import { Check, Copy } from '#/components/icons'
+import { CopyIcon } from '#/components/copy-icon'
 import { displayName, FixtureCard } from '#/components/match-card'
 import { PlayerChip } from '#/components/player-chip'
 import { ScoringRules, scoringSummary } from '#/components/scoring-rules'
@@ -226,7 +226,7 @@ function OwnerPanel({ data }: { data: Data }) {
             className="rounded-full"
             onClick={copyLink}
           >
-            {copied ? <Check /> : <Copy />}
+            <CopyIcon copied={copied} />
             {copied ? 'Copied' : 'Copy link'}
           </Button>
         </div>
