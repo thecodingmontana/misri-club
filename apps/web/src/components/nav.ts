@@ -1,14 +1,12 @@
 import {
-  CalendarFilled,
-  CalendarOutline,
-  CrownFilled,
-  CrownOutline,
   HomeFilled,
   HomeOutline,
+  Plus,
+  PlusOutline,
   TrainFilled,
   TrainOutline,
-  UsersFilled,
-  UsersOutline,
+  UserPlus,
+  UserPlusOutline,
 } from '#/components/icons'
 
 /**
@@ -23,15 +21,9 @@ export const MAIN_NAV = [
     active: HomeFilled,
     exact: true,
   },
-  { to: '/table', label: 'Table', icon: CrownOutline, active: CrownFilled },
-  {
-    to: '/fixtures',
-    label: 'Fixtures',
-    icon: CalendarOutline,
-    active: CalendarFilled,
-  },
+  { to: '/start', label: 'Create', icon: PlusOutline, active: Plus },
+  { to: '/join', label: 'Join', icon: UserPlusOutline, active: UserPlus },
   { to: '/train', label: 'Train', icon: TrainOutline, active: TrainFilled },
-  { to: '/club', label: 'Club', icon: UsersOutline, active: UsersFilled },
 ] as const
 
 export type NavItem = (typeof MAIN_NAV)[number]

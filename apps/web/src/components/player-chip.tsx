@@ -1,26 +1,26 @@
-import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { avatarUrl } from '#/lib/avatar'
-import { useAvatarUrl } from '#/lib/queries'
 import { cn } from '#/lib/utils'
 
 /**
- * A player's face, always: their chess.com picture, or the DiceBear portrait
+ * A player's face, always: their account picture, or the DiceBear portrait
  * seeded by their name when they have none or it fails to load. A plain `<img>`
  * rather than Radix Avatar, so it renders on the server instead of flashing
  * initials until the picture arrives.
  */
 export function PlayerAvatar({
   username,
+  image,
   className,
   shape = 'circle',
 }: {
   username: string
+  image?: string | null
   className?: string
   /** `tile`: a rounded square on a raised plate, as on the match cards. */
   shape?: 'circle' | 'tile'
 }) {
-  const src = useAvatarUrl(username)
+  const src = avatarUrl(username, image)
   const [failed, setFailed] = useState<string | null>(null)
   const shown = failed === src ? avatarUrl(username) : src
   const ref = useRef<HTMLImageElement>(null)
@@ -31,7 +31,7 @@ export function PlayerAvatar({
     if (img?.complete && img.naturalWidth === 0) setFailed(src)
   }, [src])
 
-  const image = (
+  const picture = (
     <img
       ref={ref}
       src={shown}
@@ -48,7 +48,7 @@ export function PlayerAvatar({
 
   if (shape === 'circle') {
     return (
-      <span className={cn('block size-8 shrink-0', className)}>{image}</span>
+      <span className={cn('block size-8 shrink-0', className)}>{picture}</span>
     )
   }
 
@@ -60,45 +60,41 @@ export function PlayerAvatar({
         className,
       )}
     >
-      {image}
+      {picture}
     </span>
   )
 }
 
-/**
- * Avatar + username, linking to the player's profile. The one place player
- * identity is rendered, so it stays consistent across every screen.
- */
+/** Avatar + name. The one place player identity is rendered. */
 export function PlayerChip({
   username,
+  image,
   size = 'md',
   className,
   muted,
 }: {
   username: string
+  image?: string | null
   size?: 'sm' | 'md' | 'lg'
   className?: string
   muted?: boolean
 }) {
   return (
-    <Link
-      to="/players/$username"
-      params={{ username }}
-      className={cn('group flex min-w-0 items-center gap-2', className)}
-    >
+    <span className={cn('flex min-w-0 items-center gap-2', className)}>
       <PlayerAvatar
         username={username}
+        image={image}
         className={size === 'lg' ? 'size-14' : size === 'sm' ? 'size-6' : ''}
       />
       <span
         className={cn(
-          'min-w-0 truncate font-medium transition-colors group-hover:text-primary',
+          'min-w-0 truncate font-medium',
           size === 'lg' ? 'text-sm' : 'text-[0.82rem]',
           muted ? 'text-muted-foreground' : 'text-foreground',
         )}
       >
         {username}
       </span>
-    </Link>
+    </span>
   )
 }

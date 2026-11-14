@@ -148,8 +148,8 @@ function DeleteAccount() {
         <AlertDialogHeader>
           <AlertDialogTitle>Delete your account?</AlertDialogTitle>
           <AlertDialogDescription>
-            Your sign-in, passkeys and two-step settings are removed for good.
-            League games already played stay in the standings.
+            Your sign-in, passkeys and two-step settings are removed for good,
+            and you leave every competition you joined.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

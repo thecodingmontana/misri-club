@@ -9,54 +9,33 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedRouteImport } from './routes/_authed'
-import { Route as AllTimeRouteImport } from './routes/all-time'
-import { Route as ClubRouteImport } from './routes/club'
-import { Route as FixturesRouteImport } from './routes/fixtures'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as TableRouteImport } from './routes/table'
+import { Route as AuthedIndexRouteImport } from './routes/_authed.index'
 import { Route as AuthedAccountRouteImport } from './routes/_authed.account'
+import { Route as AuthedJoinRouteImport } from './routes/_authed.join'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed.onboarding'
+import { Route as AuthedStartRouteImport } from './routes/_authed.start'
 import { Route as AuthConfirmSignInRouteImport } from './routes/auth.confirm-sign-in'
 import { Route as AuthSigninRouteImport } from './routes/auth.signin'
 import { Route as AuthTwoFactorRouteImport } from './routes/auth.two-factor'
-import { Route as PlayersUsernameRouteImport } from './routes/players.$username'
+import { Route as CSlugRouteImport } from './routes/c.$slug'
+import { Route as JoinCodeRouteImport } from './routes/join.$code'
 import { Route as TrainIndexRouteImport } from './routes/train.index'
 import { Route as TrainBrilliantRouteImport } from './routes/train.brilliant'
 import { Route as TrainPlayRouteImport } from './routes/train.play'
 import { Route as TrainProgressRouteImport } from './routes/train.progress'
 import { Route as TrainPuzzlesRouteImport } from './routes/train.puzzles'
+import { Route as AuthedCompetitionsNewRouteImport } from './routes/_authed.competitions.new'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
-import { Route as PlayersUsernameLessonRouteImport } from './routes/players.$username_.lesson'
 import { Route as TrainMastersIndexRouteImport } from './routes/train.masters.index'
 import { Route as TrainMastersSlugRouteImport } from './routes/train.masters.$slug'
 import { Route as TrainOpeningsIndexRouteImport } from './routes/train.openings.index'
 import { Route as TrainOpeningsSlugRouteImport } from './routes/train.openings.$slug'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AllTimeRoute = AllTimeRouteImport.update({
-  id: '/all-time',
-  path: '/all-time',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ClubRoute = ClubRouteImport.update({
-  id: '/club',
-  path: '/club',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FixturesRoute = FixturesRouteImport.update({
-  id: '/fixtures',
-  path: '/fixtures',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RobotsDottxtRoute = RobotsDottxtRouteImport.update({
@@ -69,19 +48,29 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TableRoute = TableRouteImport.update({
-  id: '/table',
-  path: '/table',
-  getParentRoute: () => rootRouteImport,
+const AuthedIndexRoute = AuthedIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedAccountRoute = AuthedAccountRouteImport.update({
   id: '/account',
   path: '/account',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedJoinRoute = AuthedJoinRouteImport.update({
+  id: '/join',
+  path: '/join',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedOnboardingRoute = AuthedOnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedStartRoute = AuthedStartRouteImport.update({
+  id: '/start',
+  path: '/start',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthConfirmSignInRoute = AuthConfirmSignInRouteImport.update({
@@ -99,9 +88,14 @@ const AuthTwoFactorRoute = AuthTwoFactorRouteImport.update({
   path: '/auth/two-factor',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PlayersUsernameRoute = PlayersUsernameRouteImport.update({
-  id: '/players/$username',
-  path: '/players/$username',
+const CSlugRoute = CSlugRouteImport.update({
+  id: '/c/$slug',
+  path: '/c/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinCodeRoute = JoinCodeRouteImport.update({
+  id: '/join/$code',
+  path: '/join/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TrainIndexRoute = TrainIndexRouteImport.update({
@@ -129,14 +123,14 @@ const TrainPuzzlesRoute = TrainPuzzlesRouteImport.update({
   path: '/train/puzzles',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedCompetitionsNewRoute = AuthedCompetitionsNewRouteImport.update({
+  id: '/competitions/new',
+  path: '/competitions/new',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PlayersUsernameLessonRoute = PlayersUsernameLessonRouteImport.update({
-  id: '/players/$username_/lesson',
-  path: '/players/$username/lesson',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TrainMastersIndexRoute = TrainMastersIndexRouteImport.update({
@@ -161,52 +155,50 @@ const TrainOpeningsSlugRoute = TrainOpeningsSlugRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/all-time': typeof AllTimeRoute
-  '/club': typeof ClubRoute
-  '/fixtures': typeof FixturesRoute
+  '/': typeof AuthedIndexRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/table': typeof TableRoute
   '/account': typeof AuthedAccountRoute
+  '/join': typeof AuthedJoinRoute
   '/onboarding': typeof AuthedOnboardingRoute
+  '/start': typeof AuthedStartRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
-  '/players/$username': typeof PlayersUsernameRoute
+  '/c/$slug': typeof CSlugRoute
+  '/join/$code': typeof JoinCodeRoute
   '/train/brilliant': typeof TrainBrilliantRoute
   '/train/play': typeof TrainPlayRoute
   '/train/progress': typeof TrainProgressRoute
   '/train/puzzles': typeof TrainPuzzlesRoute
   '/train/': typeof TrainIndexRoute
+  '/competitions/new': typeof AuthedCompetitionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/players/$username/lesson': typeof PlayersUsernameLessonRoute
   '/train/masters/$slug': typeof TrainMastersSlugRoute
   '/train/openings/$slug': typeof TrainOpeningsSlugRoute
   '/train/masters/': typeof TrainMastersIndexRoute
   '/train/openings/': typeof TrainOpeningsIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/all-time': typeof AllTimeRoute
-  '/club': typeof ClubRoute
-  '/fixtures': typeof FixturesRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/table': typeof TableRoute
   '/account': typeof AuthedAccountRoute
+  '/join': typeof AuthedJoinRoute
   '/onboarding': typeof AuthedOnboardingRoute
+  '/start': typeof AuthedStartRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
-  '/players/$username': typeof PlayersUsernameRoute
+  '/c/$slug': typeof CSlugRoute
+  '/join/$code': typeof JoinCodeRoute
   '/train/brilliant': typeof TrainBrilliantRoute
   '/train/play': typeof TrainPlayRoute
   '/train/progress': typeof TrainProgressRoute
   '/train/puzzles': typeof TrainPuzzlesRoute
+  '/': typeof AuthedIndexRoute
   '/train': typeof TrainIndexRoute
+  '/competitions/new': typeof AuthedCompetitionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/players/$username/lesson': typeof PlayersUsernameLessonRoute
   '/train/masters/$slug': typeof TrainMastersSlugRoute
   '/train/openings/$slug': typeof TrainOpeningsSlugRoute
   '/train/masters': typeof TrainMastersIndexRoute
@@ -214,27 +206,26 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
-  '/all-time': typeof AllTimeRoute
-  '/club': typeof ClubRoute
-  '/fixtures': typeof FixturesRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
-  '/table': typeof TableRoute
   '/_authed/account': typeof AuthedAccountRoute
+  '/_authed/join': typeof AuthedJoinRoute
   '/_authed/onboarding': typeof AuthedOnboardingRoute
+  '/_authed/start': typeof AuthedStartRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
   '/auth/two-factor': typeof AuthTwoFactorRoute
-  '/players/$username': typeof PlayersUsernameRoute
+  '/c/$slug': typeof CSlugRoute
+  '/join/$code': typeof JoinCodeRoute
   '/train/brilliant': typeof TrainBrilliantRoute
   '/train/play': typeof TrainPlayRoute
   '/train/progress': typeof TrainProgressRoute
   '/train/puzzles': typeof TrainPuzzlesRoute
+  '/_authed/': typeof AuthedIndexRoute
   '/train/': typeof TrainIndexRoute
+  '/_authed/competitions/new': typeof AuthedCompetitionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/players/$username_/lesson': typeof PlayersUsernameLessonRoute
   '/train/masters/$slug': typeof TrainMastersSlugRoute
   '/train/openings/$slug': typeof TrainOpeningsSlugRoute
   '/train/masters/': typeof TrainMastersIndexRoute
@@ -244,78 +235,75 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/all-time'
-    | '/club'
-    | '/fixtures'
     | '/robots.txt'
     | '/sitemap.xml'
-    | '/table'
     | '/account'
+    | '/join'
     | '/onboarding'
+    | '/start'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
     | '/auth/two-factor'
-    | '/players/$username'
+    | '/c/$slug'
+    | '/join/$code'
     | '/train/brilliant'
     | '/train/play'
     | '/train/progress'
     | '/train/puzzles'
     | '/train/'
+    | '/competitions/new'
     | '/api/auth/$'
-    | '/players/$username/lesson'
     | '/train/masters/$slug'
     | '/train/openings/$slug'
     | '/train/masters/'
     | '/train/openings/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
-    | '/all-time'
-    | '/club'
-    | '/fixtures'
     | '/robots.txt'
     | '/sitemap.xml'
-    | '/table'
     | '/account'
+    | '/join'
     | '/onboarding'
+    | '/start'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
     | '/auth/two-factor'
-    | '/players/$username'
+    | '/c/$slug'
+    | '/join/$code'
     | '/train/brilliant'
     | '/train/play'
     | '/train/progress'
     | '/train/puzzles'
+    | '/'
     | '/train'
+    | '/competitions/new'
     | '/api/auth/$'
-    | '/players/$username/lesson'
     | '/train/masters/$slug'
     | '/train/openings/$slug'
     | '/train/masters'
     | '/train/openings'
   id:
     | '__root__'
-    | '/'
     | '/_authed'
-    | '/all-time'
-    | '/club'
-    | '/fixtures'
     | '/robots.txt'
     | '/sitemap.xml'
-    | '/table'
     | '/_authed/account'
+    | '/_authed/join'
     | '/_authed/onboarding'
+    | '/_authed/start'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
     | '/auth/two-factor'
-    | '/players/$username'
+    | '/c/$slug'
+    | '/join/$code'
     | '/train/brilliant'
     | '/train/play'
     | '/train/progress'
     | '/train/puzzles'
+    | '/_authed/'
     | '/train/'
+    | '/_authed/competitions/new'
     | '/api/auth/$'
-    | '/players/$username_/lesson'
     | '/train/masters/$slug'
     | '/train/openings/$slug'
     | '/train/masters/'
@@ -323,25 +311,20 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AuthedRoute: typeof AuthedRouteWithChildren
-  AllTimeRoute: typeof AllTimeRoute
-  ClubRoute: typeof ClubRoute
-  FixturesRoute: typeof FixturesRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
-  TableRoute: typeof TableRoute
   AuthConfirmSignInRoute: typeof AuthConfirmSignInRoute
   AuthSigninRoute: typeof AuthSigninRoute
   AuthTwoFactorRoute: typeof AuthTwoFactorRoute
-  PlayersUsernameRoute: typeof PlayersUsernameRoute
+  CSlugRoute: typeof CSlugRoute
+  JoinCodeRoute: typeof JoinCodeRoute
   TrainBrilliantRoute: typeof TrainBrilliantRoute
   TrainPlayRoute: typeof TrainPlayRoute
   TrainProgressRoute: typeof TrainProgressRoute
   TrainPuzzlesRoute: typeof TrainPuzzlesRoute
   TrainIndexRoute: typeof TrainIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
-  PlayersUsernameLessonRoute: typeof PlayersUsernameLessonRoute
   TrainMastersSlugRoute: typeof TrainMastersSlugRoute
   TrainOpeningsSlugRoute: typeof TrainOpeningsSlugRoute
   TrainMastersIndexRoute: typeof TrainMastersIndexRoute
@@ -350,39 +333,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authed': {
       id: '/_authed'
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/all-time': {
-      id: '/all-time'
-      path: '/all-time'
-      fullPath: '/all-time'
-      preLoaderRoute: typeof AllTimeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/club': {
-      id: '/club'
-      path: '/club'
-      fullPath: '/club'
-      preLoaderRoute: typeof ClubRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/fixtures': {
-      id: '/fixtures'
-      path: '/fixtures'
-      fullPath: '/fixtures'
-      preLoaderRoute: typeof FixturesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/robots.txt': {
@@ -399,12 +354,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/table': {
-      id: '/table'
-      path: '/table'
-      fullPath: '/table'
-      preLoaderRoute: typeof TableRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authed/': {
+      id: '/_authed/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedIndexRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/account': {
       id: '/_authed/account'
@@ -413,11 +368,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAccountRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/join': {
+      id: '/_authed/join'
+      path: '/join'
+      fullPath: '/join'
+      preLoaderRoute: typeof AuthedJoinRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/onboarding': {
       id: '/_authed/onboarding'
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof AuthedOnboardingRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/start': {
+      id: '/_authed/start'
+      path: '/start'
+      fullPath: '/start'
+      preLoaderRoute: typeof AuthedStartRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/auth/confirm-sign-in': {
@@ -441,11 +410,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthTwoFactorRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/players/$username': {
-      id: '/players/$username'
-      path: '/players/$username'
-      fullPath: '/players/$username'
-      preLoaderRoute: typeof PlayersUsernameRouteImport
+    '/c/$slug': {
+      id: '/c/$slug'
+      path: '/c/$slug'
+      fullPath: '/c/$slug'
+      preLoaderRoute: typeof CSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join/$code': {
+      id: '/join/$code'
+      path: '/join/$code'
+      fullPath: '/join/$code'
+      preLoaderRoute: typeof JoinCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/train/': {
@@ -483,18 +459,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainPuzzlesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/competitions/new': {
+      id: '/_authed/competitions/new'
+      path: '/competitions/new'
+      fullPath: '/competitions/new'
+      preLoaderRoute: typeof AuthedCompetitionsNewRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/players/$username_/lesson': {
-      id: '/players/$username_/lesson'
-      path: '/players/$username/lesson'
-      fullPath: '/players/$username/lesson'
-      preLoaderRoute: typeof PlayersUsernameLessonRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/train/masters/': {
@@ -530,37 +506,40 @@ declare module '@tanstack/react-router' {
 
 interface AuthedRouteChildren {
   AuthedAccountRoute: typeof AuthedAccountRoute
+  AuthedJoinRoute: typeof AuthedJoinRoute
   AuthedOnboardingRoute: typeof AuthedOnboardingRoute
+  AuthedStartRoute: typeof AuthedStartRoute
+  AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedCompetitionsNewRoute: typeof AuthedCompetitionsNewRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccountRoute: AuthedAccountRoute,
+  AuthedJoinRoute: AuthedJoinRoute,
   AuthedOnboardingRoute: AuthedOnboardingRoute,
+  AuthedStartRoute: AuthedStartRoute,
+  AuthedIndexRoute: AuthedIndexRoute,
+  AuthedCompetitionsNewRoute: AuthedCompetitionsNewRoute,
 }
 
 const AuthedRouteWithChildren =
   AuthedRoute._addFileChildren(AuthedRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
-  AllTimeRoute: AllTimeRoute,
-  ClubRoute: ClubRoute,
-  FixturesRoute: FixturesRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
-  TableRoute: TableRoute,
   AuthConfirmSignInRoute: AuthConfirmSignInRoute,
   AuthSigninRoute: AuthSigninRoute,
   AuthTwoFactorRoute: AuthTwoFactorRoute,
-  PlayersUsernameRoute: PlayersUsernameRoute,
+  CSlugRoute: CSlugRoute,
+  JoinCodeRoute: JoinCodeRoute,
   TrainBrilliantRoute: TrainBrilliantRoute,
   TrainPlayRoute: TrainPlayRoute,
   TrainProgressRoute: TrainProgressRoute,
   TrainPuzzlesRoute: TrainPuzzlesRoute,
   TrainIndexRoute: TrainIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
-  PlayersUsernameLessonRoute: PlayersUsernameLessonRoute,
   TrainMastersSlugRoute: TrainMastersSlugRoute,
   TrainOpeningsSlugRoute: TrainOpeningsSlugRoute,
   TrainMastersIndexRoute: TrainMastersIndexRoute,

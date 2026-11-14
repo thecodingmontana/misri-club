@@ -14,7 +14,6 @@ import { BottomNav } from '#/components/bottom-nav'
 import { TopBar } from '#/components/top-bar'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { Toaster } from '#/components/ui/sonner'
-import { rosterAvatarsQuery, useAutoSync } from '#/lib/queries'
 import { CLUB_URL, HOME_DESCRIPTION, SITE_NAME, SITE_URL, seo } from '#/lib/seo'
 import { useInterfaceSounds } from '#/lib/sound'
 import { getSessionFn } from '#/server/auth.functions'
@@ -62,9 +61,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
       ],
     }
   },
-  loader: async ({ context }) => {
-    // Avatars are looked up by username on every screen; warm them once.
-    void context.queryClient.prefetchQuery(rosterAvatarsQuery)
+  loader: async () => {
     return { auth: await getSessionFn() }
   },
   shellComponent: RootDocument,
@@ -78,7 +75,6 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
  * bar stay put and only `#app-main` scrolls.
  */
 function RootLayout() {
-  useAutoSync()
   useInterfaceSounds()
   const { sidebarOpen, user } = Route.useLoaderData().auth
   const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -122,7 +118,7 @@ function NotFound() {
       <p className="kicker">404</p>
       <h1 className="display mt-3 text-2xl font-semibold">Nothing here</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        That page isn&apos;t part of the league.
+        That page doesn&apos;t exist.
       </p>
     </div>
   )

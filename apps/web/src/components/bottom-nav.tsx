@@ -18,7 +18,7 @@ export function BottomNav() {
         signedIn && 'md:hidden',
       )}
     >
-      <div className="mx-auto grid w-full max-w-[27rem] grid-cols-5">
+      <div className="mx-auto grid w-full max-w-[27rem] grid-cols-4">
         {MAIN_NAV.map((tab) => (
           <Link
             key={tab.to}

@@ -50,7 +50,7 @@ function Onboarding() {
 
   async function finish() {
     await router.invalidate()
-    await navigate({ href: safePath(wanted) ?? '/' })
+    await navigate({ href: safePath(wanted) ?? '/start' })
   }
 
   return (

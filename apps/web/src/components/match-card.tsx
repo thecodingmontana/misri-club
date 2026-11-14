@@ -1,16 +1,19 @@
-import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { PlayerAvatar, PlayerChip } from '#/components/player-chip'
 import { countdown, formatDate } from '#/lib/format'
 import { cn } from '#/lib/utils'
-import type { FixtureView } from '#/server/queries.server'
+import type { MatchView, PlayerView } from '#/server/competitions.server'
 
 type Winner = 'home' | 'away' | null
 
+/** The name shown for a player everywhere: their chess.com username. */
+export const displayName = (player: PlayerView) =>
+  player.chessUsername ?? player.name
+
 /**
- * Every pairing on the site — a fixture, a league game, a friendly — renders
- * as this card: each player's face and name on their side, the score (or the
- * state) in the middle, and one status line under it.
+ * Every pairing on the site renders as this card: each player's face and name
+ * on their side, the score (or the state) in the middle, and one status line
+ * under it.
  */
 export function MatchCard({
   label,
@@ -24,10 +27,10 @@ export function MatchCard({
   href,
   children,
 }: {
-  /** A small heading above the pairing, e.g. the matchday. */
+  /** A small heading above the pairing, e.g. the round. */
   label?: ReactNode
-  home: string
-  away: string
+  home: PlayerView
+  away: PlayerView
   /** Each side's score; null while there is no result. */
   score: [string, string] | null
   winner: Winner
@@ -66,7 +69,7 @@ export function MatchCard({
         <p className="kicker mb-2 text-center text-[0.6rem]">{label}</p>
       )}
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-        <Side username={home} won={winner === 'home'} />
+        <Side player={home} won={winner === 'home'} />
         <div className="flex flex-col items-center gap-1.5">
           {href ? (
             <a
@@ -98,57 +101,49 @@ export function MatchCard({
             {status}
           </span>
         </div>
-        <Side username={away} won={winner === 'away'} />
+        <Side player={away} won={winner === 'away'} />
       </div>
       {children}
     </div>
   )
 }
 
-function Side({ username, won }: { username: string; won: boolean }) {
+function Side({ player, won }: { player: PlayerView; won: boolean }) {
+  const name = displayName(player)
   return (
-    <Link
-      to="/players/$username"
-      params={{ username }}
-      className="group flex min-w-0 flex-col items-center gap-1.5 text-center"
-    >
-      <PlayerAvatar username={username} shape="tile" />
+    <div className="flex min-w-0 flex-col items-center gap-1.5 text-center">
+      <PlayerAvatar username={name} image={player.image} shape="tile" />
       <span
         className={cn(
-          'max-w-full truncate text-[0.8rem] transition-colors group-hover:text-primary',
+          'max-w-full truncate text-[0.8rem]',
           won ? 'font-bold text-foreground' : 'font-medium text-foreground/85',
         )}
       >
-        {username}
+        {name}
       </span>
-    </Link>
+    </div>
   )
 }
 
-/** A league fixture as a match card; a bye renders as a one-player line. */
+/** A match as a card; a bye renders as a one-player line. */
 export function FixtureCard({
-  fixture,
+  match,
   now,
   label,
   children,
 }: {
-  fixture: FixtureView
+  match: MatchView
   now: number
   label?: ReactNode
   children?: ReactNode
 }) {
-  if (fixture.bye) return <ByeCard username={fixture.bye} label={label} />
-  if (!fixture.home || !fixture.away) return null
+  if (match.bye) return <ByeCard player={match.bye} label={label} />
+  if (!match.home || !match.away) return null
 
-  const shared = {
-    label,
-    home: fixture.home,
-    away: fixture.away,
-    children,
-  }
+  const shared = { label, home: match.home, away: match.away, children }
 
-  if (fixture.game) {
-    const { result, homeWon } = fixture.game
+  if (match.status === 'played') {
+    const { result, homeWon } = match
     return (
       <MatchCard
         {...shared}
@@ -157,28 +152,29 @@ export function FixtureCard({
         }
         winner={result === 'draw' ? null : homeWon ? 'home' : 'away'}
         status="Final"
-        href={fixture.game.chessComUrl}
+        href={match.gameUrl ?? undefined}
       />
     )
   }
 
-  if (fixture.status === 'walkover') {
+  if (match.status === 'walkover') {
     return (
       <MatchCard
         {...shared}
         score={null}
         centre="W/O"
-        winner={fixture.walkoverWinner === fixture.home ? 'home' : 'away'}
-        status="Walkover · +3 / −1"
+        winner={match.winnerId === match.home.id ? 'home' : 'away'}
+        status="Walkover"
       />
     )
   }
 
-  if (fixture.status === 'expired') {
+  if (match.status === 'expired') {
     return (
       <MatchCard
         {...shared}
-        score={['−1', '−1']}
+        score={null}
+        centre="—"
         winner={null}
         tone="bad"
         status="Unplayed"
@@ -186,69 +182,39 @@ export function FixtureCard({
     )
   }
 
-  return fixture.status === 'live' ? (
+  return match.status === 'live' ? (
     <MatchCard
       {...shared}
       score={null}
       winner={null}
       tone="live"
-      status={`${countdown(fixture.dueAt - now)} left`}
+      status={`${countdown(match.dueAt - now)} left`}
     />
   ) : (
     <MatchCard
       {...shared}
       score={null}
       winner={null}
-      status={`Opens ${formatDate(fixture.opensAt)}`}
-    />
-  )
-}
-
-/** A game between two members: white on the left, black on the right. */
-export function GameCard({
-  white,
-  black,
-  result,
-  href,
-  label,
-  status,
-}: {
-  white: string
-  black: string
-  result: 'white' | 'black' | 'draw'
-  href: string
-  label?: ReactNode
-  status: ReactNode
-}) {
-  return (
-    <MatchCard
-      label={label}
-      home={white}
-      away={black}
-      score={
-        result === 'draw'
-          ? ['½', '½']
-          : result === 'white'
-            ? ['1', '0']
-            : ['0', '1']
-      }
-      winner={result === 'draw' ? null : result === 'white' ? 'home' : 'away'}
-      status={status}
-      href={href}
+      status={`Opens ${formatDate(match.opensAt)}`}
     />
   )
 }
 
 export function ByeCard({
-  username,
+  player,
   label,
 }: {
-  username: string
+  player: PlayerView
   label?: ReactNode
 }) {
   return (
     <div className="flex items-center justify-between gap-2 rounded-2xl bg-card px-3 py-2.5 shadow-card">
-      <PlayerChip username={username} size="sm" muted />
+      <PlayerChip
+        username={displayName(player)}
+        image={player.image}
+        size="sm"
+        muted
+      />
       <span className="kicker">{label ? <>{label} · Bye</> : 'Bye'}</span>
     </div>
   )
