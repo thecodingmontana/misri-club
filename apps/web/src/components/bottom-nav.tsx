@@ -1,5 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { MAIN_NAV } from '#/components/nav'
+import { useAdmin } from '#/lib/use-admin'
+import { cn } from '#/lib/utils'
 
 /**
  * Tab bar along the bottom of the phone column; the desktop sidebar takes over
@@ -7,8 +9,15 @@ import { MAIN_NAV } from '#/components/nav'
  * bolder label, so it reads at a glance without relying on colour alone.
  */
 export function BottomNav() {
+  // From `md` up the sidebar replaces this, but only for signed-in players.
+  const signedIn = Boolean(useAdmin().user)
   return (
-    <nav className="shrink-0 border-t border-border bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
+    <nav
+      className={cn(
+        'shrink-0 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]',
+        signedIn && 'md:hidden',
+      )}
+    >
       <div className="mx-auto grid w-full max-w-[27rem] grid-cols-5">
         {MAIN_NAV.map((tab) => (
           <Link

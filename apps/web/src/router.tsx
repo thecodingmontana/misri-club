@@ -1,4 +1,8 @@
-import { createRouter as createTanStackRouter } from '@tanstack/react-router'
+import {
+  createRouter as createTanStackRouter,
+  type ErrorComponentProps,
+  useRouter,
+} from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 import { Skeleton } from './components/ui/skeleton'
 import { getContext } from './integrations/tanstack-query/root-provider'
@@ -18,11 +22,36 @@ export function getRouter() {
     // Shown only when a page takes over a second to load (the router's default
     // pendingMs), so fast navigations never flicker.
     defaultPendingComponent: PageSkeleton,
+    defaultErrorComponent: PageError,
   })
 
   setupRouterSsrQueryIntegration({ router, queryClient: context.queryClient })
 
   return router
+}
+
+/** A page that failed to load: say so plainly and offer another try. */
+function PageError({ reset }: ErrorComponentProps) {
+  const router = useRouter()
+  return (
+    <div className="py-20 text-center" role="alert">
+      <p className="kicker">Something went wrong</p>
+      <h1 className="display mt-2 text-2xl">This page didn&apos;t load</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        It may be a slow connection. Try again in a moment.
+      </p>
+      <button
+        type="button"
+        className="mt-5 rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground"
+        onClick={() => {
+          reset()
+          void router.invalidate()
+        }}
+      >
+        Try again
+      </button>
+    </div>
+  )
 }
 
 function PageSkeleton() {

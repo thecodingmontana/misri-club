@@ -5,6 +5,7 @@ import {
   HeadContent,
   Outlet,
   Scripts,
+  useRouterState,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { ThemeProvider } from 'next-themes'
@@ -79,7 +80,13 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 function RootLayout() {
   useAutoSync()
   useInterfaceSounds()
-  const { sidebarOpen } = Route.useLoaderData().auth
+  const { sidebarOpen, user } = Route.useLoaderData().auth
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+
+  // Sign-in screens and onboarding stand alone, like Zadaci's: no app chrome.
+  if (pathname.startsWith('/auth/') || pathname === '/onboarding') {
+    return <Outlet />
+  }
 
   return (
     // Pinned to the window (fixed, inset 0), which every browser sizes the
@@ -87,7 +94,8 @@ function RootLayout() {
     // width so the wheel works anywhere; only its content is column-width.
     // From `md` up the sidebar replaces the tab bar, as in Zadaci.
     <div className="fixed inset-0 flex bg-background">
-      <AppSidebar open={sidebarOpen} />
+      {/* Signed-in players get the sidebar; visitors keep the tab bar. */}
+      {user && <AppSidebar open={sidebarOpen} />}
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
         <ScrollArea

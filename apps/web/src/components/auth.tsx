@@ -1,35 +1,41 @@
-import { useNavigate, useRouter } from '@tanstack/react-router'
+import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { type ReactNode, useState } from 'react'
 import { toast } from 'sonner'
 import { KeyRound, Loader } from '#/components/icons'
+import { ThemeToggle } from '#/components/theme-toggle'
 import { Button } from '#/components/ui/button'
-import { Card, CardContent } from '#/components/ui/card'
 import { authClient, passkeyCancelled } from '#/lib/auth-client'
 
-/** The frame every sign-in step sits in. */
+/** The whole screen for each sign-in step, laid out like Zadaci's. */
 export function AuthShell({
   title,
   description,
   children,
 }: {
   title: string
-  description: string
+  description: ReactNode
   children: ReactNode
 }) {
   return (
-    <div className="mx-auto max-w-sm py-10">
-      <Card className="rise-in">
-        <CardContent className="flex flex-col gap-4">
-          <div className="text-center">
-            <h1 className="display text-2xl">{title}</h1>
-            <p className="mt-1.5 text-sm text-muted-foreground">
+    <main className="relative grid min-h-dvh place-items-center px-4 py-10">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      <div className="flex w-full max-w-sm flex-col gap-6">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <Link to="/" className="display rounded-md text-4xl">
+            Misri
+          </Link>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold text-balance">{title}</h1>
+            <p className="text-sm text-pretty text-muted-foreground">
               {description}
             </p>
           </div>
-          {children}
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+        {children}
+      </div>
+    </main>
   )
 }
 
