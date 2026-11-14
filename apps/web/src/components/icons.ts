@@ -6,7 +6,6 @@
 
 export { default as ChevronDown } from '~icons/hugeicons/arrow-down-01'
 export { default as ChevronUp } from '~icons/hugeicons/arrow-up-01'
-export { default as Google } from '~icons/hugeicons/google'
 export { default as Loader } from '~icons/hugeicons/loading-03'
 export { default as Check } from '~icons/hugeicons/tick-02'
 export { default as Plus } from '~icons/solar/add-circle-bold'

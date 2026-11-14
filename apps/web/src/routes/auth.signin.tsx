@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { AuthShell, PasskeySignInButton, Spinner } from '#/components/auth'
-import { Google, Mail, MailOpen } from '#/components/icons'
+import { GoogleLogo } from '#/components/google-logo'
+import { Mail, MailOpen } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { authClient, safePath } from '#/lib/auth-client'
@@ -86,11 +87,7 @@ function SignIn() {
               aria-busy={redirecting}
               onClick={signInWithGoogle}
             >
-              {redirecting ? (
-                <Spinner />
-              ) : (
-                <Google className="size-4" aria-hidden />
-              )}
+              {redirecting ? <Spinner /> : <GoogleLogo className="size-4" />}
               Continue with Google
             </Button>
           )}
