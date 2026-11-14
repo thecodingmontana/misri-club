@@ -12,6 +12,9 @@ const config = defineConfig({
   resolve: { tsconfigPaths: true },
   server: { port: 3005 },
   preview: { port: 3005 },
+  // Pre-bundle at startup: found late, Vite re-optimizes mid-session and
+  // serves the old chunk as 504, so the page never hydrates.
+  optimizeDeps: { include: ['motion/react'] },
   plugins: [
     devtools(),
     nitro(),
