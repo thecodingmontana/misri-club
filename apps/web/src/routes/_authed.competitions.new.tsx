@@ -1,14 +1,21 @@
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { type FormEvent, type ReactNode, useState } from 'react'
+import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { Spinner } from '#/components/auth'
 import { Choice } from '#/components/competitions'
+import { Check } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
+import { normalizeName } from '#/lib/competition-names'
 import { seo } from '#/lib/seo'
 import { toast } from '#/lib/toast'
-import { createCompetitionFn } from '#/server/competitions.functions'
+import {
+  checkCompetitionNameFn,
+  createCompetitionFn,
+  suggestCompetitionNamesFn,
+} from '#/server/competitions.functions'
 
 export const Route = createFileRoute('/_authed/competitions/new')({
   validateSearch: z.object({
@@ -27,6 +34,62 @@ function Field({ children }: { children: ReactNode }) {
   return <div className="flex flex-col gap-1.5">{children}</div>
 }
 
+const NAME_CHECK_DELAY = 400
+const MIN_NAME = 3
+
+/**
+ * Whether the typed name is free (checked once typing pauses), the free names
+ * to offer as chips, and a way to ask for ideas while the field is empty.
+ */
+function useNameCheck(name: string) {
+  const check = useServerFn(checkCompetitionNameFn)
+  const suggest = useServerFn(suggestCompetitionNamesFn)
+  const [settled, setSettled] = useState('')
+  const [ideas, setIdeas] = useState<string[]>([])
+  const [suggesting, setSuggesting] = useState(false)
+
+  useEffect(() => {
+    const id = setTimeout(() => setSettled(name.trim()), NAME_CHECK_DELAY)
+    return () => clearTimeout(id)
+  }, [name])
+
+  const key = normalizeName(settled)
+  const result = useQuery({
+    queryKey: ['competition-name', key],
+    queryFn: () => check({ data: { name: settled } }),
+    enabled: key.length >= MIN_NAME,
+    staleTime: 30_000,
+  })
+  // only trust an answer about what is in the field right now
+  const current =
+    key.length >= MIN_NAME && key === normalizeName(name)
+      ? result.data
+      : undefined
+
+  async function suggestNames() {
+    setSuggesting(true)
+    try {
+      setIdeas(await suggest())
+    } catch (error) {
+      toast.error((error as Error).message)
+    } finally {
+      setSuggesting(false)
+    }
+  }
+
+  return {
+    available: current?.available,
+    chips:
+      current?.available === false
+        ? current.suggestions
+        : name.trim()
+          ? []
+          : ideas,
+    suggesting,
+    suggestNames,
+  }
+}
+
 function NewCompetition() {
   const { format } = Route.useSearch()
   const create = useServerFn(createCompetitionFn)
@@ -38,6 +101,7 @@ function NewCompetition() {
   const [allowLateEntry, setAllowLateEntry] = useState(false)
   const [busy, setBusy] = useState(false)
   const league = format === 'league'
+  const nameCheck = useNameCheck(name)
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -86,8 +150,52 @@ function NewCompetition() {
             maxLength={60}
             placeholder={league ? 'Friday league' : 'Summer cup'}
             value={name}
+            aria-describedby="competition-name-status"
+            aria-invalid={nameCheck.available === false || undefined}
             onChange={(event) => setName(event.target.value)}
           />
+          <p
+            id="competition-name-status"
+            aria-live="polite"
+            className="min-h-4 text-xs"
+          >
+            {nameCheck.available === true && (
+              <span className="inline-flex items-center gap-1 text-primary">
+                <Check className="size-3.5" aria-hidden />
+                Available
+              </span>
+            )}
+            {nameCheck.available === false && (
+              <span className="text-destructive">Already taken</span>
+            )}
+          </p>
+          {nameCheck.chips.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {nameCheck.chips.map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  className="rounded-full bg-secondary px-3 py-1 text-xs font-medium outline-none transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  onClick={() => setName(chip)}
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          )}
+          {!name.trim() && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="self-start"
+              disabled={nameCheck.suggesting}
+              onClick={nameCheck.suggestNames}
+            >
+              {nameCheck.suggesting && <Spinner />}
+              Suggest a name
+            </Button>
+          )}
         </Field>
 
         {league && (
@@ -155,7 +263,7 @@ function NewCompetition() {
           type="submit"
           size="lg"
           className="w-full"
-          disabled={busy || !name.trim()}
+          disabled={busy || !name.trim() || nameCheck.available === false}
         >
           {busy && <Spinner />}
           Create
