@@ -10,3 +10,7 @@ allowBuilds:
   lightningcss: true
   # its install script would set up git hooks; the root prepare script does that instead
   simple-git-hooks: false
+# seroval < 1.6.11 has injection advisories (GHSA-9wx9-5pv9-3349 and the
+# typed-array constructor one); TanStack allows ^1.6.7, so force the patch.
+overrides:
+  seroval: ^1.6.11
