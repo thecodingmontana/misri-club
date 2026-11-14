@@ -11,6 +11,11 @@ import {
 } from '#/db/schema'
 import { generateInviteCode, generateNanoId } from '#/db/utils'
 import { generateKnockoutRound1 } from '#/lib/bracket'
+import {
+  normalizeName,
+  suggestFrom,
+  suggestNames,
+} from '#/lib/competition-names'
 import { canJoin, lateEntryMatches } from '#/lib/join-policy'
 import { generateDoubleRoundRobin, matchdayCount } from '#/lib/round-robin'
 import { auth } from './auth.server'
@@ -86,17 +91,76 @@ async function uniqueSlug(name: string) {
   return `${base}-${generateNanoId().slice(0, 8)}`
 }
 
+const NAME_TAKEN = 'That name is taken.'
+const SUGGESTIONS = 3
+
+/** Which of `keys` (normalized names) already name a competition. */
+async function takenKeys(keys: string[]) {
+  if (!keys.length) return new Set<string>()
+  const rows = await db
+    .select({ key: competitions.nameKey })
+    .from(competitions)
+    .where(inArray(competitions.nameKey, keys))
+  return new Set(rows.map((row) => row.key))
+}
+
+/** Drops names already in use; fine to over-ask since keys are cheap to check. */
+async function available(names: string[]) {
+  const taken = await takenKeys(names.map(normalizeName))
+  return names.filter((name) => !taken.has(normalizeName(name)))
+}
+
+export async function suggestCompetitionNames() {
+  return (await available(suggestNames(SUGGESTIONS * 3, new Set()))).slice(
+    0,
+    SUGGESTIONS,
+  )
+}
+
+export async function checkCompetitionName(name: string) {
+  const key = normalizeName(name)
+  if (!(await takenKeys([key])).size)
+    return { available: true, suggestions: [] }
+  const close = await available(
+    suggestFrom(name, SUGGESTIONS * 3, new Set([key])),
+  )
+  return { available: false, suggestions: close.slice(0, SUGGESTIONS) }
+}
+
+function isNameClash(error: unknown) {
+  const { code, constraint_name } =
+    (error as { cause?: { code?: string; constraint_name?: string } }).cause ??
+    (error as { code?: string; constraint_name?: string })
+  return code === '23505' && constraint_name === 'competitions_name_key_unique'
+}
+
 export async function createCompetition(
   ownerId: string,
   settings: CompetitionSettings,
 ) {
   checkFormatRules(settings)
+  const nameKey = normalizeName(settings.name)
+  if ((await takenKeys([nameKey])).size) throw new Error(NAME_TAKEN)
   const slug = await uniqueSlug(settings.name)
+  // Two creates with one name at once: the unique key turns away the second.
+  await createRows(ownerId, settings, nameKey, slug).catch((error) => {
+    throw isNameClash(error) ? new Error(NAME_TAKEN) : error
+  })
+  return slug
+}
+
+async function createRows(
+  ownerId: string,
+  settings: CompetitionSettings,
+  nameKey: string,
+  slug: string,
+) {
   await db.transaction(async (tx) => {
     const [created] = await tx
       .insert(competitions)
       .values({
         ...settings,
+        nameKey,
         legs: settings.format === 'knockout' ? 1 : settings.legs,
         slug,
         ownerId,
@@ -107,7 +171,6 @@ export async function createCompetition(
       .insert(competitionMembers)
       .values({ competitionId: created.id, userId: ownerId })
   })
-  return slug
 }
 
 /** The competition row, locked until the transaction ends. */

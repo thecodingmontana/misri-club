@@ -213,6 +213,8 @@ export const competitions = pgTable('competitions', {
     .$defaultFn(() => generateNanoId()),
   slug: text('slug').notNull().unique(),
   name: text('name').notNull(),
+  /** normalizeName(name): names are unique ignoring case and spacing */
+  nameKey: text('name_key').notNull().unique(),
   format: competitionFormat('format').notNull(),
   /** 1 = everyone meets once, 2 = home and away (leagues only) */
   legs: integer('legs').notNull().default(1),

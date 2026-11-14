@@ -43,6 +43,13 @@
       "when": 1794697087021,
       "tag": "0005_chess_avatar",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794697607297,
+      "tag": "0006_competition_name_key",
+      "breakpoints": true
     }
   ]
 }

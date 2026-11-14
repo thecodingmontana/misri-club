@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { userMiddleware } from './auth.functions'
 import {
+  checkCompetitionName,
   createCompetition,
   getCompetition,
   getInvite,
@@ -10,12 +11,14 @@ import {
   listOpenCompetitions,
   requireChessAccount,
   startCompetition,
+  suggestCompetitionNames,
   updateCompetitionSettings,
   viewerId,
 } from './competitions.server'
 import { takeAllowance } from './rate-limit.server'
 
-const HOUR = 60 * 60 * 1000
+const MINUTE = 60 * 1000
+const HOUR = 60 * MINUTE
 const slug = z.string().trim().min(1).max(80)
 const code = z
   .string()
@@ -45,6 +48,29 @@ export const createCompetitionFn = createServerFn({ method: 'POST' })
     await requireChessAccount(context.user.id)
     await allow('competition-create', context.user.id)
     return { slug: await createCompetition(context.user.id, data) }
+  })
+
+async function allowNameLookup(userId: string) {
+  if (!(await takeAllowance(`competition-name:${userId}`, 1, 60, MINUTE))) {
+    throw new Error('Too many tries. Wait a minute and try again.')
+  }
+}
+
+/** Is this name free? When not, three free ones close to it. */
+export const checkCompetitionNameFn = createServerFn({ method: 'GET' })
+  .middleware([userMiddleware])
+  .validator(z.object({ name: z.string().trim().min(3).max(60) }))
+  .handler(async ({ context, data }) => {
+    await allowNameLookup(context.user.id)
+    return checkCompetitionName(data.name)
+  })
+
+/** Three free chess-themed names. */
+export const suggestCompetitionNamesFn = createServerFn({ method: 'GET' })
+  .middleware([userMiddleware])
+  .handler(async ({ context }) => {
+    await allowNameLookup(context.user.id)
+    return suggestCompetitionNames()
   })
 
 /** Join by invite code, or by slug when the competition is public. */
