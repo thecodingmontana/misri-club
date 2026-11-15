@@ -87,7 +87,12 @@ function RootLayout() {
     pathname.startsWith('/auth/') ||
     ['/onboarding', '/welcome', '/terms', '/privacy'].includes(pathname)
   ) {
-    return <Outlet />
+    // the window itself never scrolls (styles.css), so these pages scroll here
+    return (
+      <div className="h-dvh overflow-y-auto overscroll-contain">
+        <Outlet />
+      </div>
+    )
   }
 
   return (
