@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&display=swap');
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 
@@ -219,4 +219,145 @@ body {
   .tst-spin {
     animation: none;
   }
+}
+
+/*
+ * Landing (/welcome). Above the fold plays on first paint; below it rides the
+ * scroll (view timelines), so nothing waits on JavaScript and nothing can stay
+ * hidden: without support, or with reduced motion, everything just shows.
+ * `html[data-motion="paused"]` (the footer switch) stops every loop.
+ */
+.l-enter {
+  animation: l-enter 0.7s cubic-bezier(0.23, 1, 0.32, 1) both;
+  animation-delay: calc(0.1s + var(--i, 0) * 0.08s);
+}
+.l-word {
+  display: inline-block;
+  animation: l-enter 0.5s cubic-bezier(0.23, 1, 0.32, 1) both;
+  animation-delay: calc(0.35s + var(--w, 0) * 0.035s);
+}
+@keyframes l-enter {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+    filter: blur(4px);
+  }
+}
+.l-mark {
+  --l-hl: color-mix(in oklab, var(--primary) 24%, transparent);
+  background-image: linear-gradient(var(--l-hl), var(--l-hl));
+  background-repeat: no-repeat;
+  background-size: 100% 42%;
+  background-position: 0 88%;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+@keyframes l-mark {
+  0% {
+    background-size: 0% 42%;
+  }
+  12%,
+  80% {
+    background-size: 100% 42%;
+    background-position: 0 88%;
+  }
+  81% {
+    background-position: 100% 88%;
+  }
+  92%,
+  100% {
+    background-size: 0% 42%;
+    background-position: 100% 88%;
+  }
+}
+@keyframes l-reveal {
+  from {
+    opacity: 0;
+    translate: 0 32px;
+  }
+}
+@keyframes l-parallax {
+  from {
+    translate: 0 var(--depth, 16px);
+  }
+  to {
+    translate: 0 calc(var(--depth, 16px) * -1);
+  }
+}
+@keyframes l-marquee {
+  to {
+    translate: -50% 0;
+  }
+}
+@keyframes l-progress {
+  from {
+    scale: 0 1;
+  }
+}
+@keyframes l-float {
+  50% {
+    translate: 0 -6px;
+  }
+}
+.l-progress {
+  transform-origin: left;
+  animation: l-progress var(--clip, 4s) linear both;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .l-mark {
+    animation: l-mark 7s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+    animation-delay: calc(0.9s + var(--w, 0) * 0.035s);
+  }
+  .l-marquee {
+    animation: l-marquee 40s linear infinite;
+  }
+  .l-marquee-wrap:hover .l-marquee {
+    animation-play-state: paused;
+  }
+  .l-float {
+    animation: l-float 5s ease-in-out infinite;
+    animation-delay: var(--float-delay, 0s);
+  }
+  @supports (animation-timeline: view()) {
+    .l-reveal {
+      animation: l-reveal linear both;
+      animation-timeline: view();
+      /* done by the time it's fully on screen, so nothing rests half-faded */
+      animation-range: entry 0% entry 70%;
+    }
+    .l-parallax {
+      animation: l-parallax linear both;
+      animation-timeline: view();
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .l-enter,
+  .l-word {
+    animation: none;
+  }
+}
+html[data-motion='paused'] :is(.l-mark, .l-marquee, .l-float, .l-progress) {
+  animation-play-state: paused;
+}
+/* The board: a faint 8x8 check, Misri's motif, on the landing's dark panels. */
+.l-board {
+  background-color: var(--foreground);
+  background-image: conic-gradient(
+    color-mix(in oklab, var(--background) 7%, transparent) 25%,
+    transparent 0 50%,
+    color-mix(in oklab, var(--background) 7%, transparent) 0 75%,
+    transparent 0
+  );
+  background-size: 72px 72px;
+}
+
+/* Landing headlines: Bricolage narrowed on its own width axis, sporty and loud. */
+.l-condensed {
+  font-family: var(--font-display);
+  font-stretch: 75%;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  line-height: 0.92;
 }
