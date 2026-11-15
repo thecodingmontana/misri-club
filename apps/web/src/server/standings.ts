@@ -64,6 +64,7 @@ export type ScoredMatch = Pick<
   | 'result'
   | 'whiteUserId'
   | 'winnerUserId'
+  | 'voided'
 >
 
 /**
@@ -78,6 +79,8 @@ export function matchOutcome(
   unplayed: UnplayedRule = DEFAULT_RULES.unplayed,
 ): Outcome | null {
   if (!match.homeUserId || !match.awayUserId) return null
+  // called off: counts for nobody
+  if (match.voided) return null
 
   if (match.result) {
     if (match.result === 'draw') return 'draw'
@@ -134,4 +137,17 @@ export function tallyStandings(
   }
 
   return tally
+}
+
+/** Table order: points, then wins, then fewest forfeits, then name. */
+export function compareStanding(
+  a: Tally & { name: string },
+  b: Tally & { name: string },
+): number {
+  return (
+    b.points - a.points ||
+    b.wins - a.wins ||
+    a.forfeits - b.forfeits ||
+    a.name.localeCompare(b.name)
+  )
 }

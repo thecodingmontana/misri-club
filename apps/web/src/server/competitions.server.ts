@@ -31,6 +31,7 @@ import {
   notifyLeft,
   notifyStarted,
 } from './notifications.server'
+import { syncResults } from './results.server'
 import {
   type Points,
   type Tally,
@@ -687,6 +688,7 @@ export type MatchStatus =
   | 'upcoming'
   | 'live'
   | 'expired'
+  | 'void'
 
 export interface MatchView {
   id: string
@@ -702,10 +704,13 @@ export interface MatchView {
   homeWon: boolean | null
   gameUrl: string | null
   winnerId: string | null
+  /** the organiser's word on a decision */
+  note: string | null
 }
 
 function matchStatus(m: typeof matches.$inferSelect, now: number): MatchStatus {
   if (m.byeUserId) return 'bye'
+  if (m.voided) return 'void'
   if (m.result) return 'played'
   if (m.winnerUserId) return 'walkover'
   if (m.opensAt.getTime() > now) return 'upcoming'
@@ -719,6 +724,17 @@ function matchStatus(m: typeof matches.$inferSelect, now: number): MatchStatus {
  */
 export async function getCompetition(slug: string, viewer: Viewer | null) {
   const viewerId = viewer?.id ?? null
+  // fresh results from chess.com first (throttled inside); never fail the page over it
+  const [peek] = await db
+    .select({ id: competitions.id, status: competitions.status })
+    .from(competitions)
+    .where(eq(competitions.slug, slug))
+    .limit(1)
+  if (peek?.status === 'running') {
+    await syncResults(peek.id).catch((error) =>
+      console.error('[results] sync failed', (error as Error).message),
+    )
+  }
   const [competition] = await db
     .select()
     .from(competitions)
@@ -797,7 +813,25 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
         : null,
     gameUrl: m.gameUrl,
     winnerId: m.winnerUserId,
+    note: m.note,
   }))
+
+  // Matches waiting on the organiser: expired under "I decide" (any expired
+  // tie in a knockout), or a drawn knockout tie that still needs a winner.
+  const awaiting = matchRows
+    .filter((m) => {
+      if (!m.homeUserId || !m.awayUserId || m.voided || m.winnerUserId) {
+        return false
+      }
+      if (competition.format === 'knockout' && m.result === 'draw') return true
+      if (m.result) return false
+      return (
+        m.dueAt.getTime() <= now &&
+        (competition.format === 'knockout' ||
+          competition.unplayedRule === 'organiser')
+      )
+    })
+    .map((m) => m.id)
 
   // Rounds past the original schedule were added for late joiners.
   const startedWith = competition.startedAt
@@ -851,6 +885,8 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       unplayedRule: competition.unplayedRule,
       points: competition.points,
       leaveRule: competition.leaveRule,
+      finishedAt: competition.finishedAt?.getTime() ?? null,
+      championId: competition.championUserId,
       ownerId: competition.ownerId,
       startedAt: competition.startedAt?.getTime() ?? null,
       inviteCode: can('seeInviteCode', access) ? competition.inviteCode : null,
@@ -859,6 +895,7 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
     isMember,
     canManage: can('manage', access),
     canSeeDetails: details,
+    awaitingDecision: can('manage', access) ? awaiting : [],
     playerCount: players.size,
     join: canJoin(competition),
     members: details ? [...players.values()] : ([] as PlayerView[]),

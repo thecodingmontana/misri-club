@@ -249,6 +249,14 @@ export const competitions = pgTable('competitions', {
   inviteCode: text('invite_code').notNull().unique(),
   createdAt: createdAt(),
   startedAt: ts('started_at'),
+  finishedAt: ts('finished_at'),
+  /** Who won it, set when it finishes. */
+  championUserId: varchar('champion_user_id', { length: 16 }).references(
+    () => user.id,
+    { onDelete: 'set null' },
+  ),
+  /** Last chess.com results sync, so page views don't hammer the API. */
+  syncedAt: ts('synced_at'),
 }).enableRLS()
 
 export const competitionMembers = pgTable(
@@ -320,6 +328,10 @@ export const matches = pgTable(
     ),
     gameUrl: text('game_url'),
     endedAt: ts('ended_at'),
+    /** Called off by the organiser (or the "no result" rule): counts for nobody. */
+    voided: boolean('voided').notNull().default(false),
+    /** The organiser's word on a decision, shown on the match card. */
+    note: text('note'),
     /** When the 24-hour reminder went out; null until then (sent once). */
     remindedAt: ts('reminded_at'),
     /** Who goes through (knockout), or who was awarded a walkover. */

@@ -140,7 +140,27 @@ export function FixtureCard({
   if (match.bye) return <ByeCard player={match.bye} label={label} />
   if (!match.home || !match.away) return null
 
-  const shared = { label, home: match.home, away: match.away, children }
+  const shared = {
+    label,
+    home: match.home,
+    away: match.away,
+    children: (
+      <>
+        {match.note && (
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Organiser: {match.note}
+          </p>
+        )}
+        {children}
+      </>
+    ),
+  }
+
+  if (match.status === 'void') {
+    return (
+      <MatchCard {...shared} score={null} winner={null} status="Called off" />
+    )
+  }
 
   if (match.status === 'played') {
     const { result, homeWon } = match

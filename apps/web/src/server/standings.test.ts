@@ -10,6 +10,8 @@ import {
 const now = new Date('2026-10-12T12:00:00Z')
 const past = new Date('2026-10-10T12:00:00Z')
 const future = new Date('2026-10-14T12:00:00Z')
+const bothForfeitRules = { unplayed: 'both_forfeit', points: POINTS } as const
+
 const match = (extra: Partial<ScoredMatch> = {}): ScoredMatch => ({
   homeUserId: 'a',
   awayUserId: 'b',
@@ -17,7 +19,19 @@ const match = (extra: Partial<ScoredMatch> = {}): ScoredMatch => ({
   result: null,
   whiteUserId: null,
   winnerUserId: null,
+  voided: false,
   ...extra,
+})
+
+test('a called-off match counts for nobody, even with a result on it', () => {
+  const tally = tallyStandings(
+    [match({ whiteUserId: 'a', result: 'white', voided: true })],
+    ['a', 'b'],
+    now,
+    bothForfeitRules,
+  )
+  assert.equal(tally.get('a')?.points, 0)
+  assert.equal(tally.get('b')?.forfeits, 0)
 })
 
 test('a win scores for whoever had the winning colour, home or away', () => {

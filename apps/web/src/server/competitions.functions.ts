@@ -20,6 +20,7 @@ import {
   viewerId,
 } from './competitions.server'
 import { takeAllowance } from './rate-limit.server'
+import { decideMatch } from './results.server'
 import { POINTS, UNPLAYED_RULES } from './standings'
 
 const MINUTE = 60 * 1000
@@ -166,5 +167,42 @@ export const deleteCompetitionFn = createServerFn({ method: 'POST' })
   .validator(z.object({ slug, confirmName: z.string().max(80) }))
   .handler(async ({ context, data }) => {
     await deleteCompetition(data.slug, context.viewer, data.confirmName)
+    return { ok: true }
+  })
+
+const decision = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('result'),
+    result: z.enum(['white', 'black', 'draw']),
+    homeWhite: z.boolean(),
+  }),
+  z.object({ kind: z.literal('walkover'), winnerUserId: z.string().max(16) }),
+  z.object({ kind: z.literal('void') }),
+  z.object({
+    kind: z.literal('extend'),
+    days: z.number().int().min(1).max(14),
+  }),
+  z.object({ kind: z.literal('reopen') }),
+])
+
+/** The organiser settles one match (result, walkover, call off, more time, reopen). */
+export const decideMatchFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(
+    z.object({
+      slug,
+      matchId: z.string().min(1).max(16),
+      decision,
+      note: z.string().trim().max(200).optional(),
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    await decideMatch(
+      data.slug,
+      context.viewer,
+      data.matchId,
+      data.decision,
+      data.note || null,
+    )
     return { ok: true }
   })

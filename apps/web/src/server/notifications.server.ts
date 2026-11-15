@@ -122,6 +122,38 @@ export async function notifyDeleted(name: string, memberIds: string[]) {
   )
 }
 
+/** The champion first, then everyone else in it. */
+export async function notifyFinished(
+  competitionId: string,
+  championId: string,
+) {
+  const competition = await competitionPush(competitionId)
+  if (!competition) return
+  const members = await db
+    .select({ userId: competitionMembers.userId })
+    .from(competitionMembers)
+    .where(eq(competitionMembers.competitionId, competitionId))
+  const champion = await playerName(championId)
+  await bestEffort(
+    members.map(({ userId }) =>
+      userId === championId
+        ? {
+            userId,
+            title: `You won ${competition.name}!`,
+            body: 'Congratulations, champion.',
+            url: `/c/${competition.slug}`,
+            tag: `finish-${competition.slug}`,
+          }
+        : {
+            userId,
+            title: `${champion} won ${competition.name}`,
+            url: `/c/${competition.slug}`,
+            tag: `finish-${competition.slug}`,
+          },
+    ),
+  )
+}
+
 /** Tells the organiser who joined. */
 export async function notifyJoined(competitionId: string, joinerId: string) {
   const [row] = await db

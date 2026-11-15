@@ -7,6 +7,7 @@ import {
 import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 import { Spinner } from '#/components/auth'
+import { ChampionBanner } from '#/components/champion-banner'
 import {
   DeleteCompetition,
   HandOver,
@@ -22,6 +23,7 @@ import {
 } from '#/components/competitions'
 import { CopyIcon } from '#/components/copy-icon'
 import { displayName, FixtureCard } from '#/components/match-card'
+import { DecideMatch } from '#/components/match-decision'
 import { PlayerChip } from '#/components/player-chip'
 import { ScoringRules, scoringSummary } from '#/components/scoring-rules'
 import { Button } from '#/components/ui/button'
@@ -76,6 +78,9 @@ function CompetitionPage() {
   } = data
   const { user } = useAdmin()
   const league = competition.format === 'league'
+  const champion = members.find(
+    (m: PlayerView) => m.id === competition.championId,
+  )
 
   return (
     <div className="space-y-5 pt-2">
@@ -99,6 +104,14 @@ function CompetitionPage() {
           )}
         </p>
       </header>
+
+      {competition.status === 'finished' && champion && (
+        <ChampionBanner
+          slug={competition.slug}
+          champion={champion}
+          isYou={user?.id === champion.id}
+        />
+      )}
 
       {canManage && <OwnerPanel data={data} />}
 
@@ -300,6 +313,29 @@ function OwnerPanel({ data }: { data: Data }) {
         />
       )}
 
+      {data.awaitingDecision.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-sm font-medium">
+            Needs your call ({data.awaitingDecision.length})
+          </p>
+          <p className="text-xs text-muted-foreground">
+            These ran out of time without a result. Award a walkover, call it
+            off or give more time.
+          </p>
+          {data.matches
+            .filter((m: MatchView) => data.awaitingDecision.includes(m.id))
+            .map((match: MatchView) => (
+              <FixtureCard key={match.id} match={match} now={Date.now()}>
+                <DecideMatch
+                  slug={competition.slug}
+                  match={match}
+                  format={competition.format}
+                />
+              </FixtureCard>
+            ))}
+        </div>
+      )}
+
       {competition.status === 'open' && (
         <Button
           size="lg"
@@ -419,11 +455,29 @@ function Fixtures({ data }: { data: Data }) {
         <section key={round} className="space-y-2">
           <h2 className="kicker">{roundLabel(data, round, matches.length)}</h2>
           {matches.map((match) => (
-            <FixtureCard key={match.id} match={match} now={now} />
+            <FixtureCard key={match.id} match={match} now={now}>
+              {decidable(data, match) && (
+                <DecideMatch
+                  slug={data.competition.slug}
+                  match={match}
+                  format={data.competition.format}
+                />
+              )}
+            </FixtureCard>
           ))}
         </section>
       ))}
     </div>
+  )
+}
+
+/** The organiser can settle any real pairing while it runs. */
+function decidable(data: Data, match: MatchView) {
+  return (
+    data.canManage &&
+    data.competition.status === 'running' &&
+    match.home !== null &&
+    match.away !== null
   )
 }
 

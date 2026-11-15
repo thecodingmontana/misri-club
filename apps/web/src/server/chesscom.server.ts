@@ -309,3 +309,10 @@ export async function fetchArchive(url: string): Promise<Array<ArchivedGame>> {
 /** The chess.com club page for a given club id. */
 export const clubUrl = (clubId = CLUB_ID) =>
   `https://www.chess.com/club/${clubId}`
+
+/** One month of a player's games (`month` as YYYY/MM); empty when none. */
+export function fetchMonthGames(username: string, month: string) {
+  return fetchArchive(
+    `/player/${encodeURIComponent(username.toLowerCase())}/games/${month}`,
+  )
+}
