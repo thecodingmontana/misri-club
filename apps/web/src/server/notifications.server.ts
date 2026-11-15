@@ -93,6 +93,20 @@ export async function notifyLeft(competitionId: string, leaverId: string) {
   ])
 }
 
+/** Tells a player the organiser took them out. */
+export async function notifyRemoved(competitionId: string, userId: string) {
+  const competition = await competitionPush(competitionId)
+  if (!competition) return
+  await bestEffort([
+    {
+      userId,
+      title: `You were removed from ${competition.name}`,
+      body: 'The organiser took you out of this competition.',
+      url: '/',
+    },
+  ])
+}
+
 /** Tells the new organiser it's theirs now. */
 export async function notifyHandedOver(
   competitionId: string,

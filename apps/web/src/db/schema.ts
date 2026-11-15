@@ -234,6 +234,8 @@ export const competitions = pgTable('competitions', {
   visibility: competitionVisibility('visibility').notNull().default('private'),
   /** Leagues only: players may still join once it is running. */
   allowLateEntry: boolean('allow_late_entry').notNull().default(false),
+  /** Most players it takes; null = no limit. */
+  maxPlayers: integer('max_players'),
   /** The organiser's rule for matches that expire unplayed. */
   unplayedRule: unplayedRule('unplayed_rule').notNull().default('organiser'),
   /** Leagues: award / void / keep a leaver's games (see lib/leave). */

@@ -37,19 +37,31 @@ function Home() {
       </header>
 
       <div className="grid gap-2 sm:grid-cols-3">
-        <Button asChild variant="secondary" className="h-auto justify-start py-3 sm:flex-col sm:justify-center">
+        <Button
+          asChild
+          variant="secondary"
+          className="h-auto justify-start py-3 sm:flex-col sm:justify-center"
+        >
           <Link to="/competitions/new" search={{ format: 'league' }}>
             <Plus className="size-5 text-primary" />
             Create a league
           </Link>
         </Button>
-        <Button asChild variant="secondary" className="h-auto justify-start py-3 sm:flex-col sm:justify-center">
+        <Button
+          asChild
+          variant="secondary"
+          className="h-auto justify-start py-3 sm:flex-col sm:justify-center"
+        >
           <Link to="/competitions/new" search={{ format: 'knockout' }}>
             <Plus className="size-5 text-primary" />
             Create a tournament
           </Link>
         </Button>
-        <Button asChild variant="secondary" className="h-auto justify-start py-3 sm:flex-col sm:justify-center">
+        <Button
+          asChild
+          variant="secondary"
+          className="h-auto justify-start py-3 sm:flex-col sm:justify-center"
+        >
           <Link to="/join">
             <UserPlus className="size-5 text-primary" />
             Join with a code

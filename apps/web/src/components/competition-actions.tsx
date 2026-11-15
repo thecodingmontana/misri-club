@@ -28,6 +28,9 @@ import {
   deleteCompetitionFn,
   handOverCompetitionFn,
   leaveCompetitionFn,
+  newInviteCodeFn,
+  removePlayerFn,
+  renameCompetitionFn,
 } from '#/server/competitions.functions'
 
 const LEAVE_LABEL: Record<LeaveRule, string> = {
@@ -241,5 +244,161 @@ export function DeleteCompetition({
         onChange={(event) => setTyped(event.target.value)}
       />
     </Confirm>
+  )
+}
+
+/** The organiser renames it; the link stays the same. */
+export function RenameCompetition({
+  slug,
+  name,
+}: {
+  slug: string
+  name: string
+}) {
+  const rename = useServerFn(renameCompetitionFn)
+  const router = useRouter()
+  const [value, setValue] = useState(name)
+  const [busy, setBusy] = useState(false)
+  const changed = value.trim() !== name && value.trim().length > 0
+  return (
+    <form
+      className="space-y-1.5"
+      onSubmit={async (event) => {
+        event.preventDefault()
+        if (!changed) return
+        setBusy(true)
+        try {
+          await rename({ data: { slug, name: value } })
+          await router.invalidate()
+          toast.success('Renamed')
+        } catch (error) {
+          fail("Couldn't rename it")(error)
+        } finally {
+          setBusy(false)
+        }
+      }}
+    >
+      <label htmlFor="rename" className="text-sm font-medium">
+        Name
+      </label>
+      <div className="flex gap-2">
+        <Input
+          id="rename"
+          maxLength={60}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+        />
+        <Button type="submit" variant="secondary" disabled={!changed || busy}>
+          Save
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+/** Most players it takes; empty means no limit. Saved when the field is left. */
+export function MaxPlayersField({
+  value,
+  onSave,
+}: {
+  value: number | null
+  onSave: (maxPlayers: number | null) => void
+}) {
+  const [draft, setDraft] = useState(value === null ? '' : String(value))
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor="max-players" className="text-sm font-medium">
+        Most players
+      </label>
+      <Input
+        id="max-players"
+        type="number"
+        inputMode="numeric"
+        min={2}
+        max={256}
+        placeholder="No limit"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => {
+          const next =
+            draft.trim() === ''
+              ? null
+              : Math.min(256, Math.max(2, Math.round(Number(draft))))
+          if (next !== null && Number.isNaN(next)) return setDraft('')
+          setDraft(next === null ? '' : String(next))
+          if (next !== value) onSave(next)
+        }}
+      />
+      <p className="text-xs text-muted-foreground">
+        Leave it empty for no limit. Once full, nobody else can join.
+      </p>
+    </div>
+  )
+}
+
+/** A fresh invite code; links with the old one stop working. */
+export function NewInviteCode({ slug }: { slug: string }) {
+  const renew = useServerFn(newInviteCodeFn)
+  const router = useRouter()
+  return (
+    <Confirm
+      trigger={
+        <Button variant="ghost" size="sm">
+          New code
+        </Button>
+      }
+      title="Make a new invite code?"
+      description="The old code and every link with it stop working. Share the new one with anyone still to join."
+      confirmLabel="Make new code"
+      onConfirm={() =>
+        renew({ data: { slug } })
+          .then(() => router.invalidate())
+          .then(() => toast.success('New invite code ready'))
+          .catch(fail("Couldn't make a new code"))
+      }
+    />
+  )
+}
+
+/** The organiser takes a player out, under the same rules as leaving. */
+export function RemovePlayer({
+  slug,
+  userId,
+  name,
+  started,
+  format,
+  leaveRule,
+}: {
+  slug: string
+  userId: string
+  name: string
+  started: boolean
+  format: 'league' | 'knockout'
+  leaveRule: LeaveRule
+}) {
+  const remove = useServerFn(removePlayerFn)
+  const router = useRouter()
+  const consequence = !started
+    ? `${name} can join again later.`
+    : format === 'knockout'
+      ? `Their opponent goes through, and ${name} can't rejoin.`
+      : `${LEAVE_HELP[leaveRule]} ${name} can't rejoin.`
+  return (
+    <Confirm
+      trigger={
+        <Button variant="ghost" size="sm" className="text-destructive">
+          Remove
+        </Button>
+      }
+      title={`Remove ${name}?`}
+      description={consequence}
+      confirmLabel="Remove"
+      onConfirm={() =>
+        remove({ data: { slug, userId } })
+          .then(() => router.invalidate())
+          .then(() => toast.success(`${name} was removed`))
+          .catch(fail("Couldn't remove them"))
+      }
+    />
   )
 }

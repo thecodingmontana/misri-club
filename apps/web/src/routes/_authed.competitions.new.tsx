@@ -4,7 +4,10 @@ import { useServerFn } from '@tanstack/react-start'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { Spinner } from '#/components/auth'
-import { LeaveRuleChoice } from '#/components/competition-actions'
+import {
+  LeaveRuleChoice,
+  MaxPlayersField,
+} from '#/components/competition-actions'
 import { Choice, FORMAT_INFO, FormatExplainer } from '#/components/competitions'
 import { Check, MagicWand } from '#/components/icons'
 import { ScoringRules } from '#/components/scoring-rules'
@@ -98,6 +101,7 @@ function NewCompetition() {
   const [matchdayDays, setMatchdayDays] = useState(2)
   const [visibility, setVisibility] = useState<'private' | 'public'>('private')
   const [leaveRule, setLeaveRule] = useState<LeaveRule>('award')
+  const [maxPlayers, setMaxPlayers] = useState<number | null>(null)
   const [scoring, setScoring] = useState<{
     unplayedRule: UnplayedRule
     points: Points
@@ -119,6 +123,7 @@ function NewCompetition() {
           matchdayDays,
           visibility,
           allowLateEntry: league && allowLateEntry,
+          maxPlayers,
           ...(league ? { ...scoring, leaveRule } : {}),
         },
       })
@@ -238,6 +243,8 @@ function NewCompetition() {
             How long players have to play each game.
           </p>
         </Field>
+
+        <MaxPlayersField value={maxPlayers} onSave={setMaxPlayers} />
 
         <Choice
           label="Who can join"

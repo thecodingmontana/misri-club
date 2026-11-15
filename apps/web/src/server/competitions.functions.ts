@@ -5,12 +5,9 @@ import {
   checkCompetitionName,
   createCompetition,
   currentViewer,
-  deleteCompetition,
   getCompetition,
   getInvite,
-  handOverCompetition,
   joinCompetition,
-  leaveCompetition,
   listMyCompetitions,
   listOpenCompetitions,
   requireChessAccount,
@@ -19,6 +16,14 @@ import {
   updateCompetitionSettings,
   viewerId,
 } from './competitions.server'
+import {
+  deleteCompetition,
+  handOverCompetition,
+  leaveCompetition,
+  newInviteCode,
+  removePlayer,
+  renameCompetition,
+} from './membership.server'
 import { takeAllowance } from './rate-limit.server'
 import { decideMatch } from './results.server'
 import { POINTS, UNPLAYED_RULES } from './standings'
@@ -27,9 +32,11 @@ const MINUTE = 60 * 1000
 const HOUR = 60 * MINUTE
 const slug = z.string().trim().min(1).max(80)
 const point = z.number().int().min(-10).max(10)
+const maxPlayers = z.number().int().min(2).max(256)
 const scoring = {
   unplayedRule: z.enum(UNPLAYED_RULES).default('organiser'),
   leaveRule: z.enum(['award', 'void', 'keep']).default('award'),
+  maxPlayers: maxPlayers.nullable().default(null),
   points: z
     .object({ win: point, draw: point, loss: point, forfeit: point })
     .default(POINTS),
@@ -137,6 +144,7 @@ export const updateCompetitionSettingsFn = createServerFn({ method: 'POST' })
       allowLateEntry: z.boolean(),
       unplayedRule: z.enum(UNPLAYED_RULES),
       leaveRule: z.enum(['award', 'void', 'keep']),
+      maxPlayers: maxPlayers.nullable(),
       points: scoring.points.unwrap(),
     }),
   )
@@ -206,3 +214,31 @@ export const decideMatchFn = createServerFn({ method: 'POST' })
     )
     return { ok: true }
   })
+
+export const removePlayerFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(z.object({ slug, userId: z.string().min(1).max(16) }))
+  .handler(async ({ context, data }) => {
+    await removePlayer(data.slug, context.viewer, data.userId)
+    return { ok: true }
+  })
+
+export const renameCompetitionFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(
+    z.object({
+      slug,
+      name: z.string().trim().min(1, 'Give it a name.').max(60),
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    await renameCompetition(data.slug, context.viewer, data.name)
+    return { ok: true }
+  })
+
+export const newInviteCodeFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(z.object({ slug }))
+  .handler(async ({ context, data }) => ({
+    inviteCode: await newInviteCode(data.slug, context.viewer),
+  }))

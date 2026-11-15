@@ -13,6 +13,10 @@ import {
   HandOver,
   LeaveButton,
   LeaveRuleChoice,
+  MaxPlayersField,
+  NewInviteCode,
+  RemovePlayer,
+  RenameCompetition,
 } from '#/components/competition-actions'
 import {
   Choice,
@@ -91,7 +95,9 @@ function CompetitionPage() {
         </p>
         <h1 className="display mt-1 text-3xl">{competition.name}</h1>
         <p className="numeric mt-1 text-xs text-muted-foreground">
-          {playerCount} player{playerCount === 1 ? '' : 's'}
+          {competition.maxPlayers
+            ? `${playerCount} of ${competition.maxPlayers} players`
+            : `${playerCount} player${playerCount === 1 ? '' : 's'}`}
           {league && competition.legs === 2 && ' · home & away'} ·{' '}
           {competition.matchdayDays} day
           {competition.matchdayDays === 1 ? '' : 's'} per round
@@ -170,8 +176,20 @@ function CompetitionPage() {
                   username={displayName(member)}
                   image={member.image}
                 />
-                {member.id === competition.ownerId && (
+                {member.id === competition.ownerId ? (
                   <span className="kicker">Organiser</span>
+                ) : (
+                  canManage &&
+                  competition.status !== 'finished' && (
+                    <RemovePlayer
+                      slug={competition.slug}
+                      userId={member.id}
+                      name={displayName(member)}
+                      started={competition.status !== 'open'}
+                      format={competition.format}
+                      leaveRule={competition.leaveRule}
+                    />
+                  )
                 )}
               </div>
             ))}
@@ -228,6 +246,7 @@ function OwnerPanel({ data }: { data: Data }) {
           unplayedRule: competition.unplayedRule,
           points: competition.points,
           leaveRule: competition.leaveRule,
+          maxPlayers: competition.maxPlayers,
           ...patch,
         },
       }),
@@ -266,6 +285,27 @@ function OwnerPanel({ data }: { data: Data }) {
             {copied ? 'Copied' : 'Copy link'}
           </Button>
         </div>
+      )}
+      {canTakePlayers && competition.inviteCode && (
+        <div className="-mt-2">
+          <NewInviteCode slug={competition.slug} />
+        </div>
+      )}
+
+      {competition.status !== 'finished' && (
+        <RenameCompetition
+          key={competition.name}
+          slug={competition.slug}
+          name={competition.name}
+        />
+      )}
+
+      {competition.status !== 'finished' && (
+        <MaxPlayersField
+          key={competition.maxPlayers ?? 'none'}
+          value={competition.maxPlayers}
+          onSave={(maxPlayers) => save({ maxPlayers })}
+        />
       )}
 
       <Choice
