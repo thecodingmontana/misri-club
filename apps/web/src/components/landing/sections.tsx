@@ -155,45 +155,6 @@ const FOOTER_LINKS: Array<{
   },
 ]
 
-// The Immortal Game, Anderssen v Kieseritzky, London 1851: a real game, public record.
-const IMMORTAL =
-  '1.e4 e5 2.f4 exf4 3.Bc4 Qh4+ 4.Kf1 b5 5.Bxb5 Nf6 6.Nf3 Qh6 7.d3 Nh5 8.Nh4 Qg5 9.Nf5 c6 10.g4 Nf6 11.Rg1 cxb5 12.h4 Qg6 13.h5 Qg5 14.Qf3 Ng8 15.Bxf4 Qf6 16.Nc3 Bc5 17.Nd5 Qxb2 18.Bd6 Bxg1 19.e5 Qxa1+ 20.Ke2 Na6 21.Nxg7+ Kd8 22.Qf6+ Nxf6 23.Be7# 1-0'
-
-/** The board closing the page: a famous game drifting under the name. */
-function ImmortalBand() {
-  const rows = [0.3, 0.16, 0.24, 0.12, 0.22, 0.14]
-  return (
-    <div className="l-board relative overflow-hidden pt-10 pb-6">
-      <div aria-hidden className="space-y-3">
-        {rows.map((opacity, i) => (
-          <div key={opacity} className="overflow-hidden">
-            <p
-              className="l-marquee w-max font-mono text-base tracking-widest whitespace-nowrap text-background uppercase md:text-lg"
-              style={{
-                opacity,
-                animationDirection: i % 2 ? 'reverse' : 'normal',
-                animationDuration: `${60 + i * 15}s`,
-              }}
-            >
-              {IMMORTAL}&nbsp;&nbsp;·&nbsp;&nbsp;{IMMORTAL}
-              &nbsp;&nbsp;·&nbsp;&nbsp;
-            </p>
-          </div>
-        ))}
-      </div>
-      <p
-        aria-hidden
-        className="l-condensed pointer-events-none absolute inset-x-0 top-[44%] -translate-y-1/2 text-center text-[34vw] text-transparent [-webkit-text-stroke:2px_var(--background)] md:text-[26vw]"
-      >
-        Misri
-      </p>
-      <p className="relative mt-8 px-4 text-center text-[11px] text-background/70">
-        The moves are the Immortal Game: Anderssen v Kieseritzky, London 1851.
-      </p>
-    </div>
-  )
-}
-
 const linkClass =
   'text-sm text-muted-foreground transition-colors duration-150 hover:text-foreground'
 
@@ -268,7 +229,6 @@ export function Footer({ signedIn }: { signedIn: boolean }) {
           )}
         </span>
       </div>
-      <ImmortalBand />
     </footer>
   )
 }
