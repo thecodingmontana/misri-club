@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { type FormEvent, useState } from 'react'
 import { Spinner } from '#/components/auth'
@@ -72,6 +72,15 @@ function Join() {
           Join
         </Button>
       </form>
+      <p className="text-center text-sm text-muted-foreground">
+        No code?{' '}
+        <Link
+          to="/discover"
+          className="font-medium text-primary underline-offset-4 hover:underline"
+        >
+          Browse open competitions
+        </Link>
+      </p>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { SITE_URL } from '#/lib/seo'
 /** Every indexable page. */
 const PAGES = [
   '/welcome',
+  '/discover',
   '/train',
   '/train/puzzles',
   '/train/play',

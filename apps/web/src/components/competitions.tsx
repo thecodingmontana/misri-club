@@ -159,9 +159,17 @@ export function OpenCompetitions({
 }) {
   return (
     <section className="space-y-3" aria-labelledby="open-heading">
-      <h2 id="open-heading" className="kicker">
-        Open competitions
-      </h2>
+      <div className="flex items-center justify-between">
+        <h2 id="open-heading" className="kicker">
+          Open competitions
+        </h2>
+        <Link
+          to="/discover"
+          className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+        >
+          See all
+        </Link>
+      </div>
       {competitions.length === 0 ? (
         <p className="rounded-2xl bg-card px-4 py-5 text-center text-sm text-muted-foreground shadow-card">
           No public competitions are taking players right now.
