@@ -174,7 +174,7 @@ export function FixtureCard({
       <MatchCard
         {...shared}
         score={null}
-        centre="—"
+        centre="vs"
         winner={null}
         tone="bad"
         status="Unplayed"

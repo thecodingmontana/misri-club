@@ -57,6 +57,6 @@ export function record(wins: number, draws: number, losses: number): string {
 
 export function winRate(wins: number, draws: number, losses: number): string {
   const played = wins + draws + losses
-  if (played === 0) return '—'
+  if (played === 0) return 'No games'
   return `${Math.round(((wins + draws / 2) / played) * 100)}%`
 }

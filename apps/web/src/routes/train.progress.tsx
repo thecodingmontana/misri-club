@@ -84,7 +84,7 @@ function ProgressScreen() {
         <Tile label="Opening runs" value={drills} />
         <Tile
           label="Master moves found"
-          value={tried ? `${Math.round((found / tried) * 100)}%` : '—'}
+          value={tried ? `${Math.round((found / tried) * 100)}%` : 'None yet'}
         />
       </div>
 
