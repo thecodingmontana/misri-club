@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
 import { QRCodeSVG } from 'qrcode.react'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
+import { DeviceList, NameForm } from '#/components/account-settings'
 import { Spinner } from '#/components/auth'
 import { ChessAccount } from '#/components/chess-account'
 import { KeyRound, LogOut, ShieldCheck, Trash } from '#/components/icons'
@@ -60,6 +61,13 @@ function AccountPage() {
       </section>
 
       <Section
+        title="Your name"
+        lead="What other players see on tables and fixtures."
+      >
+        <NameForm key={user.name} name={user.name} />
+      </Section>
+
+      <Section
         title="chess.com account"
         lead="Prove which player you are, so your results can be trusted."
       >
@@ -89,8 +97,9 @@ function AccountPage() {
 
       <Section
         title="Devices"
-        lead="Lost a phone or used a shared computer? Sign everywhere else out."
+        lead="Lost a phone or used a shared computer? Sign it out here."
       >
+        <DeviceList />
         <Button
           variant="outline"
           className="w-full"

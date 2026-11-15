@@ -174,6 +174,16 @@ export const auth = betterAuth({
               message: 'That picture address is not allowed.',
             })
           }
+          // names show on every table and fixture: keep them short and real
+          if (typeof user.name === 'string') {
+            const name = user.name.trim().replace(/\s+/g, ' ')
+            if (name.length < 1 || name.length > 50) {
+              throw new APIError('BAD_REQUEST', {
+                message: 'Use a name between 1 and 50 characters.',
+              })
+            }
+            return { data: { ...user, name } }
+          }
           return { data: user }
         },
       },
