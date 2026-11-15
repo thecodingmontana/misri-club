@@ -1,4 +1,4 @@
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 import { Spinner } from '#/components/auth'
@@ -118,6 +118,7 @@ export function JoinButton({
 }) {
   const join = useServerFn(joinCompetitionFn)
   const navigate = useNavigate()
+  const router = useRouter()
   const [busy, setBusy] = useState(false)
 
   async function onJoin() {
@@ -126,7 +127,11 @@ export function JoinButton({
       const result = await join({
         data: code ? { code } : { slug: slug ?? '' },
       })
+      if (result.pending) toast.success('Request sent to the organiser')
       await navigate({ to: '/c/$slug', params: { slug: result.slug } })
+      // the page may already be this one: show the new state
+      await router.invalidate()
+      setBusy(false)
     } catch (error) {
       toast.error((error as Error).message)
       setBusy(false)

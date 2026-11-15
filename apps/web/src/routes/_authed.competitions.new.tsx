@@ -102,6 +102,7 @@ function NewCompetition() {
   const [visibility, setVisibility] = useState<'private' | 'public'>('private')
   const [leaveRule, setLeaveRule] = useState<LeaveRule>('award')
   const [maxPlayers, setMaxPlayers] = useState<number | null>(null)
+  const [requireApproval, setRequireApproval] = useState(false)
   const [scoring, setScoring] = useState<{
     unplayedRule: UnplayedRule
     points: Points
@@ -124,6 +125,7 @@ function NewCompetition() {
           visibility,
           allowLateEntry: league && allowLateEntry,
           maxPlayers,
+          requireApproval,
           ...(league ? { ...scoring, leaveRule } : {}),
         },
       })
@@ -245,6 +247,21 @@ function NewCompetition() {
         </Field>
 
         <MaxPlayersField value={maxPlayers} onSave={setMaxPlayers} />
+
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4 accent-primary"
+            checked={requireApproval}
+            onChange={(event) => setRequireApproval(event.target.checked)}
+          />
+          <span>
+            <span className="block font-medium">Approve each player</span>
+            <span className="block text-xs text-muted-foreground">
+              Joining sends you a request instead of letting them straight in.
+            </span>
+          </span>
+        </label>
 
         <Choice
           label="Who can join"

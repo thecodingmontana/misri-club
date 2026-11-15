@@ -4,6 +4,7 @@ import {
   type Competition,
   competitionLeavers,
   competitionMembers,
+  competitionRequests,
   competitions,
   matches,
 } from '#/db/schema'
@@ -12,12 +13,14 @@ import { authorize, roleOf, type Viewer } from '#/lib/access'
 import { normalizeName } from '#/lib/competition-names'
 import { settleLeaver } from '#/lib/leave'
 import {
+  admit,
   authorizeManage,
   isNameClash,
   lockCompetition,
   takenKeys,
 } from './competitions.server'
 import {
+  notifyAnswered,
   notifyDeleted,
   notifyHandedOver,
   notifyLeft,
@@ -134,6 +137,33 @@ export async function removePlayer(
     return competition.id
   })
   await notifyRemoved(competitionId, userId)
+}
+
+/** The organiser lets a requester in (with every normal join check) or not. */
+export async function answerRequest(
+  slug: string,
+  viewer: Viewer,
+  userId: string,
+  approve: boolean,
+) {
+  const competitionId = await db.transaction(async (tx) => {
+    const competition = await lockCompetition(tx, eq(competitions.slug, slug))
+    if (!competition) throw new Error('Not found.')
+    authorizeManage(viewer, competition)
+    const [request] = await tx
+      .delete(competitionRequests)
+      .where(
+        and(
+          eq(competitionRequests.competitionId, competition.id),
+          eq(competitionRequests.userId, userId),
+        ),
+      )
+      .returning({ userId: competitionRequests.userId })
+    if (!request) throw new Error('That request is gone.')
+    if (approve) await admit(tx, competition, userId)
+    return competition.id
+  })
+  await notifyAnswered(competitionId, userId, approve)
 }
 
 /** A new name; the link (slug) stays, so shared links keep working. */

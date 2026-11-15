@@ -7,6 +7,7 @@ import {
   chessAccounts,
   competitionLeavers,
   competitionMembers,
+  competitionRequests,
   competitions,
   matches,
   user,
@@ -24,7 +25,11 @@ import type { LeaveRule } from '#/lib/leave'
 import { generateDoubleRoundRobin, matchdayCount } from '#/lib/round-robin'
 import { auth, isAdminEmail } from './auth.server'
 import { fetchPlayerProfile } from './chesscom.server'
-import { notifyJoined, notifyStarted } from './notifications.server'
+import {
+  notifyJoined,
+  notifyRequested,
+  notifyStarted,
+} from './notifications.server'
 import { syncResults } from './results.server'
 import {
   type Points,
@@ -73,6 +78,7 @@ export interface CompetitionSettings {
   unplayedRule: UnplayedRule
   leaveRule: LeaveRule
   maxPlayers: number | null
+  requireApproval: boolean
   points: Points
 }
 
@@ -252,11 +258,86 @@ export async function lockCompetition(tx: Tx, where: ReturnType<typeof eq>) {
  * joiner in a running league gets a match against every member, in one extra
  * round. The row lock makes two late joiners at once still meet each other.
  */
+/**
+ * Lets a player in, under the row lock the caller holds: refuses leavers,
+ * closed competitions and full ones, and gives a late joiner their matches.
+ * False when they were already in.
+ */
+export async function admit(tx: Tx, competition: Competition, userId: string) {
+  const members = await tx
+    .select({ userId: competitionMembers.userId })
+    .from(competitionMembers)
+    .where(eq(competitionMembers.competitionId, competition.id))
+  if (members.some((m) => m.userId === userId)) return false
+
+  // Leaving after the start settled their games; coming back would reopen them.
+  const [left] = await tx
+    .select({ userId: competitionLeavers.userId })
+    .from(competitionLeavers)
+    .where(
+      and(
+        eq(competitionLeavers.competitionId, competition.id),
+        eq(competitionLeavers.userId, userId),
+      ),
+    )
+    .limit(1)
+  if (left) {
+    throw new Error(
+      "They left this one after it started, so they can't rejoin.",
+    )
+  }
+
+  const decision = canJoin(competition)
+  if (!decision.ok) throw new Error(decision.reason)
+  // checked under the row lock, so two joiners can't both take the last place
+  if (competition.maxPlayers && members.length >= competition.maxPlayers) {
+    throw new Error("It's full.")
+  }
+
+  await tx
+    .insert(competitionMembers)
+    .values({ competitionId: competition.id, userId })
+
+  if (competition.status === 'running') {
+    const [latest] = await tx
+      .select({ round: max(matches.round), dueAt: max(matches.dueAt) })
+      .from(matches)
+      .where(eq(matches.competitionId, competition.id))
+    const late = lateEntryMatches({
+      userId,
+      memberIds: members.map((m) => m.userId),
+      legs: competition.legs,
+      round: (latest?.round ?? 0) + 1,
+      matchdayDays: competition.matchdayDays,
+      latestDueAt: latest?.dueAt ?? null,
+      now: new Date(),
+    })
+    if (late.length > 0) {
+      await tx.insert(matches).values(
+        late.map((m) => ({
+          competitionId: competition.id,
+          round: m.round,
+          leg: m.leg,
+          homeUserId: m.homeId,
+          awayUserId: m.awayId,
+          opensAt: m.opensAt,
+          dueAt: m.dueAt,
+        })),
+      )
+    }
+  }
+  return true
+}
+
+/**
+ * Joins with the invite code, or a public competition by its link. When the
+ * organiser approves each player, this files a request instead.
+ */
 export async function joinCompetition(
   userId: string,
   where: { code: string } | { slug: string },
 ) {
-  let joinedId: string | null = null
+  let outcome: { id: string; pending: boolean } | null = null
   const slug = await db.transaction(async (tx) => {
     const competition = await lockCompetition(
       tx,
@@ -273,75 +354,51 @@ export async function joinCompetition(
     if ('slug' in where && competition.visibility !== 'public') {
       throw new Error('You need an invite code to join this one.')
     }
-
-    const members = await tx
-      .select({ userId: competitionMembers.userId })
-      .from(competitionMembers)
-      .where(eq(competitionMembers.competitionId, competition.id))
-    if (members.some((m) => m.userId === userId)) return competition.slug
-
-    // Leaving after the start settled their games; coming back would reopen them.
-    const [left] = await tx
-      .select({ userId: competitionLeavers.userId })
-      .from(competitionLeavers)
-      .where(
-        and(
-          eq(competitionLeavers.competitionId, competition.id),
-          eq(competitionLeavers.userId, userId),
-        ),
-      )
-      .limit(1)
-    if (left) {
-      throw new Error(
+    if (competition.requireApproval) {
+      const [already] = await tx
+        .select({ userId: competitionMembers.userId })
+        .from(competitionMembers)
+        .where(
+          and(
+            eq(competitionMembers.competitionId, competition.id),
+            eq(competitionMembers.userId, userId),
+          ),
+        )
+        .limit(1)
+      if (already) return competition.slug
+      // fail early on what approval couldn't fix anyway
+      const decision = canJoin(competition)
+      if (!decision.ok) throw new Error(decision.reason)
+      const [filed] = await tx
+        .insert(competitionRequests)
+        .values({ competitionId: competition.id, userId })
+        .onConflictDoNothing()
+        .returning({ userId: competitionRequests.userId })
+      if (filed) outcome = { id: competition.id, pending: true }
+      return competition.slug
+    }
+    try {
+      if (await admit(tx, competition, userId)) {
+        outcome = { id: competition.id, pending: false }
+      }
+    } catch (error) {
+      // the leaver refusal is worded for organisers; say it to the player
+      const message = (error as Error).message.replace(
+        "They left this one after it started, so they can't rejoin.",
         "You left this one after it started, so you can't rejoin.",
       )
-    }
-
-    const decision = canJoin(competition)
-    if (!decision.ok) throw new Error(decision.reason)
-    // checked under the row lock, so two joiners can't both take the last place
-    if (competition.maxPlayers && members.length >= competition.maxPlayers) {
-      throw new Error("It's full.")
-    }
-
-    await tx
-      .insert(competitionMembers)
-      .values({ competitionId: competition.id, userId })
-    joinedId = competition.id
-
-    if (competition.status === 'running') {
-      const [latest] = await tx
-        .select({ round: max(matches.round), dueAt: max(matches.dueAt) })
-        .from(matches)
-        .where(eq(matches.competitionId, competition.id))
-      const late = lateEntryMatches({
-        userId,
-        memberIds: members.map((m) => m.userId),
-        legs: competition.legs,
-        round: (latest?.round ?? 0) + 1,
-        matchdayDays: competition.matchdayDays,
-        latestDueAt: latest?.dueAt ?? null,
-        now: new Date(),
-      })
-      if (late.length > 0) {
-        await tx.insert(matches).values(
-          late.map((m) => ({
-            competitionId: competition.id,
-            round: m.round,
-            leg: m.leg,
-            homeUserId: m.homeId,
-            awayUserId: m.awayId,
-            opensAt: m.opensAt,
-            dueAt: m.dueAt,
-          })),
-        )
-      }
+      throw new Error(message)
     }
     return competition.slug
   })
   // after commit, so the organiser never hears about a join that rolled back
-  if (joinedId) await notifyJoined(joinedId, userId)
-  return slug
+  const done = outcome as { id: string; pending: boolean } | null
+  if (done) {
+    await (done.pending
+      ? notifyRequested(done.id, userId)
+      : notifyJoined(done.id, userId))
+  }
+  return { slug, pending: done?.pending ?? false }
 }
 
 /** Builds the schedule and moves the competition from open to running. */
@@ -616,7 +673,7 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
     .limit(1)
   if (!competition) return null
 
-  const [memberRows, matchRows] = await Promise.all([
+  const [memberRows, matchRows, requestRows] = await Promise.all([
     db
       .select({
         id: user.id,
@@ -636,6 +693,19 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       .from(matches)
       .where(eq(matches.competitionId, competition.id))
       .orderBy(asc(matches.round), asc(matches.leg), asc(matches.id)),
+    db
+      .select({
+        id: user.id,
+        name: user.name,
+        image: user.image,
+        chessUsername: chessAccounts.username,
+        chessAvatar: chessAccounts.avatar,
+      })
+      .from(competitionRequests)
+      .innerJoin(user, eq(user.id, competitionRequests.userId))
+      .leftJoin(chessAccounts, eq(chessAccounts.userId, user.id))
+      .where(eq(competitionRequests.competitionId, competition.id))
+      .orderBy(asc(competitionRequests.createdAt)),
   ])
 
   // Accounts linked before avatars were stored: look each up once, then keep it.
@@ -760,6 +830,7 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       points: competition.points,
       leaveRule: competition.leaveRule,
       maxPlayers: competition.maxPlayers,
+      requireApproval: competition.requireApproval,
       finishedAt: competition.finishedAt?.getTime() ?? null,
       championId: competition.championUserId,
       ownerId: competition.ownerId,
@@ -771,6 +842,18 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
     canManage: can('manage', access),
     canSeeDetails: details,
     awaitingDecision: can('manage', access) ? awaiting : [],
+    // who asked to join: the organiser sees them all, a player only their own
+    requests: can('manage', access)
+      ? requestRows.map(
+          (r): PlayerView => ({
+            id: r.id,
+            name: r.name,
+            image: r.chessAvatar || r.image,
+            chessUsername: r.chessUsername,
+          }),
+        )
+      : ([] as PlayerView[]),
+    requested: requestRows.some((r) => r.id === viewerId),
     playerCount: players.size,
     join: canJoin(competition),
     members: details ? [...players.values()] : ([] as PlayerView[]),

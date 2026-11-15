@@ -11,6 +11,7 @@ import { ChampionBanner } from '#/components/champion-banner'
 import {
   DeleteCompetition,
   HandOver,
+  JoinRequests,
   LeaveButton,
   LeaveRuleChoice,
   MaxPlayersField,
@@ -126,8 +127,16 @@ function CompetitionPage() {
       {!isMember &&
         (join.ok ? (
           user ? (
-            competition.visibility === 'public' ? (
-              <JoinButton slug={competition.slug} label="Join" size="lg" />
+            data.requested ? (
+              <p className="rounded-2xl bg-card px-4 py-3 text-center text-sm text-muted-foreground shadow-card">
+                Request sent. Waiting for the organiser.
+              </p>
+            ) : competition.visibility === 'public' ? (
+              <JoinButton
+                slug={competition.slug}
+                label={competition.requireApproval ? 'Ask to join' : 'Join'}
+                size="lg"
+              />
             ) : (
               <p className="rounded-2xl bg-card px-4 py-3 text-center text-sm text-muted-foreground shadow-card">
                 Invite only. Ask the organiser for the code.
@@ -247,6 +256,7 @@ function OwnerPanel({ data }: { data: Data }) {
           points: competition.points,
           leaveRule: competition.leaveRule,
           maxPlayers: competition.maxPlayers,
+          requireApproval: competition.requireApproval,
           ...patch,
         },
       }),
@@ -316,6 +326,35 @@ function OwnerPanel({ data }: { data: Data }) {
           { value: 'private', label: 'Invite only' },
           { value: 'public', label: 'Anyone' },
         ]}
+      />
+
+      {competition.status !== 'finished' && (
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4 accent-primary"
+            checked={competition.requireApproval}
+            disabled={busy}
+            onChange={(event) =>
+              save({ requireApproval: event.target.checked })
+            }
+          />
+          <span>
+            <span className="block font-medium">Approve each player</span>
+            <span className="block text-xs text-muted-foreground">
+              Joining sends you a request instead of letting them straight in.
+            </span>
+          </span>
+        </label>
+      )}
+
+      <JoinRequests
+        slug={competition.slug}
+        requests={data.requests.map((r: PlayerView) => ({
+          id: r.id,
+          name: displayName(r),
+          image: r.image,
+        }))}
       />
 
       {league && competition.status !== 'finished' && (

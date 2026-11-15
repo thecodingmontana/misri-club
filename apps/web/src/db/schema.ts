@@ -234,6 +234,8 @@ export const competitions = pgTable('competitions', {
   visibility: competitionVisibility('visibility').notNull().default('private'),
   /** Leagues only: players may still join once it is running. */
   allowLateEntry: boolean('allow_late_entry').notNull().default(false),
+  /** Joining needs the organiser's yes (a request) instead of being instant. */
+  requireApproval: boolean('require_approval').notNull().default(false),
   /** Most players it takes; null = no limit. */
   maxPlayers: integer('max_players'),
   /** The organiser's rule for matches that expire unplayed. */
@@ -277,6 +279,21 @@ export const competitionMembers = pgTable(
     // "my competitions" looks members up by user
     index('competition_members_user_idx').on(t.userId),
   ],
+).enableRLS()
+
+/** Asked to join a competition that needs the organiser's approval. */
+export const competitionRequests = pgTable(
+  'competition_requests',
+  {
+    competitionId: varchar('competition_id', { length: 16 })
+      .notNull()
+      .references(() => competitions.id, { onDelete: 'cascade' }),
+    userId: varchar('user_id', { length: 16 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.competitionId, t.userId] })],
 ).enableRLS()
 
 /**

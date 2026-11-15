@@ -28,7 +28,8 @@ function Join() {
     event.preventDefault()
     setBusy(true)
     try {
-      const { slug } = await join({ data: { code } })
+      const { slug, pending } = await join({ data: { code } })
+      if (pending) toast.success('Request sent to the organiser')
       await navigate({ to: '/c/$slug', params: { slug } })
     } catch (error) {
       toast.error((error as Error).message)

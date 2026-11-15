@@ -25,6 +25,7 @@ import {
 import type { LeaveRule } from '#/lib/leave'
 import { toast } from '#/lib/toast'
 import {
+  answerRequestFn,
   deleteCompetitionFn,
   handOverCompetitionFn,
   leaveCompetitionFn,
@@ -400,5 +401,63 @@ export function RemovePlayer({
           .catch(fail("Couldn't remove them"))
       }
     />
+  )
+}
+
+/** Who asked to join, with the organiser's yes or no for each. */
+export function JoinRequests({
+  slug,
+  requests,
+}: {
+  slug: string
+  requests: Array<{ id: string; name: string; image: string | null }>
+}) {
+  const answer = useServerFn(answerRequestFn)
+  const router = useRouter()
+  const [busy, setBusy] = useState<string | null>(null)
+  if (requests.length === 0) return null
+
+  async function reply(userId: string, name: string, approve: boolean) {
+    setBusy(userId)
+    try {
+      await answer({ data: { slug, userId, approve } })
+      await router.invalidate()
+      toast.success(approve ? `${name} is in` : `Declined ${name}`)
+    } catch (error) {
+      fail("Couldn't answer that")(error)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm font-medium">Asking to join ({requests.length})</p>
+      {requests.map((r) => (
+        <div
+          key={r.id}
+          className="flex items-center justify-between gap-2 rounded-xl bg-background px-3 py-2"
+        >
+          <span className="min-w-0 truncate text-sm font-medium">{r.name}</span>
+          <div className="flex shrink-0 gap-1.5">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy === r.id}
+              onClick={() => reply(r.id, r.name, false)}
+            >
+              Decline
+            </Button>
+            <Button
+              size="sm"
+              disabled={busy === r.id}
+              onClick={() => reply(r.id, r.name, true)}
+            >
+              Approve
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }

@@ -93,6 +93,39 @@ export async function notifyLeft(competitionId: string, leaverId: string) {
   ])
 }
 
+/** Tells the organiser someone is waiting for their yes. */
+export async function notifyRequested(competitionId: string, userId: string) {
+  const competition = await competitionPush(competitionId)
+  if (!competition) return
+  await bestEffort([
+    {
+      userId: competition.ownerId,
+      title: `${await playerName(userId)} asked to join ${competition.name}`,
+      body: 'Approve or decline them on the competition page.',
+      url: `/c/${competition.slug}`,
+    },
+  ])
+}
+
+/** Tells a player whether the organiser let them in. */
+export async function notifyAnswered(
+  competitionId: string,
+  userId: string,
+  approved: boolean,
+) {
+  const competition = await competitionPush(competitionId)
+  if (!competition) return
+  await bestEffort([
+    {
+      userId,
+      title: approved
+        ? `You're in ${competition.name}`
+        : `${competition.name} declined your request`,
+      url: approved ? `/c/${competition.slug}` : '/',
+    },
+  ])
+}
+
 /** Tells a player the organiser took them out. */
 export async function notifyRemoved(competitionId: string, userId: string) {
   const competition = await competitionPush(competitionId)

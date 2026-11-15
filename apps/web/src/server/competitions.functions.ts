@@ -17,6 +17,7 @@ import {
   viewerId,
 } from './competitions.server'
 import {
+  answerRequest,
   deleteCompetition,
   handOverCompetition,
   leaveCompetition,
@@ -37,6 +38,7 @@ const scoring = {
   unplayedRule: z.enum(UNPLAYED_RULES).default('organiser'),
   leaveRule: z.enum(['award', 'void', 'keep']).default('award'),
   maxPlayers: maxPlayers.nullable().default(null),
+  requireApproval: z.boolean().default(false),
   points: z
     .object({ win: point, draw: point, loss: point, forfeit: point })
     .default(POINTS),
@@ -102,7 +104,7 @@ export const joinCompetitionFn = createServerFn({ method: 'POST' })
   .handler(async ({ context, data }) => {
     await requireChessAccount(context.user.id)
     await allow('competition-join', context.user.id)
-    return { slug: await joinCompetition(context.user.id, data) }
+    return joinCompetition(context.user.id, data)
   })
 
 export const getMyCompetitionsFn = createServerFn({ method: 'GET' })
@@ -145,6 +147,7 @@ export const updateCompetitionSettingsFn = createServerFn({ method: 'POST' })
       unplayedRule: z.enum(UNPLAYED_RULES),
       leaveRule: z.enum(['award', 'void', 'keep']),
       maxPlayers: maxPlayers.nullable(),
+      requireApproval: z.boolean(),
       points: scoring.points.unwrap(),
     }),
   )
@@ -242,3 +245,13 @@ export const newInviteCodeFn = createServerFn({ method: 'POST' })
   .handler(async ({ context, data }) => ({
     inviteCode: await newInviteCode(data.slug, context.viewer),
   }))
+
+export const answerRequestFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(
+    z.object({ slug, userId: z.string().min(1).max(16), approve: z.boolean() }),
+  )
+  .handler(async ({ context, data }) => {
+    await answerRequest(data.slug, context.viewer, data.userId, data.approve)
+    return { ok: true }
+  })
