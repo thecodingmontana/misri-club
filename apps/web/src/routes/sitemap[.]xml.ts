@@ -5,13 +5,15 @@ import { SITE_URL } from '#/lib/seo'
 
 /** Every indexable page. */
 const PAGES = [
-  '/',
+  '/welcome',
   '/train',
   '/train/puzzles',
   '/train/play',
   '/train/masters',
   '/train/brilliant',
   '/train/openings',
+  '/terms',
+  '/privacy',
   ...OPENINGS.map((course) => `/train/openings/${course.slug}`),
   ...MASTER_GAMES.map((game) => `/train/masters/${game.slug}`),
 ]

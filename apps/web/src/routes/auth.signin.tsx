@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { z } from 'zod'
 import { AuthShell, PasskeySignInButton, Spinner } from '#/components/auth'
@@ -103,6 +103,17 @@ function SignIn() {
           <PasskeySignInButton next={next} />
         </div>
       )}
+      <p className="text-center text-xs text-muted-foreground">
+        By continuing you agree to the{' '}
+        <Link to="/terms" className="underline underline-offset-4">
+          terms
+        </Link>{' '}
+        and{' '}
+        <Link to="/privacy" className="underline underline-offset-4">
+          privacy
+        </Link>{' '}
+        pages.
+      </p>
     </AuthShell>
   )
 }

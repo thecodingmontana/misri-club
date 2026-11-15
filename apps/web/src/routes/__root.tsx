@@ -83,7 +83,10 @@ function RootLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 
   // Sign-in screens and onboarding stand alone, like Zadaci's: no app chrome.
-  if (pathname.startsWith('/auth/') || pathname === '/onboarding') {
+  if (
+    pathname.startsWith('/auth/') ||
+    ['/onboarding', '/welcome', '/terms', '/privacy'].includes(pathname)
+  ) {
     return <Outlet />
   }
 

@@ -21,6 +21,8 @@ export const Route = createFileRoute('/_authed')({
       fresh && last.checked ? last.checked.session : await getSessionFn()
     if (inBrowser && !fresh) last.checked = { at: Date.now(), session }
     if (!session.user) {
+      // a visitor arriving at the front door gets the introduction first
+      if (location.pathname === '/') throw redirect({ to: '/welcome' })
       throw redirect({
         to: '/auth/signin',
         search: { redirect: location.href },
