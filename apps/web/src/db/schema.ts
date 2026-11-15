@@ -362,6 +362,25 @@ export const matches = pgTable(
   (t) => [index('matches_competition_round_idx').on(t.competitionId, t.round)],
 ).enableRLS()
 
+/** Everything we told someone, for the inbox; pushes are copies of these. */
+export const notifications = pgTable(
+  'notifications',
+  {
+    id: varchar('id', { length: 16 })
+      .primaryKey()
+      .$defaultFn(() => generateNanoId()),
+    userId: varchar('user_id', { length: 16 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    body: text('body'),
+    url: text('url').notNull(),
+    readAt: ts('read_at'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('notifications_user_created_idx').on(t.userId, t.createdAt)],
+).enableRLS()
+
 /** A browser or phone that turned on push; one row per device. */
 export const pushSubscriptions = pgTable(
   'push_subscriptions',

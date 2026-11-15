@@ -6,6 +6,7 @@ import {
   competitionMembers,
   competitions,
   matches,
+  notifications,
   user,
 } from '#/db/schema'
 import { reminderPushes } from '#/lib/reminders'
@@ -17,6 +18,20 @@ import { type PushMessage, sendPushes } from './push.server'
 const DAY = 24 * 60 * 60 * 1000
 
 async function bestEffort(messages: PushMessage[]) {
+  if (messages.length === 0) return
+  // the inbox keeps a copy, so people without push still see it
+  try {
+    await db.insert(notifications).values(
+      messages.map(({ userId, title, body, url }) => ({
+        userId,
+        title,
+        body: body ?? null,
+        url,
+      })),
+    )
+  } catch (error) {
+    console.error('[inbox] saving failed', (error as Error).message)
+  }
   try {
     await sendPushes(messages)
   } catch (error) {
