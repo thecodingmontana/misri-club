@@ -8,6 +8,12 @@ import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 import { Spinner } from '#/components/auth'
 import {
+  DeleteCompetition,
+  HandOver,
+  LeaveButton,
+  LeaveRuleChoice,
+} from '#/components/competition-actions'
+import {
   Choice,
   FORMAT_LABEL,
   FormatExplainer,
@@ -30,7 +36,11 @@ import {
   startCompetitionFn,
   updateCompetitionSettingsFn,
 } from '#/server/competitions.functions'
-import type { MatchView, StandingRow } from '#/server/competitions.server'
+import type {
+  MatchView,
+  PlayerView,
+  StandingRow,
+} from '#/server/competitions.server'
 
 /** A competition: public to read; the organiser manages it from here. */
 export const Route = createFileRoute('/c/$slug')({
@@ -159,6 +169,15 @@ function CompetitionPage() {
           Invite only. Players, fixtures and the table are for people in it.
         </p>
       )}
+
+      {isMember && !data.isOrganiser && (
+        <LeaveButton
+          slug={competition.slug}
+          started={competition.status !== 'open'}
+          format={competition.format}
+          leaveRule={competition.leaveRule}
+        />
+      )}
     </div>
   )
 }
@@ -195,6 +214,7 @@ function OwnerPanel({ data }: { data: Data }) {
           allowLateEntry: competition.allowLateEntry,
           unplayedRule: competition.unplayedRule,
           points: competition.points,
+          leaveRule: competition.leaveRule,
           ...patch,
         },
       }),
@@ -273,6 +293,13 @@ function OwnerPanel({ data }: { data: Data }) {
         />
       )}
 
+      {league && competition.status !== 'finished' && (
+        <LeaveRuleChoice
+          value={competition.leaveRule}
+          onChange={(leaveRule) => save({ leaveRule })}
+        />
+      )}
+
       {competition.status === 'open' && (
         <Button
           size="lg"
@@ -289,6 +316,16 @@ function OwnerPanel({ data }: { data: Data }) {
           {members.length < 2 ? 'Start (needs 2 players)' : 'Start'}
         </Button>
       )}
+
+      <div className="space-y-3 border-t border-border pt-4">
+        <HandOver
+          slug={competition.slug}
+          members={members
+            .filter((m: PlayerView) => m.id !== competition.ownerId)
+            .map((m: PlayerView) => ({ id: m.id, name: displayName(m) }))}
+        />
+        <DeleteCompetition slug={competition.slug} name={competition.name} />
+      </div>
     </section>
   )
 }

@@ -16,14 +16,16 @@ export type Action =
   /** players, fixtures, table */
   | 'viewDetails'
   | 'join'
-  /** settings, start, results decisions */
+  /** settings, start, results decisions, hand over, delete */
   | 'manage'
+  /** the organiser hands over first, so a competition always has one */
+  | 'leave'
   | 'seeInviteCode'
 
 const GRANTS: Record<CompetitionRole, ReadonlyArray<Action>> = {
   guest: ['view'],
   player: ['view', 'join'],
-  member: ['view', 'viewDetails'],
+  member: ['view', 'viewDetails', 'leave'],
   organiser: ['view', 'viewDetails', 'manage', 'seeInviteCode'],
 }
 
@@ -70,6 +72,7 @@ const REFUSAL: Record<Action, string> = {
   join: "You can't join this one.",
   manage: 'Only the organiser can do that.',
   seeInviteCode: 'Only the organiser can see the invite code.',
+  leave: 'Hand it over to another player before you leave.',
 }
 
 /** Throws the player-facing refusal unless `ctx` may do `action`. */

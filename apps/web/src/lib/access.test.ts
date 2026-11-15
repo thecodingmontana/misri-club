@@ -14,13 +14,14 @@ const ACTIONS: Action[] = [
   'join',
   'manage',
   'seeInviteCode',
+  'leave',
 ]
 
 /** The whole matrix, written out: what each role may do in a private competition. */
 const PRIVATE: Record<CompetitionRole, Action[]> = {
   guest: ['view'],
   player: ['view', 'join'],
-  member: ['view', 'viewDetails'],
+  member: ['view', 'viewDetails', 'leave'],
   organiser: ['view', 'viewDetails', 'manage', 'seeInviteCode'],
 }
 

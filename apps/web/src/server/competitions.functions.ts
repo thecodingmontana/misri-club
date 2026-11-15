@@ -5,9 +5,12 @@ import {
   checkCompetitionName,
   createCompetition,
   currentViewer,
+  deleteCompetition,
   getCompetition,
   getInvite,
+  handOverCompetition,
   joinCompetition,
+  leaveCompetition,
   listMyCompetitions,
   listOpenCompetitions,
   requireChessAccount,
@@ -25,6 +28,7 @@ const slug = z.string().trim().min(1).max(80)
 const point = z.number().int().min(-10).max(10)
 const scoring = {
   unplayedRule: z.enum(UNPLAYED_RULES).default('organiser'),
+  leaveRule: z.enum(['award', 'void', 'keep']).default('award'),
   points: z
     .object({ win: point, draw: point, loss: point, forfeit: point })
     .default(POINTS),
@@ -131,11 +135,36 @@ export const updateCompetitionSettingsFn = createServerFn({ method: 'POST' })
       visibility: z.enum(['public', 'private']),
       allowLateEntry: z.boolean(),
       unplayedRule: z.enum(UNPLAYED_RULES),
+      leaveRule: z.enum(['award', 'void', 'keep']),
       points: scoring.points.unwrap(),
     }),
   )
   .handler(async ({ context, data }) => {
     const { slug, ...settings } = data
     await updateCompetitionSettings(slug, context.viewer, settings)
+    return { ok: true }
+  })
+
+export const leaveCompetitionFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(z.object({ slug }))
+  .handler(async ({ context, data }) => {
+    await leaveCompetition(data.slug, context.viewer)
+    return { ok: true }
+  })
+
+export const handOverCompetitionFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(z.object({ slug, toUserId: z.string().min(1).max(16) }))
+  .handler(async ({ context, data }) => {
+    await handOverCompetition(data.slug, context.viewer, data.toUserId)
+    return { ok: true }
+  })
+
+export const deleteCompetitionFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(z.object({ slug, confirmName: z.string().max(80) }))
+  .handler(async ({ context, data }) => {
+    await deleteCompetition(data.slug, context.viewer, data.confirmName)
     return { ok: true }
   })

@@ -54,6 +54,74 @@ export async function notifyStarted(competitionId: string) {
   )
 }
 
+async function competitionPush(competitionId: string) {
+  const [row] = await db
+    .select({
+      ownerId: competitions.ownerId,
+      name: competitions.name,
+      slug: competitions.slug,
+    })
+    .from(competitions)
+    .where(eq(competitions.id, competitionId))
+    .limit(1)
+  return row
+}
+
+async function playerName(userId: string) {
+  const [row] = await db
+    .select({
+      name: sql<string>`coalesce(${chessAccounts.username}, ${user.name})`,
+    })
+    .from(user)
+    .leftJoin(chessAccounts, eq(chessAccounts.userId, user.id))
+    .where(eq(user.id, userId))
+    .limit(1)
+  return row?.name ?? 'A player'
+}
+
+/** Tells the organiser a player left (after the start, with games settled). */
+export async function notifyLeft(competitionId: string, leaverId: string) {
+  const competition = await competitionPush(competitionId)
+  if (!competition) return
+  await bestEffort([
+    {
+      userId: competition.ownerId,
+      title: `${await playerName(leaverId)} left ${competition.name}`,
+      body: 'Their games were settled by your leave rule.',
+      url: `/c/${competition.slug}`,
+    },
+  ])
+}
+
+/** Tells the new organiser it's theirs now. */
+export async function notifyHandedOver(
+  competitionId: string,
+  toUserId: string,
+) {
+  const competition = await competitionPush(competitionId)
+  if (!competition) return
+  await bestEffort([
+    {
+      userId: toUserId,
+      title: `You now run ${competition.name}`,
+      body: 'The organiser handed it over to you.',
+      url: `/c/${competition.slug}`,
+    },
+  ])
+}
+
+/** Tells the members their competition is gone. */
+export async function notifyDeleted(name: string, memberIds: string[]) {
+  await bestEffort(
+    memberIds.map((userId) => ({
+      userId,
+      title: `${name} was deleted`,
+      body: 'The organiser deleted this competition.',
+      url: '/',
+    })),
+  )
+}
+
 /** Tells the organiser who joined. */
 export async function notifyJoined(competitionId: string, joinerId: string) {
   const [row] = await db

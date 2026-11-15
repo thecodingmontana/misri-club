@@ -4,12 +4,14 @@ import { useServerFn } from '@tanstack/react-start'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { Spinner } from '#/components/auth'
+import { LeaveRuleChoice } from '#/components/competition-actions'
 import { Choice, FORMAT_INFO, FormatExplainer } from '#/components/competitions'
 import { Check, MagicWand } from '#/components/icons'
 import { ScoringRules } from '#/components/scoring-rules'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { normalizeName } from '#/lib/competition-names'
+import type { LeaveRule } from '#/lib/leave'
 import { seo } from '#/lib/seo'
 import { toast } from '#/lib/toast'
 import {
@@ -95,6 +97,7 @@ function NewCompetition() {
   const [legs, setLegs] = useState<1 | 2>(1)
   const [matchdayDays, setMatchdayDays] = useState(2)
   const [visibility, setVisibility] = useState<'private' | 'public'>('private')
+  const [leaveRule, setLeaveRule] = useState<LeaveRule>('award')
   const [scoring, setScoring] = useState<{
     unplayedRule: UnplayedRule
     points: Points
@@ -116,7 +119,7 @@ function NewCompetition() {
           matchdayDays,
           visibility,
           allowLateEntry: league && allowLateEntry,
-          ...(league ? scoring : {}),
+          ...(league ? { ...scoring, leaveRule } : {}),
         },
       })
       await navigate({ to: '/c/$slug', params: { slug } })
@@ -269,6 +272,10 @@ function NewCompetition() {
           points={scoring.points}
           onChange={setScoring}
         />
+
+        {league && (
+          <LeaveRuleChoice value={leaveRule} onChange={setLeaveRule} />
+        )}
 
         <Button
           type="submit"

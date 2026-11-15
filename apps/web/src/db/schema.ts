@@ -212,6 +212,8 @@ export const unplayedRule = pgEnum('unplayed_rule', [
   'both_forfeit',
   'void',
 ])
+/** What happens to a league player's games when they leave after the start. */
+export const leaveRule = pgEnum('leave_rule', ['award', 'void', 'keep'])
 export const matchResult = pgEnum('match_result', ['white', 'black', 'draw'])
 
 export const competitions = pgTable('competitions', {
@@ -234,6 +236,8 @@ export const competitions = pgTable('competitions', {
   allowLateEntry: boolean('allow_late_entry').notNull().default(false),
   /** The organiser's rule for matches that expire unplayed. */
   unplayedRule: unplayedRule('unplayed_rule').notNull().default('organiser'),
+  /** Leagues: award / void / keep a leaver's games (see lib/leave). */
+  leaveRule: leaveRule('leave_rule').notNull().default('award'),
   /** Leagues: what a win, draw, loss and forfeit are worth. */
   points: jsonb('points')
     .$type<{ win: number; draw: number; loss: number; forfeit: number }>()
@@ -263,6 +267,24 @@ export const competitionMembers = pgTable(
     // "my competitions" looks members up by user
     index('competition_members_user_idx').on(t.userId),
   ],
+).enableRLS()
+
+/**
+ * Who left after the start. Leaving settles their games, so they can't come
+ * back; leaving before the start leaves no record.
+ */
+export const competitionLeavers = pgTable(
+  'competition_leavers',
+  {
+    competitionId: varchar('competition_id', { length: 16 })
+      .notNull()
+      .references(() => competitions.id, { onDelete: 'cascade' }),
+    userId: varchar('user_id', { length: 16 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    leftAt: ts('left_at').defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.competitionId, t.userId] })],
 ).enableRLS()
 
 export const matches = pgTable(
