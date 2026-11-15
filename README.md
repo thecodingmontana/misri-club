@@ -31,13 +31,13 @@ links are printed in the terminal instead of emailed.
 | `DATABASE_URL` | Postgres for the app — Supabase's **transaction** pooler (port 6543). |
 | `DIRECT_DATABASE_URL` | Postgres for migrations — the **session** pooler (port 5432). Falls back to `DATABASE_URL`. |
 | `BETTER_AUTH_SECRET` | Signs sessions. `openssl rand -base64 32`; changing it signs everyone out. |
-| `BETTER_AUTH_URL` | The site's address, e.g. `https://mini-chess-club.vercel.app`. |
+| `BETTER_AUTH_URL` | The site's address, e.g. `https://misri-chess-club.vercel.app`. |
 | `ADMIN_EMAILS` | Comma-separated emails of club admins (verified accounts only). |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | "Continue with Google". The button is hidden without them. Redirect URI: `<site>/api/auth/callback/google`. |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Sends sign-in links, from e.g. `Misri <noreply@your-domain>` (a domain verified in Resend). |
 | `CHESSCOM_CLUB_ID` | chess.com club slug. Default `misri`. |
 | `CHESSCOM_USER_AGENT` | User-Agent sent to chess.com. Defaults to one with contact details. |
-| `VITE_SITE_URL` | The public site address, e.g. `https://mini-chess-club.vercel.app`. Used for canonical links and share images; set it at build time. |
+| `VITE_SITE_URL` | The public site address, e.g. `https://misri-chess-club.vercel.app`. Used for canonical links and share images; set it at build time. |
 
 ## Scripts
 

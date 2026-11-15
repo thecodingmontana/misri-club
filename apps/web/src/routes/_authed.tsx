@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { last } from '#/lib/session-cache'
 import { getSessionFn } from '#/server/auth.functions'
 
 // The browser reuses the session it checked for up to five minutes while you
@@ -6,13 +7,6 @@ import { getSessionFn } from '#/server/auth.functions'
 // on a server round trip. Full page loads always check, and every server
 // function verifies the session again.
 const REUSE_MS = 5 * 60_000
-
-type Session = Awaited<ReturnType<typeof getSessionFn>>
-
-// an object, not a reassigned variable: the route component is code-split
-const last: { checked: { at: number; session: Session } | null } = {
-  checked: null,
-}
 
 /** Every page under `_authed.*` needs a signed-in account. */
 export const Route = createFileRoute('/_authed')({

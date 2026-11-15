@@ -22,6 +22,7 @@ import { Input } from '#/components/ui/input'
 import { authClient, passkeyCancelled } from '#/lib/auth-client'
 import { formatDate } from '#/lib/format'
 import { seo } from '#/lib/seo'
+import { forgetSession } from '#/lib/session-cache'
 import { toast } from '#/lib/toast'
 import { useAdmin } from '#/lib/use-admin'
 
@@ -110,9 +111,18 @@ function AccountPage() {
           variant="outline"
           className="w-full"
           onClick={async () => {
-            await authClient.signOut()
+            try {
+              await unwrap(authClient.signOut())
+            } catch (error) {
+              // still signed in: say so rather than pretend
+              toast.error("Couldn't sign out", {
+                desc: (error as Error).message,
+              })
+              return
+            }
+            forgetSession()
             await router.invalidate()
-            await navigate({ to: '/' })
+            await navigate({ to: '/auth/signin' })
             toast.success('Signed out')
           }}
         >
@@ -134,8 +144,9 @@ function DeleteAccount() {
   async function remove() {
     try {
       await unwrap(authClient.deleteUser({ callbackURL: '/' }))
+      forgetSession()
       await router.invalidate()
-      await navigate({ to: '/' })
+      await navigate({ to: '/auth/signin' })
       toast.success('Your account was deleted')
     } catch (error) {
       toast.error("Couldn't delete your account", {

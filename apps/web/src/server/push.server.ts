@@ -14,7 +14,7 @@ const ready = Boolean(publicKey && privateKey)
 /** Push services want a contact: the sender address, or the site itself. */
 function contact() {
   const address = process.env.EMAIL_FROM?.match(/[^\s<>]+@[^\s<>]+/)?.[0]
-  return address ? `mailto:${address}` : 'https://mini-chess-club.vercel.app'
+  return address ? `mailto:${address}` : 'https://misri-chess-club.vercel.app'
 }
 
 if (ready) webpush.setVapidDetails(contact(), publicKey ?? '', privateKey ?? '')
