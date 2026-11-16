@@ -42,6 +42,9 @@ links are printed in the terminal instead of emailed.
 ## Scripts
 
 - `pnpm test` — unit tests (`node --test`, no database needed)
+- `pnpm --filter @misri/web test:db` — whole flows (knockout, leaving,
+  seeding, early rounds, time controls) against the local Docker database;
+  refuses any non-local `DATABASE_URL`
 - `pnpm typecheck`, `pnpm check` — TypeScript and Biome
 - `pnpm db:generate` — new migration after editing `src/db/schema.ts`
 - `pnpm db:migrate` — apply migrations (Vercel runs this on production builds)

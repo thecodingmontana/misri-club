@@ -90,6 +90,23 @@ async function depart(tx: Tx, competition: Competition, userId: string) {
   return true
 }
 
+/**
+ * The departure is already saved: moving the competition on and telling people
+ * must not turn it into an error the player would retry.
+ */
+async function afterDeparture(
+  startedId: string | null,
+  notify: () => Promise<void>,
+) {
+  try {
+    // the walkovers may finish a round or the whole competition
+    if (startedId) await advance(startedId)
+    await notify()
+  } catch (error) {
+    console.error('[membership] after leaving failed', (error as Error).message)
+  }
+}
+
 async function isMember(tx: Tx, competitionId: string, userId: string) {
   const [row] = await tx
     .select({ userId: competitionMembers.userId })
@@ -119,10 +136,7 @@ export async function leaveCompetition(slug: string, viewer: Viewer) {
     })
     return (await depart(tx, competition, viewer.id)) ? competition.id : null
   })
-  if (left) {
-    await advance(left)
-    await notifyLeft(left, viewer.id)
-  }
+  if (left) await afterDeparture(left, () => notifyLeft(left, viewer.id))
 }
 
 /** The organiser takes a player out, under the same rules as leaving. */
@@ -144,9 +158,10 @@ export async function removePlayer(
     const started = await depart(tx, competition, userId)
     return { id: competition.id, started }
   })
-  // the walkovers may finish a round or the whole competition
-  if (removed.started) await advance(removed.id)
-  await notifyRemoved(removed.id, userId)
+  await afterDeparture(
+    removed.started ? removed.id : null,
+    () => notifyRemoved(removed.id, userId),
+  )
 }
 
 /** The organiser lets a requester in (with every normal join check) or not. */

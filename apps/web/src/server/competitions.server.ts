@@ -538,6 +538,14 @@ export async function seedCompetition(
   viewer: Viewer,
   order: string[] | 'rating',
 ) {
+  // the organiser check first: rating seeding asks chess.com about every player
+  const [target] = await db
+    .select()
+    .from(competitions)
+    .where(eq(competitions.slug, slug))
+    .limit(1)
+  if (!target) throw new Error('Not found.')
+  authorizeManage(viewer, target)
   let wanted = order
   if (wanted === 'rating') {
     const rows = await db
