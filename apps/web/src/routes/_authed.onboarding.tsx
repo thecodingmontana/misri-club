@@ -10,7 +10,7 @@ import { AuthShell, Spinner } from '#/components/auth'
 import { ChessAccount } from '#/components/chess-account'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
-import { authClient, safePath } from '#/lib/auth-client'
+import { authClient, safePath, takeNext } from '#/lib/auth-client'
 import { seo } from '#/lib/seo'
 import { toast } from '#/lib/toast'
 
@@ -61,7 +61,7 @@ function Onboarding() {
 
   async function finish() {
     await router.invalidate()
-    await navigate({ href: safePath(wanted) ?? '/start' })
+    await navigate({ href: safePath(wanted) ?? takeNext() ?? '/start' })
   }
 
   return (

@@ -9,7 +9,7 @@ import { z } from 'zod'
 import { AuthShell, PasskeySignInButton, Spinner } from '#/components/auth'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
-import { authClient } from '#/lib/auth-client'
+import { authClient, takeNext } from '#/lib/auth-client'
 import { seo } from '#/lib/seo'
 import { toast } from '#/lib/toast'
 import { getSessionFn } from '#/server/auth.functions'
@@ -53,7 +53,7 @@ function VerifyTwoFactor() {
           })
     if (!error) {
       await router.invalidate()
-      await navigate({ to: '/' })
+      await navigate({ href: takeNext() ?? '/' })
       return
     }
     setVerifying(false)

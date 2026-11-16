@@ -1,4 +1,9 @@
-import { createFileRoute, Link, notFound } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Link,
+  notFound,
+  redirect,
+} from '@tanstack/react-router'
 import {
   FORMAT_INFO,
   FORMAT_LABEL,
@@ -10,11 +15,24 @@ import { Trophy } from '#/components/icons'
 import { scoringSummary } from '#/components/scoring-rules'
 import { Button } from '#/components/ui/button'
 import { seo } from '#/lib/seo'
-import { useAdmin } from '#/lib/use-admin'
+import { getSessionFn } from '#/server/auth.functions'
 import { getInviteFn } from '#/server/competitions.functions'
 
 /** An invite link: shows what you're joining; signed-out visitors sign in first. */
 export const Route = createFileRoute('/join/$code')({
+  // Like Zadaci: sign in (or finish onboarding) first, then land back here.
+  beforeLoad: async ({ location }) => {
+    const { user } = await getSessionFn()
+    if (!user) {
+      throw redirect({
+        to: '/auth/signin',
+        search: { redirect: location.href },
+      })
+    }
+    if (!user.chessUsername) {
+      throw redirect({ to: '/onboarding', search: { redirect: location.href } })
+    }
+  },
   loader: async ({ params }) => {
     const invite = await getInviteFn({ data: { code: params.code } })
     if (!invite) throw notFound()
@@ -32,8 +50,6 @@ export const Route = createFileRoute('/join/$code')({
 function Invite() {
   const invite = Route.useLoaderData()
   const { code } = Route.useParams()
-  const { user } = useAdmin()
-  const here = `/join/${code}`
   const players = invite.maxPlayers
     ? `${invite.members} of ${invite.maxPlayers}`
     : String(invite.members)
@@ -110,34 +126,20 @@ function Invite() {
           </>
         ) : (
           <div className="flex flex-col gap-2 sm:flex-row-reverse">
-            {!user ? (
-              <Button asChild size="lg" className="w-full rounded-xl sm:flex-1">
-                <Link to="/auth/signin" search={{ redirect: here }}>
-                  Sign in to join
-                </Link>
-              </Button>
-            ) : !user.chessUsername ? (
-              <Button asChild size="lg" className="w-full rounded-xl sm:flex-1">
-                <Link to="/onboarding" search={{ redirect: here }}>
-                  Link your chess.com account to join
-                </Link>
-              </Button>
-            ) : (
-              <div className="sm:flex-1">
-                <JoinButton
-                  code={code}
-                  label={invite.requireApproval ? 'Ask to join' : 'Join'}
-                  size="lg"
-                />
-              </div>
-            )}
+            <div className="sm:flex-1">
+              <JoinButton
+                code={code}
+                label={invite.requireApproval ? 'Ask to join' : 'Join'}
+                size="lg"
+              />
+            </div>
             <Button
               asChild
               variant="ghost"
               size="lg"
               className="w-full rounded-xl sm:flex-1"
             >
-              <Link to={user ? '/' : '/welcome'}>Decline</Link>
+              <Link to="/">Decline</Link>
             </Button>
           </div>
         )}

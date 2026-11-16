@@ -6,7 +6,7 @@ import { GoogleLogo } from '#/components/google-logo'
 import { Mail, MailOpen } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
-import { authClient, safePath } from '#/lib/auth-client'
+import { authClient, rememberNext, safePath } from '#/lib/auth-client'
 import { seo } from '#/lib/seo'
 import { toast } from '#/lib/toast'
 import { useAdmin } from '#/lib/use-admin'
@@ -43,6 +43,9 @@ function SignIn() {
   const { error, redirect: wanted } = Route.useSearch()
   const { googleEnabled } = useAdmin()
   const next = safePath(wanted) ?? '/'
+  const invited = next.startsWith('/join/')
+  // keep the destination past detours the URL can't carry (two-step, Google)
+  useEffect(() => rememberNext(next), [next])
   const [redirecting, setRedirecting] = useState(false)
   const [withEmail, setWithEmail] = useState(false)
 
@@ -71,8 +74,12 @@ function SignIn() {
 
   return (
     <AuthShell
-      title="Sign in to Misri"
-      description="New here? Your account is made the first time you sign in."
+      title={invited ? 'Sign in to see your invite' : 'Sign in to Misri'}
+      description={
+        invited
+          ? "New here? You'll set up your account in a minute, then come straight back to the invite."
+          : 'New here? Your account is made the first time you sign in.'
+      }
     >
       {withEmail ? (
         <MagicLinkForm next={next} onBack={() => setWithEmail(false)} />
