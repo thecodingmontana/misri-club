@@ -26,7 +26,7 @@ import {
   renameCompetition,
 } from './membership.server'
 import { takeAllowance } from './rate-limit.server'
-import { decideMatch } from './results.server'
+import { decideMatch, syncForPlayer } from './results.server'
 import { POINTS, UNPLAYED_RULES } from './standings'
 
 const MINUTE = 60 * 1000
@@ -255,3 +255,10 @@ export const answerRequestFn = createServerFn({ method: 'POST' })
     await answerRequest(data.slug, context.viewer, data.userId, data.approve)
     return { ok: true }
   })
+
+/** Background refresh from any page: new chess.com results for my competitions. */
+export const syncMineFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .handler(async ({ context }) => ({
+    changed: await syncForPlayer(context.user.id),
+  }))

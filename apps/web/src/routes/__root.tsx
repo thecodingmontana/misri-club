@@ -19,6 +19,7 @@ import { DataTips, TooltipProvider } from '#/components/ui/tooltip'
 import { startPwa } from '#/lib/pwa'
 import { CLUB_URL, HOME_DESCRIPTION, SITE_NAME, SITE_URL, seo } from '#/lib/seo'
 import { useInterfaceSounds } from '#/lib/sound'
+import { useAutoSync } from '#/lib/use-auto-sync'
 import { getSessionFn } from '#/server/auth.functions'
 import TanStackQueryDevtools from '../integrations/tanstack-query/devtools'
 import appCss from '../styles.css?url'
@@ -80,6 +81,8 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
 function RootLayout() {
   useInterfaceSounds()
   const { sidebarOpen, user } = Route.useLoaderData().auth
+  // fresh chess.com results on every page, for players in a competition
+  useAutoSync(Boolean(user?.chessUsername))
   const pathname = useRouterState({ select: (s) => s.location.pathname })
 
   // Sign-in screens and onboarding stand alone, like Zadaci's: no app chrome.

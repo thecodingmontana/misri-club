@@ -34,6 +34,7 @@ function winnerOf(
 /**
  * Reads chess.com for every open match of a running competition, at most once
  * per five minutes (the claim on synced_at makes concurrent views share one).
+ * Returns how many results it wrote.
  */
 export async function syncResults(competitionId: string, now = new Date()) {
   const [claimed] = await db
@@ -50,7 +51,7 @@ export async function syncResults(competitionId: string, now = new Date()) {
       ),
     )
     .returning({ format: competitions.format })
-  if (!claimed) return
+  if (!claimed) return 0
 
   const open = await db
     .select({
@@ -89,6 +90,7 @@ export async function syncResults(competitionId: string, now = new Date()) {
     return games
   }
 
+  let changed = 0
   for (const m of open) {
     if (!m.home || !m.away || !m.homeUserId || !m.awayUserId) continue
     const { home, away, homeUserId, awayUserId } = m
@@ -107,7 +109,7 @@ export async function syncResults(competitionId: string, now = new Date()) {
     if (!found) continue
     const whiteUserId = found.homeWasWhite ? homeUserId : awayUserId
     const blackUserId = found.homeWasWhite ? awayUserId : homeUserId
-    await db
+    const written = await db
       .update(matches)
       .set({
         result: found.result,
@@ -128,8 +130,11 @@ export async function syncResults(competitionId: string, now = new Date()) {
           isNull(matches.winnerUserId),
         ),
       )
+      .returning({ id: matches.id })
+    changed += written.length
   }
   await advance(competitionId, now)
+  return changed
 }
 
 /**
@@ -333,4 +338,30 @@ export async function decideMatch(
     return competition.id
   })
   await advance(competitionId)
+}
+
+/**
+ * Syncs every running competition the player is in, for the app's background
+ * refresh. Each competition still syncs at most once per five minutes.
+ */
+export async function syncForPlayer(userId: string) {
+  const running = await db
+    .select({ id: competitions.id })
+    .from(competitions)
+    .innerJoin(
+      competitionMembers,
+      and(
+        eq(competitionMembers.competitionId, competitions.id),
+        eq(competitionMembers.userId, userId),
+      ),
+    )
+    .where(eq(competitions.status, 'running'))
+  let changed = 0
+  for (const { id } of running) {
+    changed += await syncResults(id).catch((error) => {
+      console.error('[results] sync failed', id, (error as Error).message)
+      return 0
+    })
+  }
+  return changed
 }
