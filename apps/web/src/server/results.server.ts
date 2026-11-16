@@ -9,6 +9,7 @@ import {
 } from '#/db/schema'
 import { authorize, roleOf, type Viewer } from '#/lib/access'
 import { knockoutStep, leagueComplete } from '#/lib/competition-progress'
+import { type Decision, decisionFields, winnerOf } from '#/lib/decisions'
 import { archiveMonths, findMatchResult } from '#/lib/game-result'
 import { fetchMonthGames } from './chesscom.server'
 import { notifyFinished } from './notifications.server'
@@ -21,16 +22,6 @@ const DAY = 24 * 60 * 60 * 1000
 const SYNC_EVERY_MS = 5 * 60 * 1000
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
-
-/** Who won a decided result, given who had white. */
-function winnerOf(
-  result: 'white' | 'black' | 'draw',
-  whiteUserId: string,
-  blackUserId: string,
-) {
-  if (result === 'draw') return null
-  return result === 'white' ? whiteUserId : blackUserId
-}
 
 /**
  * Reads chess.com for every open match of a running competition, at most once
@@ -218,65 +209,6 @@ async function finish(
     .set({ status: 'finished', finishedAt: now, championUserId: championId })
     .where(eq(competitions.id, competitionId))
   return championId
-}
-
-export type Decision =
-  | { kind: 'result'; result: 'white' | 'black' | 'draw'; homeWhite: boolean }
-  | { kind: 'walkover'; winnerUserId: string }
-  | { kind: 'void' }
-  | { kind: 'extend'; days: number }
-  | { kind: 'reopen' }
-
-const CLEARED = {
-  result: null,
-  winnerUserId: null,
-  voided: false,
-  whiteUserId: null,
-}
-
-/** What a decision writes to the match row (throws when it isn't allowed). */
-function decisionFields(
-  decision: Decision,
-  match: typeof matches.$inferSelect & {
-    homeUserId: string
-    awayUserId: string
-  },
-  knockout: boolean,
-): Partial<typeof matches.$inferInsert> {
-  const { homeUserId, awayUserId } = match
-  switch (decision.kind) {
-    case 'result': {
-      if (knockout && decision.result === 'draw') {
-        throw new Error('A tournament tie needs a winner: award a walkover.')
-      }
-      const whiteUserId = decision.homeWhite ? homeUserId : awayUserId
-      const blackUserId = decision.homeWhite ? awayUserId : homeUserId
-      return {
-        ...CLEARED,
-        result: decision.result,
-        whiteUserId,
-        winnerUserId: knockout
-          ? winnerOf(decision.result, whiteUserId, blackUserId)
-          : null,
-      }
-    }
-    case 'walkover':
-      if (![homeUserId, awayUserId].includes(decision.winnerUserId)) {
-        throw new Error('The walkover goes to one of the two players.')
-      }
-      return { ...CLEARED, winnerUserId: decision.winnerUserId }
-    case 'void':
-      if (knockout) {
-        throw new Error('Someone has to go through: award a walkover instead.')
-      }
-      return { ...CLEARED, voided: true }
-    case 'extend': {
-      const from = Math.max(match.dueAt.getTime(), Date.now())
-      return { dueAt: new Date(from + decision.days * DAY), remindedAt: null }
-    }
-    case 'reopen':
-      return { ...CLEARED, gameUrl: null, endedAt: null }
-  }
 }
 
 /**
