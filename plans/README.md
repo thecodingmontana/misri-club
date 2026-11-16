@@ -13,7 +13,7 @@ row when done.
 | [002](002-patch-seroval.md) | Patch the seroval injection advisories in the SSR serializer | P1 | S | — | DONE |
 | [003](003-chesscom-timeouts.md) | Stop one slow chess.com call from stalling every chess.com request | P1 | S | — | DONE (edd1676: 10s timeout, capped retry wait) |
 | [004](004-safe-migrations.md) | Make production migrations fail safe | P1 | S | — (merges with 001's `vercel-build` line) | DONE |
-| [005](005-test-harness.md) | Make server code testable (module resolution + local DB test lane) | P1 | S | — | DONE in part (bad08a9: decision rules unit-tested; a DB test lane is still open) |
+| [005](005-test-harness.md) | Make server code testable (module resolution + local DB test lane) | P1 | S | — | DONE (bad08a9 unit tests; 6bcf832 `test:db` lane) |
 | [006](006-session-caching.md) | Stop looking up the session on every page change and link hover | P2 | S | — | DONE (5-minute reuse in `routes/_authed.tsx` + `lib/session-cache.ts`) |
 | [007](007-sync-error-messages.md) | Stop public sync from showing raw internal error text | P2 | S | — | REJECTED (sync.server.ts removed in the competitions rebuild) |
 | [008](008-admin-guard-tests.md) | Test the admin check; fail if a mutation ships without auth | P1 | S | — | REJECTED (superseded by `lib/access.ts` + its tests) |
@@ -28,6 +28,12 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 #1 → 68890a6 · #2, #6, #10, #11 → 50a5410 · #3, #5, #7, #8 → edd1676 ·
 #4, #12, #13 → 0b16148 · #9 → bad08a9 · #14 → f6dd7e3. Plans 003 and 005 are
 covered by these (timeouts; results rules now unit-tested in `lib/decisions.ts`).
+
+## Quick audit 2026-11-16 (commit `090001f`, changes since `3c1824e`): shipped
+
+Rating seeding checked the organiser too late; leave/remove could error after
+saving; flows were untested in-repo → all fixed in 6bcf832 (adds `pnpm test:db`,
+which also covers plan 005's DB lane). Not audited: performance, deps, docs, UI.
 
 Direction options: "New season" from a finished competition (M); notify round-opened / result recorded (S); share-result card + per-competition OG image (M); player profile / trophy cabinet (M).
 
