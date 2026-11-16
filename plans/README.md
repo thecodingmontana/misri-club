@@ -11,9 +11,9 @@ row when done.
 |------|-------|----------|--------|------------|--------|
 | [001](001-ci-gate.md) | Block broken code from reaching production (CI + checked Vercel build) | P1 | S | — | DONE |
 | [002](002-patch-seroval.md) | Patch the seroval injection advisories in the SSR serializer | P1 | S | — | DONE |
-| [003](003-chesscom-timeouts.md) | Stop one slow chess.com call from stalling every chess.com request | P1 | S | — | STALE (cites deleted sync/league modules; re-plan against `chesscom.server.ts`/`results.server.ts`, audit 2026-11-16 #3) |
+| [003](003-chesscom-timeouts.md) | Stop one slow chess.com call from stalling every chess.com request | P1 | S | — | DONE (edd1676: 10s timeout, capped retry wait) |
 | [004](004-safe-migrations.md) | Make production migrations fail safe | P1 | S | — (merges with 001's `vercel-build` line) | DONE |
-| [005](005-test-harness.md) | Make server code testable (module resolution + local DB test lane) | P1 | S | — | STALE (still needed; re-target at `results.server.ts`, audit #9) |
+| [005](005-test-harness.md) | Make server code testable (module resolution + local DB test lane) | P1 | S | — | DONE in part (bad08a9: decision rules unit-tested; a DB test lane is still open) |
 | [006](006-session-caching.md) | Stop looking up the session on every page change and link hover | P2 | S | — | DONE (5-minute reuse in `routes/_authed.tsx` + `lib/session-cache.ts`) |
 | [007](007-sync-error-messages.md) | Stop public sync from showing raw internal error text | P2 | S | — | REJECTED (sync.server.ts removed in the competitions rebuild) |
 | [008](008-admin-guard-tests.md) | Test the admin check; fail if a mutation ships without auth | P1 | S | — | REJECTED (superseded by `lib/access.ts` + its tests) |
@@ -23,23 +23,11 @@ row when done.
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
 
-## Audit 2026-11-16 (commit `3c1824e`) — vetted, not yet planned
+## Audit 2026-11-16 (commit `3c1824e`): all 14 findings shipped
 
-Ranked; each confirmed against the code. Plan 011 covers #1.
-
-2. Leave/remove after a competition **finished** still settles matches (`membership.server.ts:49`, `lib/leave.ts:38`) — bug, S.
-3. chess.com fetch has no timeout; `retry-after` sleep uncapped (`chesscom.server.ts:52,66`) — reliability, S. (Replaces stale 003.)
-4. Private competitions return settings + user ids to outsiders (`competitions.server.ts:865-890`) — security, S.
-5. Avatar backfill re-fetches chess.com on every anonymous view when a lookup fails (`competitions.server.ts:756-771`) — reliability, S.
-6. Leave/remove never calls `advance` (`membership.server.ts`) — bug, S.
-7. Reminders ignore `matches.voided` and competition status (`notifications.server.ts:248-261`) — bug, S.
-8. Cron syncs sequentially before reminders (`routes/api/cron/deadlines.ts`) — reliability, S.
-9. `winnerOf`/`decisionFields` untestable inside `results.server.ts` (`:25-32,232-274`) — tests, S–M. Do before 10 and 14.
-10. Departed knockout winner paired into the next round (`competition-progress.ts:59`) — bug, M.
-11. `advance` reads all `chess_accounts` under a row lock (`results.server.ts:189`) — perf, S.
-12. `@faker-js/faker` in the server bundle (`competitions.server.ts:1,150`) — deps, S.
-13. README sync section describes deleted `sync.server.ts`; `.env.example` lacks `CRON_SECRET`, lists unused Cloudinary keys — docs, S.
-14. `competitions.server.ts` 915 lines, most-churned — tech debt, M (after 9).
+#1 → 68890a6 · #2, #6, #10, #11 → 50a5410 · #3, #5, #7, #8 → edd1676 ·
+#4, #12, #13 → 0b16148 · #9 → bad08a9 · #14 → f6dd7e3. Plans 003 and 005 are
+covered by these (timeouts; results rules now unit-tested in `lib/decisions.ts`).
 
 Direction options: "New season" from a finished competition (M); notify round-opened / result recorded (S); share-result card + per-competition OG image (M); player profile / trophy cabinet (M).
 
