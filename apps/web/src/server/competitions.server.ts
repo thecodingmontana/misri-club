@@ -1,4 +1,5 @@
-import { faker } from '@faker-js/faker'
+// English only: the root import ships every locale in the server bundle
+import { faker } from '@faker-js/faker/locale/en'
 import { getRequestHeaders } from '@tanstack/react-start/server'
 import { and, asc, count, eq, inArray, max, or, sql } from 'drizzle-orm'
 import { db } from '#/db/client.server'
@@ -884,8 +885,9 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       maxPlayers: competition.maxPlayers,
       requireApproval: competition.requireApproval,
       finishedAt: competition.finishedAt?.getTime() ?? null,
-      championId: competition.championUserId,
-      ownerId: competition.ownerId,
+      // user ids stay with the people who can see the players
+      championId: details ? competition.championUserId : null,
+      ownerId: details ? competition.ownerId : '',
       startedAt: competition.startedAt?.getTime() ?? null,
       inviteCode: can('seeInviteCode', access) ? competition.inviteCode : null,
     },

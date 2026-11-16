@@ -52,21 +52,28 @@ links are printed in the terminal instead of emailed.
 
 ## How it works
 
-- **Sync** (`src/server/sync.server.ts`): open pages ask the server every few
-  minutes and sync at most once per 10 minutes across all instances; the Sync
-  button can sync once a minute. It reads
-  each active member's last two monthly archives, stores league games, links
-  them to fixtures, and rebuilds standings.
-- **Roster**: the club is private, so chess.com won't list its members. The
-  roster comes from `src/server/club-roster.ts` plus the admin roster panel.
-- **Scoring** (`src/server/standings.ts`): win 3, draw 1, loss 0. A fixture
-  that expires unplayed costs both players a point, unless one has left the
-  club or an admin awards a walkover.
+- **Competitions** (`src/server/competitions.server.ts`,
+  `membership.server.ts`): anyone creates a league (round robin, one or two
+  legs) or a knockout, shares the invite link, and starts it. The organiser
+  picks the scoring, what an unplayed game counts as, what happens when a
+  player leaves, a player cap and join approvals.
+- **Results** (`src/server/results.server.ts`): each running competition reads
+  its players' chess.com monthly archives at most once per five minutes (on a
+  page view, the app's background refresh, or the cron), finds the game
+  between the two players inside the match window, then advances: the next
+  knockout round, or the finish and the champion. The organiser can enter a
+  result, award a walkover, call a match off, extend it or reopen it.
+- **Scoring** (`src/server/standings.ts`): the organiser's points per win,
+  draw and loss (3/1/0 by default) and their unplayed-game rule.
+- **Notifications** (`src/server/notifications.server.ts`): web push plus an
+  inbox copy. `/api/cron/deadlines` (Vercel Cron, `Authorization: Bearer
+  $CRON_SECRET`) syncs results and reminds players a day before a deadline.
 - **Accounts** (`src/server/auth.server.ts`, Better Auth): sign in with
   Google, an emailed link or a passkey, with optional two-step verification
   (authenticator app or passkey, plus backup codes). Manage it at `/account`.
-- **Admin**: accounts listed in `ADMIN_EMAILS`; every mutating server function
-  goes through `adminMiddleware` in `src/server/auth.functions.ts`.
+- **Access** (`src/lib/access.ts`): guest, player, member and organiser roles
+  decide who may see and change what; accounts in `ADMIN_EMAILS` are site
+  admins. Every server function checks it.
 - **Train** (`src/routes/train.*`): a hub of free practice, mostly built on
   Lichess:
   - **Puzzles** from the Lichess puzzle API, by theme and difficulty.
