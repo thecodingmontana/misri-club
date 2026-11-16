@@ -220,7 +220,7 @@ function CompetitionPage() {
         </p>
       )}
 
-      {isMember && !data.isOrganiser && (
+      {isMember && !data.isOrganiser && competition.status !== 'finished' && (
         <LeaveButton
           slug={competition.slug}
           started={competition.status !== 'open'}

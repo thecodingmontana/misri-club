@@ -101,3 +101,49 @@ test('knockout: pairs by bracket position, not by the order rows arrive', () => 
     )
   }
 })
+
+test('knockout: a winner who left sends their opponent through', () => {
+  const step = knockoutStep(
+    [
+      m({ position: 0, homeUserId: 'a', awayUserId: 'b', winnerUserId: 'a' }),
+      m({ position: 1, homeUserId: 'c', awayUserId: 'd', winnerUserId: 'd' }),
+    ],
+    new Set(['a']),
+  )
+  assert.equal(step.kind, 'next')
+  if (step.kind === 'next') {
+    assert.deepEqual(
+      step.matches.map((x) => [x.homeId, x.awayId]),
+      [['b', 'd']],
+    )
+  }
+})
+
+test('knockout: a bye holder who left hands their neighbour a bye', () => {
+  const step = knockoutStep(
+    [
+      m({ position: 0, homeUserId: null, awayUserId: null, byeUserId: 'a' }),
+      m({ position: 1, homeUserId: 'c', awayUserId: 'd', winnerUserId: 'd' }),
+      m({ position: 2, homeUserId: 'e', awayUserId: 'f', winnerUserId: 'e' }),
+      m({ position: 3, homeUserId: 'g', awayUserId: 'h', winnerUserId: 'h' }),
+    ],
+    new Set(['a']),
+  )
+  assert.equal(step.kind, 'next')
+  if (step.kind === 'next') {
+    assert.deepEqual(step.matches[0], {
+      round: 2,
+      homeId: null,
+      awayId: null,
+      byeId: 'd',
+    })
+  }
+})
+
+test('knockout: the final won by a leaver crowns the opponent', () => {
+  const step = knockoutStep(
+    [m({ homeUserId: 'a', awayUserId: 'b', winnerUserId: 'a' })],
+    new Set(['a']),
+  )
+  assert.deepEqual(step, { kind: 'champion', userId: 'b' })
+})

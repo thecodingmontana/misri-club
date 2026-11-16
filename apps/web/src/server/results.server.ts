@@ -1,7 +1,8 @@
-import { and, eq, isNull, lt, lte, or, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import {
   chessAccounts,
+  competitionLeavers,
   competitionMembers,
   competitions,
   matches,
@@ -155,7 +156,11 @@ export async function advance(competitionId: string, now = new Date()) {
       .where(eq(matches.competitionId, competitionId))
 
     if (competition.format === 'knockout') {
-      const step = knockoutStep(rows)
+      const leavers = await tx
+        .select({ userId: competitionLeavers.userId })
+        .from(competitionLeavers)
+        .where(eq(competitionLeavers.competitionId, competitionId))
+      const step = knockoutStep(rows, new Set(leavers.map((l) => l.userId)))
       if (step.kind === 'next') {
         await tx.insert(matches).values(
           step.matches.map((m, position) => ({
@@ -187,6 +192,7 @@ export async function advance(competitionId: string, now = new Date()) {
     const names = await tx
       .select({ userId: chessAccounts.userId, name: chessAccounts.username })
       .from(chessAccounts)
+      .where(inArray(chessAccounts.userId, [...memberIds]))
     const nameOf = new Map(names.map((n) => [n.userId, n.name]))
     const tally = tallyStandings(rows, [...memberIds], now, {
       unplayed: competition.unplayedRule,

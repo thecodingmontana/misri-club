@@ -26,6 +26,7 @@ import {
   notifyLeft,
   notifyRemoved,
 } from './notifications.server'
+import { advance } from './results.server'
 
 // Who is in a competition: leaving, being removed, handing over, deleting,
 // plus the organiser's housekeeping (rename, a fresh invite code).
@@ -38,6 +39,10 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
  * Returns whether it had started.
  */
 async function depart(tx: Tx, competition: Competition, userId: string) {
+  // the table and champion are history now; leaving would rewrite them
+  if (competition.status === 'finished') {
+    throw new Error('This competition is over; its results are final.')
+  }
   await tx
     .delete(competitionMembers)
     .where(
@@ -114,7 +119,10 @@ export async function leaveCompetition(slug: string, viewer: Viewer) {
     })
     return (await depart(tx, competition, viewer.id)) ? competition.id : null
   })
-  if (left) await notifyLeft(left, viewer.id)
+  if (left) {
+    await advance(left)
+    await notifyLeft(left, viewer.id)
+  }
 }
 
 /** The organiser takes a player out, under the same rules as leaving. */
@@ -123,7 +131,7 @@ export async function removePlayer(
   viewer: Viewer,
   userId: string,
 ) {
-  const competitionId = await db.transaction(async (tx) => {
+  const removed = await db.transaction(async (tx) => {
     const competition = await lockCompetition(tx, eq(competitions.slug, slug))
     if (!competition) throw new Error('Not found.')
     authorizeManage(viewer, competition)
@@ -133,10 +141,12 @@ export async function removePlayer(
     if (!(await isMember(tx, competition.id, userId))) {
       throw new Error("They're not in this one.")
     }
-    await depart(tx, competition, userId)
-    return competition.id
+    const started = await depart(tx, competition, userId)
+    return { id: competition.id, started }
   })
-  await notifyRemoved(competitionId, userId)
+  // the walkovers may finish a round or the whole competition
+  if (removed.started) await advance(removed.id)
+  await notifyRemoved(removed.id, userId)
 }
 
 /** The organiser lets a requester in (with every normal join check) or not. */
