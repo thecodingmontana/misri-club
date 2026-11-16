@@ -6,8 +6,8 @@ import { ChevronRight, Trophy, UserPlus, UsersFilled } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { toast } from '#/lib/toast'
 import { cn } from '#/lib/utils'
+import type { CompetitionSummary } from '#/server/competition-view.server'
 import { joinCompetitionFn } from '#/server/competitions.functions'
-import type { CompetitionSummary } from '#/server/competitions.server'
 
 export const FORMAT_LABEL = { league: 'League', knockout: 'Tournament' }
 

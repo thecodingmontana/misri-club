@@ -4,7 +4,7 @@ import { PlayerAvatar } from '#/components/player-chip'
 import { bracketLayout, type Slot } from '#/lib/bracket-layout'
 import { countdown, formatDate } from '#/lib/format'
 import { cn } from '#/lib/utils'
-import type { MatchView, PlayerView } from '#/server/competitions.server'
+import type { MatchView, PlayerView } from '#/server/competition-view.server'
 
 // The knockout drawn whole: columns per round, ties joined by lines that turn
 // green once decided, placeholders for rounds still to come, and the champion.

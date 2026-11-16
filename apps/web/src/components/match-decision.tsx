@@ -17,8 +17,8 @@ import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { toast } from '#/lib/toast'
 import { cn } from '#/lib/utils'
+import type { MatchView } from '#/server/competition-view.server'
 import { decideMatchFn } from '#/server/competitions.functions'
-import type { MatchView } from '#/server/competitions.server'
 
 type Decision = Parameters<typeof decideMatchFn>[0]['data']['decision']
 

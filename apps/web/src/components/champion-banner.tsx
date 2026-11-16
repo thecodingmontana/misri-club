@@ -3,7 +3,7 @@ import { Trophy } from '#/components/icons'
 import { displayName } from '#/components/match-card'
 import { PlayerAvatar } from '#/components/player-chip'
 import { confetti } from '#/lib/confetti'
-import type { PlayerView } from '#/server/competitions.server'
+import type { PlayerView } from '#/server/competition-view.server'
 
 /** Confetti once per visitor per competition, not on every visit. */
 function celebrateOnce(slug: string) {

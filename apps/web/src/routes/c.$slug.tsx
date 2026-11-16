@@ -38,16 +38,16 @@ import { seo } from '#/lib/seo'
 import { toast } from '#/lib/toast'
 import { useAdmin } from '#/lib/use-admin'
 import { useCopy } from '#/lib/use-copy'
+import type {
+  MatchView,
+  PlayerView,
+  StandingRow,
+} from '#/server/competition-view.server'
 import {
   getCompetitionFn,
   startCompetitionFn,
   updateCompetitionSettingsFn,
 } from '#/server/competitions.functions'
-import type {
-  MatchView,
-  PlayerView,
-  StandingRow,
-} from '#/server/competitions.server'
 
 /** A competition: public to read; the organiser manages it from here. */
 export const Route = createFileRoute('/c/$slug')({

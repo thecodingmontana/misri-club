@@ -2,14 +2,16 @@ import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { userMiddleware } from './auth.functions'
 import {
+  getCompetition,
+  getInvite,
+  listMyCompetitions,
+  listOpenCompetitions,
+} from './competition-view.server'
+import {
   checkCompetitionName,
   createCompetition,
   currentViewer,
-  getCompetition,
-  getInvite,
   joinCompetition,
-  listMyCompetitions,
-  listOpenCompetitions,
   requireChessAccount,
   startCompetition,
   suggestCompetitionNames,

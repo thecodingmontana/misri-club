@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { PlayerAvatar, PlayerChip } from '#/components/player-chip'
 import { countdown, formatDate } from '#/lib/format'
 import { cn } from '#/lib/utils'
-import type { MatchView, PlayerView } from '#/server/competitions.server'
+import type { MatchView, PlayerView } from '#/server/competition-view.server'
 
 type Winner = 'home' | 'away' | null
 
