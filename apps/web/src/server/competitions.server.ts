@@ -14,7 +14,7 @@ import {
 } from '#/db/schema'
 import { generateInviteCode, generateNanoId } from '#/db/utils'
 import { authorize, roleOf, type Viewer } from '#/lib/access'
-import { generateKnockoutRound1 } from '#/lib/bracket'
+import { generateKnockoutRound1, knockoutLegs } from '#/lib/bracket'
 import {
   normalizeName,
   suggestFrom,
@@ -109,9 +109,6 @@ export function checkFormatRules(settings: {
   }
   if (settings.format === 'knockout' && settings.allowLateEntry) {
     throw new Error("A tournament can't take late entries.")
-  }
-  if (settings.format === 'knockout' && (settings.legs ?? 1) !== 1) {
-    throw new Error('A tournament has one game per pairing.')
   }
   if (
     settings.format === 'challenge' &&
@@ -494,10 +491,11 @@ export async function startCompetition(slug: string, viewer: Viewer) {
             }))
         : competition.format === 'challenge'
           ? challengeGames(ids, competition.bestOf)
-          : generateKnockoutRound1(ids).map((m) => ({ ...m, leg: 1 }))
+          : knockoutLegs(generateKnockoutRound1(ids), competition.legs)
 
     await tx.insert(matches).values(
-      rows.map((m, position) => {
+      rows.map((m, index) => {
+        const position = 'position' in m ? (m.position as number) : index
         // a challenge's games are all open at once; rounds otherwise follow each other
         const opensAt = new Date(
           now + (competition.format === 'challenge' ? 0 : (m.round - 1) * days),

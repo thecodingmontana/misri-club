@@ -16,6 +16,46 @@ function winnerOf(match: MatchView) {
   return match.bye?.id ?? match.winnerId
 }
 
+/** One game's points for a player: 1, ½, 0, or null while it's open. */
+function legPoints(m: MatchView, playerId: string): number | null {
+  if (m.status === 'void') return null
+  if (m.result === 'draw') return 0.5
+  const winner =
+    m.winnerId ??
+    (m.homeWon === null ? null : m.homeWon ? m.home?.id : m.away?.id)
+  if (!winner) return null
+  return winner === playerId ? 1 : 0
+}
+
+const halves = (n: number) => (n % 1 ? `${Math.floor(n) || ''}½` : String(n))
+
+/**
+ * A tie's state: one game (its winner), or home & away (the aggregate, with
+ * a decider counted in; level and nothing open means the organiser decides).
+ */
+function tieOf(legs: MatchView[]) {
+  const [first] = legs
+  if (!first || legs.length < 2 || !first.home || !first.away) {
+    return { winner: first ? winnerOf(first) : null, aggregate: null }
+  }
+  const total = (id: string) =>
+    legs.reduce((sum, m) => sum + (legPoints(m, id) ?? 0), 0)
+  const home = total(first.home.id)
+  const away = total(first.away.id)
+  const open = legs.some(
+    (m) => m.status !== 'void' && legPoints(m, first.home?.id ?? '') === null,
+  )
+  const winner =
+    open || home === away ? null : home > away ? first.home.id : first.away.id
+  return {
+    winner,
+    aggregate: { [first.home.id]: home, [first.away.id]: away } as Record<
+      string,
+      number
+    >,
+  }
+}
+
 function Row({
   player,
   placeholder,
@@ -92,6 +132,16 @@ function caption(match: MatchView | null, now: number) {
   }
 }
 
+/** Home & away: which leg is on, or the decider. */
+function legCaption(legs: MatchView[], now: number) {
+  const next = legs.find((m) =>
+    ['live', 'upcoming', 'expired'].includes(m.status),
+  )
+  if (!next) return 'Aggregate'
+  const name = (next.leg ?? 1) >= 3 ? 'Decider' : `Leg ${next.leg} of 2`
+  return `${name} · ${caption(next, now)}`
+}
+
 function TieCard({
   slot,
   viewerId,
@@ -102,8 +152,15 @@ function TieCard({
   now: number
 }) {
   const match = slot.match
-  const decided = match ? winnerOf(match) : null
+  const tie = tieOf(slot.legs)
+  const decided = tie.winner
+  const played = slot.legs.some((m) =>
+    ['played', 'walkover'].includes(m.status),
+  )
   const scoreFor = (player: PlayerView | null) => {
+    // home & away: the running aggregate
+    if (tie.aggregate && player && played)
+      return halves(tie.aggregate[player.id] ?? 0)
     // a bye is a pass, not a game: no score
     if (!match || match.bye || !player || !decided) return undefined
     if (match.status === 'walkover') return decided === player.id ? 'W/O' : ''
@@ -126,7 +183,9 @@ function TieCard({
             match?.status === 'live' && 'text-primary',
           )}
         >
-          {caption(match, now)}
+          {slot.legs.length > 1
+            ? legCaption(slot.legs, now)
+            : caption(match, now)}
         </span>
       </p>
       <div
@@ -196,7 +255,7 @@ export function BracketView({
               </header>
               <ol className="flex flex-col" style={{ height }}>
                 {round.slots.map((slot, i) => {
-                  const done = Boolean(slot.match && winnerOf(slot.match))
+                  const done = Boolean(tieOf(slot.legs).winner)
                   const line = done ? 'border-primary' : 'border-border'
                   return (
                     <li

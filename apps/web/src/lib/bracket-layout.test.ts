@@ -56,3 +56,25 @@ test('rounds from before positions existed still show every tie', () => {
   const layout = bracketLayout(legacy)
   assert.equal(layout[0].slots.filter((slot) => slot.match).length, 4)
 })
+
+test('home & away: legs and deciders group under one tie, rounds sized by ties', () => {
+  const legs = [
+    { round: 1, position: 0, leg: 1, dueAt: 1 },
+    { round: 1, position: 0, leg: 2, dueAt: 1 },
+    { round: 1, position: 1, leg: 1, dueAt: 1 },
+    { round: 1, position: 1, leg: 2, dueAt: 1 },
+    { round: 1, position: 1, leg: 3, dueAt: 2 },
+  ]
+  const rounds = bracketLayout(legs)
+  assert.deepEqual(
+    rounds.map((r) => r.name),
+    ['Semi-finals', 'Final'],
+  )
+  assert.deepEqual(
+    rounds[0].slots.map((s) => s.legs.map((l) => l.leg)),
+    [
+      [1, 2],
+      [1, 2, 3],
+    ],
+  )
+})

@@ -32,6 +32,8 @@ interface Option {
 function optionsFor(
   match: MatchView,
   format: 'league' | 'knockout' | 'challenge',
+  /** a home & away leg: it can be drawn, the aggregate decides */
+  leg: boolean,
 ): Array<{ group: string; options: Option[] }> {
   const home = match.home ? displayName(match.home) : 'Home'
   const away = match.away ? displayName(match.away) : 'Away'
@@ -50,7 +52,7 @@ function optionsFor(
       decision: { kind: 'result', result: 'black', homeWhite: true },
     },
   ]
-  if (league) {
+  if (league || leg) {
     result.splice(1, 0, {
       key: 'draw',
       label: 'Draw',
@@ -109,10 +111,13 @@ export function DecideMatch({
   slug,
   match,
   format,
+  twoLegs = false,
 }: {
   slug: string
   match: MatchView
   format: 'league' | 'knockout' | 'challenge'
+  /** a home & away knockout */
+  twoLegs?: boolean
 }) {
   const decide = useServerFn(decideMatchFn)
   const router = useRouter()
@@ -158,29 +163,31 @@ export function DecideMatch({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-3">
-          {optionsFor(match, format).map(({ group, options }) => (
-            <fieldset key={group} className="space-y-1.5">
-              <legend className="text-sm font-medium">{group}</legend>
-              <div className="flex flex-wrap gap-2">
-                {options.map((option) => (
-                  <button
-                    key={option.key}
-                    type="button"
-                    aria-pressed={chosen?.key === option.key}
-                    onClick={() => setChosen(option)}
-                    className={cn(
-                      'rounded-xl border px-3 py-1.5 text-sm font-medium transition-colors duration-150',
-                      chosen?.key === option.key
-                        ? 'border-primary bg-primary/12 text-primary'
-                        : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground',
-                    )}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-          ))}
+          {optionsFor(match, format, twoLegs && match.leg < 3).map(
+            ({ group, options }) => (
+              <fieldset key={group} className="space-y-1.5">
+                <legend className="text-sm font-medium">{group}</legend>
+                <div className="flex flex-wrap gap-2">
+                  {options.map((option) => (
+                    <button
+                      key={option.key}
+                      type="button"
+                      aria-pressed={chosen?.key === option.key}
+                      onClick={() => setChosen(option)}
+                      className={cn(
+                        'rounded-xl border px-3 py-1.5 text-sm font-medium transition-colors duration-150',
+                        chosen?.key === option.key
+                          ? 'border-primary bg-primary/12 text-primary'
+                          : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground',
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            ),
+          )}
           <div className="space-y-1.5">
             <label htmlFor={`note-${match.id}`} className="text-sm font-medium">
               Note for the players (optional)

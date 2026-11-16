@@ -59,8 +59,8 @@ function Invite() {
     ['Organiser', invite.organiser],
     [
       'Format',
-      invite.format === 'league' && invite.legs === 2
-        ? 'League, home & away'
+      invite.legs === 2
+        ? `${FORMAT_LABEL[invite.format]}, home & away`
         : FORMAT_LABEL[invite.format],
     ],
     ['Time control', timeControlLabel(invite.timeControl)],

@@ -118,7 +118,7 @@ function CompetitionPage() {
           {competition.maxPlayers
             ? `${playerCount} of ${competition.maxPlayers} players`
             : `${playerCount} player${playerCount === 1 ? '' : 's'}`}
-          {league && competition.legs === 2 && ' · home & away'}
+          {competition.legs === 2 && ' · home & away'}
           {challenge && ` · best of ${competition.bestOf}`} ·{' '}
           {competition.matchdayDays} day
           {competition.matchdayDays === 1 ? '' : 's'}{' '}
@@ -517,6 +517,7 @@ function OwnerPanel({ data }: { data: Data }) {
                   slug={competition.slug}
                   match={match}
                   format={competition.format}
+                  twoLegs={competition.legs === 2}
                 />
               </FixtureCard>
             ))}
@@ -649,11 +650,19 @@ function Fixtures({ data }: { data: Data }) {
           <h2 className="kicker">{roundLabel(data, round, matches.length)}</h2>
           {matches.map((match) => (
             <FixtureCard key={match.id} match={match} now={now}>
+              {data.competition.format === 'knockout' &&
+                data.competition.legs === 2 &&
+                !match.bye && (
+                  <p className="mt-1.5 text-center text-xs font-medium text-muted-foreground">
+                    {match.leg >= 3 ? 'Decider' : `Leg ${match.leg} of 2`}
+                  </p>
+                )}
               {decidable(data, match) && (
                 <DecideMatch
                   slug={data.competition.slug}
                   match={match}
                   format={data.competition.format}
+                  twoLegs={data.competition.legs === 2}
                 />
               )}
               {concedable(data, match, viewerId) && (

@@ -330,7 +330,10 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       if (!m.homeUserId || !m.awayUserId || m.voided || m.winnerUserId) {
         return false
       }
-      if (competition.format === 'knockout' && m.result === 'draw') return true
+      // a drawn leg is fine (the aggregate decides); a drawn tie or decider needs a winner
+      if (competition.format === 'knockout' && m.result === 'draw') {
+        return competition.legs === 1 || m.leg >= 3
+      }
       if (m.result) return false
       return (
         m.dueAt.getTime() <= now &&

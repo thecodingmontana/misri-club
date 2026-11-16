@@ -125,7 +125,7 @@ function NewCompetition() {
         data: {
           name,
           format,
-          legs: league ? legs : 1,
+          legs: challenge ? 1 : legs,
           bestOf: challenge ? bestOf : 1,
           matchdayDays,
           timeControl,
@@ -229,9 +229,9 @@ function NewCompetition() {
           )}
         </Field>
 
-        {league && (
+        {!challenge && (
           <Choice
-            label="Games per pairing"
+            label={league ? 'Games per pairing' : 'Games per tie'}
             value={legs}
             onChange={setLegs}
             options={[

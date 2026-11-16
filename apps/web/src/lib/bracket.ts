@@ -72,3 +72,21 @@ export function nextRound(
   }
   return matches
 }
+
+/** A round's ties, as rows: home & away ties get a second leg, colours swapped. */
+export function knockoutLegs(
+  ties: Array<{
+    round: number
+    homeId: string | null
+    awayId: string | null
+    byeId: string | null
+  }>,
+  legs: number,
+) {
+  return ties.flatMap((tie, position) => [
+    { ...tie, leg: 1, position },
+    ...(legs === 2 && tie.homeId && tie.awayId
+      ? [{ ...tie, leg: 2, position, homeId: tie.awayId, awayId: tie.homeId }]
+      : []),
+  ])
+}

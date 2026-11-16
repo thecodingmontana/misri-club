@@ -9,6 +9,7 @@ import {
   user,
 } from '#/db/schema'
 import { authorize, roleOf, type Viewer } from '#/lib/access'
+import { knockoutLegs } from '#/lib/bracket'
 import { challengeOutcome } from '#/lib/challenge'
 import { knockoutStep, leagueComplete } from '#/lib/competition-progress'
 import {
@@ -57,6 +58,7 @@ export async function syncResults(competitionId: string, now = new Date()) {
     )
     .returning({
       format: competitions.format,
+      legs: competitions.legs,
       timeControl: competitions.timeControl,
     })
   if (!claimed) return 0
@@ -146,9 +148,9 @@ export async function syncResults(competitionId: string, now = new Date()) {
         whiteUserId,
         gameUrl: found.gameUrl,
         endedAt: found.endedAt,
-        // a knockout tie is decided by who won; a league only needs the result
+        // a one-game knockout tie is decided by who won; elsewhere the result is enough
         winnerUserId:
-          claimed.format === 'knockout'
+          claimed.format === 'knockout' && claimed.legs === 1
             ? winnerOf(found.result, whiteUserId, blackUserId)
             : null,
       })
@@ -221,19 +223,37 @@ export async function advance(competitionId: string, now = new Date()) {
         if (step.kind === 'champion') {
           return finish(tx, competitionId, step.userId, now)
         }
+        const dueAt = new Date(now.getTime() + competition.matchdayDays * DAY)
+        if (step.kind === 'deciders') {
+          // level after both legs: one more game decides it
+          await tx.insert(matches).values(
+            step.ties.map((t) => ({
+              competitionId,
+              round: t.round,
+              position: t.position,
+              leg: 3,
+              homeUserId: t.homeId,
+              awayUserId: t.awayId,
+              opensAt: now,
+              dueAt,
+            })),
+          )
+          return null
+        }
         if (step.kind !== 'next') return null
         const inserted = await tx
           .insert(matches)
           .values(
-            step.matches.map((m, position) => ({
+            knockoutLegs(step.matches, competition.legs).map((m) => ({
               competitionId,
               round: m.round,
-              position,
+              position: m.position,
+              leg: m.leg,
               homeUserId: m.homeId,
               awayUserId: m.awayId,
               byeUserId: m.byeId,
               opensAt: now,
-              dueAt: new Date(now.getTime() + competition.matchdayDays * DAY),
+              dueAt,
             })),
           )
           .returning()
@@ -392,6 +412,9 @@ export async function decideMatch(
       throw new Error('That match has no two players to decide.')
     }
     const knockout = competition.format === 'knockout'
+    if (knockout && decision.kind === 'void') {
+      throw new Error('Someone has to go through: award a walkover instead.')
+    }
     if (knockout) {
       // a decided round already fed the next one; changing it would fork the bracket
       const [later] = await tx
@@ -408,10 +431,11 @@ export async function decideMatch(
         throw new Error('The next round has started; this tie is final.')
       }
     }
+    // a home & away leg can be drawn: the aggregate decides the tie
     const fields = decisionFields(
       decision,
       { ...match, homeUserId: match.homeUserId, awayUserId: match.awayUserId },
-      knockout,
+      knockout && competition.legs === 1,
     )
     await tx
       .update(matches)

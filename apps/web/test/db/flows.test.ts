@@ -308,3 +308,40 @@ test('challenge: a drawn best of one ends level with no champion', async () => {
   const told = await db.select().from(notifications).where(eq(notifications.userId, c.them))
   assert.ok(told.some((n) => n.title.includes('ended level')))
 })
+
+test('home & away knockout: aggregate, a decider when level, two-leg final', async () => {
+  const c = await competition('knockout', ['o', 'a', 'b', 'c'], { legs: 2 })
+  await startCompetition(c.slug, c.organiser)
+  const r1 = await c.rows()
+  assert.equal(r1.length, 4, 'two ties, two legs each')
+  const tie = (position: number) =>
+    r1.filter((m) => m.position === position).sort((x, y) => x.leg - y.leg)
+  const homeWins = (id: string) =>
+    decideMatch(c.slug, c.organiser, id, { kind: 'result', result: 'white', homeWhite: true }, null)
+  const draw = (id: string) =>
+    decideMatch(c.slug, c.organiser, id, { kind: 'result', result: 'draw', homeWhite: true }, null)
+  const [t0l1, t0l2] = tie(0)
+  const [t1l1, t1l2] = tie(1)
+  assert.equal(t0l2.homeUserId, t0l1.awayUserId, 'leg 2 swaps home')
+  // tie 0: a draw then the leg-1 home side wins away → they lead 1½–½
+  await draw(t0l1.id)
+  await decideMatch(c.slug, c.organiser, t0l2.id, { kind: 'result', result: 'black', homeWhite: true }, null)
+  // tie 1: each wins at home → level → a decider appears
+  await homeWins(t1l1.id)
+  await homeWins(t1l2.id)
+  const decider = (await c.rows()).find((m) => m.position === 1 && m.leg === 3)
+  assert.ok(decider, 'a decider for the level tie')
+  assert.equal((await c.rows()).some((m) => m.round === 2), false, 'no final yet')
+  await homeWins(decider.id)
+  const final = (await c.rows()).filter((m) => m.round === 2).sort((x, y) => x.leg - y.leg)
+  assert.equal(final.length, 2, 'the final is home & away too')
+  assert.deepEqual(
+    new Set([final[0].homeUserId, final[0].awayUserId]),
+    new Set([t0l1.homeUserId, decider.homeUserId]),
+  )
+  await homeWins(final[0].id)
+  await draw(final[1].id)
+  const end = await c.state()
+  assert.equal(end.status, 'finished')
+  assert.equal(end.championUserId, final[0].homeUserId)
+})

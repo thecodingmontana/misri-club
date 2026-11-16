@@ -54,8 +54,8 @@ test('league: games against someone who left never hold it up', () => {
 test('knockout: waits until every tie in the round has a winner', () => {
   assert.deepEqual(
     knockoutStep([
-      m({ winnerUserId: 'a' }),
-      m({ homeUserId: 'c', awayUserId: 'd' }),
+      m({ position: 0, winnerUserId: 'a' }),
+      m({ position: 1, homeUserId: 'c', awayUserId: 'd' }),
     ]),
     { kind: 'waiting' },
   )
@@ -63,8 +63,8 @@ test('knockout: waits until every tie in the round has a winner', () => {
 
 test('knockout: winners and byes go into the next round', () => {
   const step = knockoutStep([
-    m({ winnerUserId: 'b' }),
-    m({ homeUserId: null, awayUserId: null, byeUserId: 'c' }),
+    m({ position: 0, winnerUserId: 'b' }),
+    m({ position: 1, homeUserId: null, awayUserId: null, byeUserId: 'c' }),
   ])
   assert.equal(step.kind, 'next')
   if (step.kind === 'next') {
@@ -76,8 +76,8 @@ test('knockout: winners and byes go into the next round', () => {
 
 test('knockout: the final’s winner is the champion', () => {
   const step = knockoutStep([
-    m({ winnerUserId: 'a' }),
-    m({ homeUserId: 'c', awayUserId: 'd', winnerUserId: 'd' }),
+    m({ position: 0, winnerUserId: 'a' }),
+    m({ position: 1, homeUserId: 'c', awayUserId: 'd', winnerUserId: 'd' }),
     m({ round: 2, homeUserId: 'a', awayUserId: 'd', winnerUserId: 'd' }),
   ])
   assert.deepEqual(step, { kind: 'champion', userId: 'd' })
@@ -146,4 +146,91 @@ test('knockout: the final won by a leaver crowns the opponent', () => {
     new Set(['a']),
   )
   assert.deepEqual(step, { kind: 'champion', userId: 'b' })
+})
+
+test('two legs: the aggregate decides, a draw counts half', () => {
+  const step = knockoutStep([
+    m({
+      position: 0,
+      leg: 1,
+      homeUserId: 'a',
+      awayUserId: 'b',
+      result: 'draw',
+      whiteUserId: 'a',
+    }),
+    m({
+      position: 0,
+      leg: 2,
+      homeUserId: 'b',
+      awayUserId: 'a',
+      result: 'black',
+      whiteUserId: 'b',
+    }),
+    m({
+      position: 1,
+      leg: 1,
+      homeUserId: 'c',
+      awayUserId: 'd',
+      winnerUserId: 'c',
+    }),
+    m({
+      position: 1,
+      leg: 2,
+      homeUserId: 'd',
+      awayUserId: 'c',
+      result: 'white',
+      whiteUserId: 'd',
+    }),
+  ])
+  // a: ½ + 1 beats b; c and d level on 1 each → a decider for that tie
+  assert.equal(step.kind, 'deciders')
+  if (step.kind === 'deciders') {
+    assert.deepEqual(step.ties, [
+      { round: 1, position: 1, homeId: 'c', awayId: 'd' },
+    ])
+  }
+})
+
+test('two legs: a won decider sends its winner through; waits on an unplayed leg', () => {
+  const tie = [
+    m({
+      position: 0,
+      leg: 1,
+      homeUserId: 'a',
+      awayUserId: 'b',
+      result: 'white',
+      whiteUserId: 'a',
+    }),
+    m({
+      position: 0,
+      leg: 2,
+      homeUserId: 'b',
+      awayUserId: 'a',
+      result: 'white',
+      whiteUserId: 'b',
+    }),
+  ]
+  assert.deepEqual(
+    knockoutStep([
+      ...tie,
+      m({ position: 0, leg: 3, homeUserId: 'a', awayUserId: 'b' }),
+    ]),
+    {
+      kind: 'waiting',
+    },
+  )
+  assert.deepEqual(
+    knockoutStep([
+      ...tie,
+      m({
+        position: 0,
+        leg: 3,
+        homeUserId: 'a',
+        awayUserId: 'b',
+        result: 'black',
+        whiteUserId: 'a',
+      }),
+    ]),
+    { kind: 'champion', userId: 'b' },
+  )
 })

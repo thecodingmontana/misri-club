@@ -8,12 +8,16 @@ export interface LayoutMatch {
   round: number
   position: number
   dueAt: number
+  /** home & away ties: 1, 2, and 3 for a decider */
+  leg?: number
 }
 
 export interface Slot<M> {
   /** 1-based across the whole bracket, for "Winner of match 3" */
   number: number
   match: M | null
+  /** every game of the tie, in leg order (one, unless home & away) */
+  legs: M[]
   /** the two earlier ties this one waits on (round 2 onwards) */
   feeds: [number, number] | null
 }
@@ -36,23 +40,30 @@ export function roundName(ties: number) {
 export function bracketLayout<M extends LayoutMatch>(
   matches: M[],
 ): LayoutRound<M>[] {
-  const first = matches.filter((m) => m.round === 1)
+  // a tie is its first leg: home & away second legs and deciders aren't more ties
+  const first = matches.filter((m) => m.round === 1 && (m.leg ?? 1) === 1)
   if (first.length === 0) return []
   const rounds: LayoutRound<M>[] = []
   let number = 1
   for (let round = 1, ties = first.length; ties >= 1; round++, ties /= 2) {
     const inRound = matches.filter((m) => m.round === round)
     // older rounds have no positions (all 0): place their ties in order rather than hide them
+    const firstLegs = inRound.filter((m) => (m.leg ?? 1) === 1)
     const positioned =
-      new Set(inRound.map((m) => m.position)).size === inRound.length
-    const at = (position: number) =>
+      new Set(inRound.map((m) => m.position)).size === firstLegs.length
+    const legsAt = (position: number) =>
       positioned
-        ? (inRound.find((m) => m.position === position) ?? null)
-        : (inRound[position] ?? null)
+        ? inRound
+            .filter((m) => m.position === position)
+            .sort((a, b) => (a.leg ?? 1) - (b.leg ?? 1))
+        : firstLegs[position]
+          ? [firstLegs[position]]
+          : []
     const previous = rounds.at(-1)
     const slots: Slot<M>[] = Array.from({ length: ties }, (_, position) => ({
       number: number++,
-      match: at(position),
+      match: legsAt(position)[0] ?? null,
+      legs: legsAt(position),
       feeds: previous
         ? [
             previous.slots[position * 2].number,

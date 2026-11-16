@@ -32,7 +32,7 @@ export const FORMAT_INFO = {
     points: [
       'Players are paired up; the winner of each game goes through.',
       'Each round halves the field until the final.',
-      'One game per pairing. The organiser settles unplayed ones.',
+      'One game per tie, or home & away on aggregate with a decider if level.',
       'Closed to new players once it starts.',
     ],
   },

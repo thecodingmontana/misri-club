@@ -1,4 +1,5 @@
 import type { BracketMatch } from './bracket.ts'
+import { challengeScore } from './challenge.ts'
 
 /**
  * Where a running competition stands once results change: still going,
@@ -15,6 +16,9 @@ export interface ProgressMatch {
   winnerUserId: string | null
   voided: boolean
   dueAt: Date
+  /** 1 or 2 for home & away ties; 3 is a decider */
+  leg?: number
+  whiteUserId?: string | null
 }
 
 /**
@@ -47,9 +51,40 @@ export type KnockoutStep =
   | { kind: 'waiting' }
   | { kind: 'next'; matches: BracketMatch[] }
   | { kind: 'champion'; userId: string }
+  /** two-leg ties level on aggregate: each needs a deciding game */
+  | {
+      kind: 'deciders'
+      ties: Array<{
+        round: number
+        position: number
+        homeId: string
+        awayId: string
+      }>
+    }
 
 /**
- * The latest round decides: all winners known → next round, or the champion.
+ * Who a tie sends through: a bye, the single game's winner, or (home & away)
+ * whoever leads on aggregate. 'decider' = level after both legs; null = not yet.
+ */
+function tieWinner(legs: ProgressMatch[]): string | null | 'decider' {
+  const [first] = legs
+  if (first.byeUserId) return first.byeUserId
+  if (legs.length === 1) return first.winnerUserId
+  const home = first.homeUserId as string
+  const away = first.awayUserId as string
+  const score = challengeScore(
+    legs.map((l) => ({ ...l, whiteUserId: l.whiteUserId ?? null })),
+    home,
+    away,
+  )
+  if (score.open > 0) return null
+  if (score.a !== score.b) return score.a > score.b ? home : away
+  // level even after the decider: the organiser awards it
+  return legs.some((l) => (l.leg ?? 1) >= 3) ? null : 'decider'
+}
+
+/**
+ * The latest round decides: all ties settled → next round, or the champion.
  * `gone` are players who left: a tie they already won sends their opponent
  * through instead, and a lone survivor in a pairing gets a bye.
  */
@@ -59,20 +94,36 @@ export function knockoutStep(
 ): KnockoutStep {
   if (matches.length === 0) return { kind: 'waiting' }
   const latest = Math.max(...matches.map((m) => m.round))
-  // in bracket order: neighbours meet next, whatever order the rows came in
-  const round = matches
-    .filter((m) => m.round === latest)
-    .sort((a, b) => a.position - b.position)
-  if (round.some((m) => !(m.byeUserId ?? m.winnerUserId))) {
-    return { kind: 'waiting' }
+  // ties in bracket order (neighbours meet next), each with its legs in order
+  const byPosition = new Map<number, ProgressMatch[]>()
+  for (const m of matches.filter((x) => x.round === latest)) {
+    byPosition.set(m.position, [...(byPosition.get(m.position) ?? []), m])
   }
-  const through = round.map((m) => {
-    const winner = (m.byeUserId ?? m.winnerUserId) as string
+  const ties = [...byPosition.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, legs]) => legs.sort((a, b) => (a.leg ?? 1) - (b.leg ?? 1)))
+  const winners = ties.map(tieWinner)
+  const deciders = ties.filter((_, i) => winners[i] === 'decider')
+  if (deciders.length > 0) {
+    return {
+      kind: 'deciders',
+      ties: deciders.map(([first]) => ({
+        round: first.round,
+        position: first.position,
+        homeId: first.homeUserId as string,
+        awayId: first.awayUserId as string,
+      })),
+    }
+  }
+  if (winners.some((w) => !w)) return { kind: 'waiting' }
+  const through = ties.map(([first], i) => {
+    const winner = winners[i] as string
     if (!gone.has(winner)) return winner
-    const other = winner === m.homeUserId ? m.awayUserId : m.homeUserId
+    const other =
+      winner === first.homeUserId ? first.awayUserId : first.homeUserId
     return other && !gone.has(other) ? other : null
   })
-  if (round.length === 1) {
+  if (ties.length === 1) {
     return through[0]
       ? { kind: 'champion', userId: through[0] }
       : { kind: 'waiting' }

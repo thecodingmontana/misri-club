@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import {
   type BracketMatch,
   generateKnockoutRound1,
+  knockoutLegs,
   nextRound,
 } from './bracket.ts'
 
@@ -79,4 +80,27 @@ test('the top two seeds can only meet in the final', () => {
 test('a round without every winner cannot advance', () => {
   const round1 = generateKnockoutRound1(players(4))
   assert.throws(() => nextRound(round1.map((m) => ({ ...m, winnerId: null }))))
+})
+
+test('home & away ties get a swapped second leg; byes stay one row', () => {
+  const rows = knockoutLegs(
+    [
+      { round: 1, homeId: 'a', awayId: 'b', byeId: null },
+      { round: 1, homeId: null, awayId: null, byeId: 'c' },
+    ],
+    2,
+  )
+  assert.deepEqual(
+    rows.map((r) => [r.position, r.leg, r.homeId, r.awayId, r.byeId]),
+    [
+      [0, 1, 'a', 'b', null],
+      [0, 2, 'b', 'a', null],
+      [1, 1, null, null, 'c'],
+    ],
+  )
+  assert.equal(
+    knockoutLegs([{ round: 1, homeId: 'a', awayId: 'b', byeId: null }], 1)
+      .length,
+    1,
+  )
 })
