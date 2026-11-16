@@ -34,9 +34,15 @@ import { DecideMatch } from '#/components/match-decision'
 import { PlayerChip } from '#/components/player-chip'
 import { ScoringRules, scoringSummary } from '#/components/scoring-rules'
 import { Seeding } from '#/components/seeding'
+import {
+  StartDateField,
+  startDayOf,
+  TieBreakOrder,
+} from '#/components/start-and-ties'
 import { TimeControlChoice } from '#/components/time-control'
 import { Button } from '#/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
+import { formatDate } from '#/lib/format'
 import { seo } from '#/lib/seo'
 import { timeControlLabel } from '#/lib/time-control'
 import { toast } from '#/lib/toast'
@@ -101,6 +107,11 @@ function CompetitionPage() {
           {STATUS_LABEL[competition.status]}
         </p>
         <h1 className="display mt-1 text-3xl">{competition.name}</h1>
+        {competition.status === 'open' && competition.startsAt && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Starts {formatDate(competition.startsAt)}
+          </p>
+        )}
         <p className="numeric mt-1 text-xs text-muted-foreground">
           {competition.maxPlayers
             ? `${playerCount} of ${competition.maxPlayers} players`
@@ -274,6 +285,8 @@ function OwnerPanel({ data }: { data: Data }) {
           leaveRule: competition.leaveRule,
           earlyRounds: competition.earlyRounds,
           timeControl: competition.timeControl,
+          tieBreaks: competition.tieBreaks,
+          startsOn: startDayOf(competition.startsAt),
           maxPlayers: competition.maxPlayers,
           requireApproval: competition.requireApproval,
           ...patch,
@@ -392,6 +405,23 @@ function OwnerPanel({ data }: { data: Data }) {
             </span>
           </span>
         </label>
+      )}
+
+      {competition.status === 'open' && (
+        <StartDateField
+          key={competition.startsAt ?? 'none'}
+          value={startDayOf(competition.startsAt)}
+          disabled={busy}
+          onChange={(startsOn) => save({ startsOn })}
+        />
+      )}
+
+      {league && competition.status !== 'finished' && (
+        <TieBreakOrder
+          value={competition.tieBreaks}
+          disabled={busy}
+          onChange={(tieBreaks) => save({ tieBreaks })}
+        />
       )}
 
       {competition.status === 'open' && (

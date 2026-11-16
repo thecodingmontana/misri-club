@@ -139,15 +139,54 @@ export function tallyStandings(
   return tally
 }
 
-/** Table order: points, then wins, then fewest forfeits, then name. */
-export function compareStanding(
-  a: Tally & { name: string },
-  b: Tally & { name: string },
-): number {
+/** How a league breaks a tie on points, in the organiser's order; name decides last. */
+export const TIE_BREAKS = ['wins', 'forfeits', 'headToHead'] as const
+export type TieBreak = (typeof TIE_BREAKS)[number]
+export const DEFAULT_TIE_BREAKS: TieBreak[] = ['wins', 'forfeits', 'headToHead']
+
+export function isTieBreakOrder(order: string[]): order is TieBreak[] {
   return (
-    b.points - a.points ||
-    b.wins - a.wins ||
-    a.forfeits - b.forfeits ||
-    a.name.localeCompare(b.name)
+    order.length === TIE_BREAKS.length &&
+    TIE_BREAKS.every((t) => order.includes(t))
   )
+}
+
+/**
+ * The table in order: points, then the tie-breaks, then name. Head-to-head is
+ * the points two tied players took off each other.
+ * shortcut: compares pairs, so a three-way head-to-head tie can be circular; fine until a league asks for a mini-table.
+ */
+export function rankStandings(
+  matches: Array<ScoredMatch>,
+  memberIds: Array<string>,
+  now: Date,
+  rules: Rules,
+  tieBreaks: readonly TieBreak[],
+  nameOf: (userId: string) => string,
+): Array<Tally & { id: string }> {
+  const members = new Set(memberIds)
+  const headToHead = (x: string, y: string) => {
+    const between = matches.filter(
+      (m) =>
+        (m.homeUserId === x && m.awayUserId === y) ||
+        (m.homeUserId === y && m.awayUserId === x),
+    )
+    const pair = tallyStandings(between, [x, y], now, rules)
+    return (pair.get(y)?.points ?? 0) - (pair.get(x)?.points ?? 0)
+  }
+  type Row = Tally & { id: string }
+  const by: Record<TieBreak, (a: Row, b: Row) => number> = {
+    wins: (a, b) => b.wins - a.wins,
+    forfeits: (a, b) => a.forfeits - b.forfeits,
+    headToHead: (a, b) => headToHead(a.id, b.id),
+  }
+  return [...tallyStandings(matches, memberIds, now, rules)]
+    .filter(([id]) => members.has(id))
+    .map(([id, tally]) => ({ id, ...tally }))
+    .sort(
+      (a, b) =>
+        b.points - a.points ||
+        tieBreaks.reduce((order, key) => order || by[key](a, b), 0) ||
+        nameOf(a.id).localeCompare(nameOf(b.id)),
+    )
 }

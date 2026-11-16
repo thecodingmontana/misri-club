@@ -6,6 +6,7 @@ import {
   competitionMembers,
   competitions,
   matches,
+  user,
 } from '#/db/schema'
 import { authorize, roleOf, type Viewer } from '#/lib/access'
 import { knockoutStep, leagueComplete } from '#/lib/competition-progress'
@@ -14,7 +15,7 @@ import { earlyRound } from '#/lib/early-rounds'
 import { archiveMonths, findMatchResult } from '#/lib/game-result'
 import { fetchMonthGames } from './chesscom.server'
 import { notifyFinished, notifyRoundOpened } from './notifications.server'
-import { compareStanding, tallyStandings } from './standings'
+import { rankStandings } from './standings'
 
 // Results: read from chess.com, decided by the organiser when needed, and
 // moved forward (next knockout round, finish, champion) after every change.
@@ -196,19 +197,24 @@ export async function advance(competitionId: string, now = new Date()) {
       }
       return null
     }
+    // the same names the table sorts by, so the champion is its top row
     const names = await tx
-      .select({ userId: chessAccounts.userId, name: chessAccounts.username })
-      .from(chessAccounts)
-      .where(inArray(chessAccounts.userId, [...memberIds]))
+      .select({
+        userId: user.id,
+        name: sql<string>`coalesce(${chessAccounts.username}, ${user.name})`,
+      })
+      .from(user)
+      .leftJoin(chessAccounts, eq(chessAccounts.userId, user.id))
+      .where(inArray(user.id, [...memberIds]))
     const nameOf = new Map(names.map((n) => [n.userId, n.name]))
-    const tally = tallyStandings(rows, [...memberIds], now, {
-      unplayed: competition.unplayedRule,
-      points: competition.points,
-    })
-    const [top] = [...tally]
-      .filter(([id]) => memberIds.has(id))
-      .map(([id, t]) => ({ id, ...t, name: nameOf.get(id) ?? id }))
-      .sort(compareStanding)
+    const [top] = rankStandings(
+      rows,
+      [...memberIds],
+      now,
+      { unplayed: competition.unplayedRule, points: competition.points },
+      competition.tieBreaks,
+      (id) => nameOf.get(id) ?? id,
+    )
     return top ? finish(tx, competitionId, top.id, now) : null
   })
   if (championId) await notifyFinished(competitionId, championId)

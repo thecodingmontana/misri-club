@@ -134,6 +134,13 @@
       "when": 1794832735438,
       "tag": "0018_ambitious_rogue",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794833631137,
+      "tag": "0019_luxuriant_the_hunter",
+      "breakpoints": true
     }
   ]
 }

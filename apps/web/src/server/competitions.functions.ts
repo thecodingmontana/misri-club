@@ -31,7 +31,21 @@ import {
 } from './membership.server'
 import { takeAllowance } from './rate-limit.server'
 import { decideMatch, openEarlyRound, syncForPlayer } from './results.server'
-import { POINTS, UNPLAYED_RULES } from './standings'
+import {
+  isTieBreakOrder,
+  POINTS,
+  type TieBreak,
+  UNPLAYED_RULES,
+} from './standings'
+
+/** The daily cron runs at 05:00 UTC: a start day means that morning's run. */
+function startDay(day: string) {
+  const at = new Date(`${day}T05:00:00Z`)
+  if (Number.isNaN(at.getTime())) throw new Error('Pick a real date.')
+  const today = new Date().toISOString().slice(0, 10)
+  if (day <= today) throw new Error('Pick a day from tomorrow on.')
+  return at
+}
 
 const MINUTE = 60 * 1000
 const HOUR = 60 * MINUTE
@@ -193,10 +207,24 @@ export const updateCompetitionSettingsFn = createServerFn({ method: 'POST' })
       points: scoring.points.unwrap(),
       earlyRounds: z.enum(['wait', 'auto', 'organiser']),
       timeControl,
+      tieBreaks: z
+        .array(z.string())
+        .refine(isTieBreakOrder, 'Order all three tie-breaks.'),
+      // a day, YYYY-MM-DD; null clears it
+      startsOn: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .nullable(),
     }),
   )
   .handler(async ({ context, data }) => {
-    const { slug, ...settings } = data
+    const { slug, startsOn, ...rest } = data
+    const startsAt = startsOn ? startDay(startsOn) : null
+    const settings = {
+      ...rest,
+      tieBreaks: rest.tieBreaks as TieBreak[],
+      startsAt,
+    }
     await updateCompetitionSettings(slug, context.viewer, settings)
     return { ok: true }
   })

@@ -244,6 +244,13 @@ export const competitions = pgTable('competitions', {
   unplayedRule: unplayedRule('unplayed_rule').notNull().default('organiser'),
   /** Leagues: award / void / keep a leaver's games (see lib/leave). */
   leaveRule: leaveRule('leave_rule').notNull().default('award'),
+  /** Leagues: how a tie on points breaks, in order (server/standings TIE_BREAKS). */
+  tieBreaks: jsonb('tie_breaks')
+    .$type<Array<'wins' | 'forfeits' | 'headToHead'>>()
+    .notNull()
+    .default(['wins', 'forfeits', 'headToHead']),
+  /** Optional: the daily cron starts it on this morning if the organiser hasn't. */
+  startsAt: ts('starts_at'),
   /** "any", a speed or an exact clock (lib/time-control); only fitting games count. */
   timeControl: text('time_control').notNull().default('any'),
   /** Leagues: open the next round early when everyone has played. */

@@ -242,6 +242,27 @@ export async function notifyRoundOpened(competitionId: string, round: number) {
   )
 }
 
+/** The start day came: the organiser hears it started, or why it couldn't. */
+export async function notifyScheduledStart(
+  competitionId: string,
+  started: boolean,
+) {
+  const competition = await competitionPush(competitionId)
+  if (!competition) return
+  await bestEffort([
+    {
+      userId: competition.ownerId,
+      title: started
+        ? `${competition.name} has started`
+        : `${competition.name} couldn't start`,
+      body: started
+        ? 'It started on its scheduled day. Fixtures are out.'
+        : 'It needs at least two players. Start it yourself once they join.',
+      url: `/c/${competition.slug}`,
+    },
+  ])
+}
+
 /** Tells the organiser who joined. */
 export async function notifyJoined(competitionId: string, joinerId: string) {
   const [row] = await db

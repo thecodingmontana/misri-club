@@ -1,0 +1,2 @@
+ALTER TABLE "competitions" ADD COLUMN "tie_breaks" jsonb DEFAULT '["wins","forfeits","headToHead"]'::jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "competitions" ADD COLUMN "starts_at" timestamp (3) with time zone;

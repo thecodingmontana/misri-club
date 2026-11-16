@@ -14,6 +14,7 @@ import {
 import { Trophy } from '#/components/icons'
 import { scoringSummary } from '#/components/scoring-rules'
 import { Button } from '#/components/ui/button'
+import { formatDate } from '#/lib/format'
 import { seo } from '#/lib/seo'
 import { timeControlLabel } from '#/lib/time-control'
 import { getSessionFn } from '#/server/auth.functions'
@@ -63,6 +64,9 @@ function Invite() {
         : FORMAT_LABEL[invite.format],
     ],
     ['Time control', timeControlLabel(invite.timeControl)],
+    ...(invite.status === 'open' && invite.startsAt
+      ? ([['Starts', formatDate(invite.startsAt)]] as Array<[string, string]>)
+      : []),
     ['Players', players],
     ['Status', STATUS_LABEL[invite.status]],
     [

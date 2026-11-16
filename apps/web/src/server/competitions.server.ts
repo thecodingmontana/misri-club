@@ -1,7 +1,7 @@
 // English only: the root import ships every locale in the server bundle
 import { faker } from '@faker-js/faker/locale/en'
 import { getRequestHeaders } from '@tanstack/react-start/server'
-import { and, asc, eq, inArray, max, or, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, lte, max, or, sql } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import {
   type Competition,
@@ -29,9 +29,10 @@ import { fetchPlayerRating } from './chesscom.server'
 import {
   notifyJoined,
   notifyRequested,
+  notifyScheduledStart,
   notifyStarted,
 } from './notifications.server'
-import type { Points, UnplayedRule } from './standings'
+import type { Points, TieBreak, UnplayedRule } from './standings'
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -77,6 +78,8 @@ export interface CompetitionSettings {
   points: Points
   earlyRounds?: EarlyRounds
   timeControl?: string
+  tieBreaks?: TieBreak[]
+  startsAt?: Date | null
 }
 
 /** Create and join need a verified chess.com account: results come from there. */
@@ -470,6 +473,8 @@ export type EditableSettings = Pick<
   | 'maxPlayers'
   | 'earlyRounds'
   | 'timeControl'
+  | 'tieBreaks'
+  | 'startsAt'
 >
 
 export async function updateCompetitionSettings(
@@ -500,6 +505,9 @@ export async function updateCompetitionSettings(
     competition.status !== 'open'
   ) {
     throw new Error('The time control is fixed once it starts.')
+  }
+  if (settings.startsAt && competition.status !== 'open') {
+    throw new Error('It has already started.')
   }
   checkFormatRules({ ...settings, format: competition.format })
   const scoringChanged =
@@ -609,4 +617,37 @@ export async function seedCompetition(
         )
     }
   })
+}
+
+/**
+ * The daily cron: starts every open competition whose start day has come.
+ * Too few players → the organiser is told and the date is cleared.
+ */
+export async function startScheduled(now = new Date()) {
+  const due = await db
+    .select({
+      id: competitions.id,
+      slug: competitions.slug,
+      ownerId: competitions.ownerId,
+    })
+    .from(competitions)
+    .where(
+      and(eq(competitions.status, 'open'), lte(competitions.startsAt, now)),
+    )
+  let started = 0
+  for (const c of due) {
+    try {
+      await startCompetition(c.slug, { id: c.ownerId, isAdmin: false })
+      await notifyScheduledStart(c.id, true)
+      started++
+    } catch (error) {
+      console.error('[schedule] start failed', c.slug, (error as Error).message)
+      await db
+        .update(competitions)
+        .set({ startsAt: null })
+        .where(eq(competitions.id, c.id))
+      await notifyScheduledStart(c.id, false)
+    }
+  }
+  return started
 }

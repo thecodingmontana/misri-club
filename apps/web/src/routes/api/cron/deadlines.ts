@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import { competitions } from '#/db/schema'
+import { startScheduled } from '#/server/competitions.server'
 import { remindDeadlines } from '#/server/notifications.server'
 import { syncResults } from '#/server/results.server'
 
@@ -24,6 +25,13 @@ export const Route = createFileRoute('/api/cron/deadlines')({
         if (!authorised(request)) {
           return new Response('Unauthorized', { status: 401 })
         }
+        const started = await startScheduled().catch((error) => {
+          console.error(
+            '[cron] scheduled starts failed',
+            (error as Error).message,
+          )
+          return 0
+        })
         // results first, so a game already played gets no reminder
         const running = await db
           .select({ id: competitions.id })
@@ -46,7 +54,7 @@ export const Route = createFileRoute('/api/cron/deadlines')({
           )
         }
         const reminded = await remindDeadlines()
-        return Response.json({ synced: running.length, reminded })
+        return Response.json({ started, synced: running.length, reminded })
       },
     },
   },

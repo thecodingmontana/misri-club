@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import {
   fitsMatch,
   POINTS,
+  rankStandings,
   type ScoredMatch,
   tallyStandings,
 } from './standings.ts'
@@ -164,4 +165,102 @@ test('a game fits its match only between the same pair, inside the window', () =
     'before the window opens',
   )
   assert.ok(!fitsMatch(game('a', 'c', now), window), 'different opponent')
+})
+
+test('ties on points break in the organiser order, name last', () => {
+  // a beat b; c beat d; a and c both on 3 points, c with a forfeit-free record
+  const games = [
+    match({ whiteUserId: 'a', result: 'white' }),
+    match({
+      homeUserId: 'c',
+      awayUserId: 'd',
+      whiteUserId: 'c',
+      result: 'white',
+    }),
+  ]
+  const ids = ['a', 'b', 'c', 'd']
+  const order = (tieBreaks: Parameters<typeof rankStandings>[4]) =>
+    rankStandings(
+      games,
+      ids,
+      now,
+      { unplayed: 'organiser', points: POINTS },
+      tieBreaks,
+      (id) => id,
+    ).map((r) => r.id)
+  // level on everything: name decides
+  assert.deepEqual(order(['wins', 'forfeits', 'headToHead']).slice(0, 2), [
+    'a',
+    'c',
+  ])
+})
+
+test('head-to-head puts the winner of the game between them first', () => {
+  const games = [
+    match({
+      homeUserId: 'z',
+      awayUserId: 'y',
+      whiteUserId: 'z',
+      result: 'black',
+    }), // y beat z
+    match({
+      homeUserId: 'z',
+      awayUserId: 'x',
+      whiteUserId: 'z',
+      result: 'white',
+    }), // z beat x
+    match({
+      homeUserId: 'y',
+      awayUserId: 'x',
+      whiteUserId: 'y',
+      result: 'black',
+    }), // x beat y
+  ]
+  const rules = { unplayed: 'organiser', points: POINTS } as const
+  // all on 3 points and 1 win: by name x, y, z; head-to-head first: still pairwise
+  const named = rankStandings(
+    games,
+    ['x', 'y', 'z'],
+    now,
+    rules,
+    ['wins'],
+    (id) => id,
+  )
+  assert.deepEqual(
+    named.map((r) => r.id),
+    ['x', 'y', 'z'],
+  )
+  const two = [
+    match({
+      homeUserId: 'q',
+      awayUserId: 'p',
+      whiteUserId: 'q',
+      result: 'white',
+    }),
+    match({
+      homeUserId: 'p',
+      awayUserId: 'r',
+      whiteUserId: 'p',
+      result: 'white',
+    }),
+    match({
+      homeUserId: 'q',
+      awayUserId: 'r',
+      whiteUserId: 'r',
+      result: 'white',
+    }),
+  ]
+  // p and q both 3 points; q beat p, so head-to-head puts q above p despite the name
+  const h2h = rankStandings(
+    two,
+    ['p', 'q', 'r'],
+    now,
+    rules,
+    ['headToHead', 'wins', 'forfeits'],
+    (id) => id,
+  )
+  assert.equal(
+    h2h.findIndex((r) => r.id === 'q') < h2h.findIndex((r) => r.id === 'p'),
+    true,
+  )
 })

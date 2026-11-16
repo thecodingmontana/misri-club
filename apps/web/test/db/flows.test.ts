@@ -13,6 +13,7 @@ import { getCompetition } from '#/server/competition-view.server'
 import {
   seedCompetition,
   startCompetition,
+  startScheduled,
   updateCompetitionSettings,
 } from '#/server/competitions.server'
 import { leaveCompetition, removePlayer } from '#/server/membership.server'
@@ -191,4 +192,36 @@ test('time control: changeable before the start, fixed after', async () => {
   await startCompetition(c.slug, c.organiser)
   await assert.rejects(updateCompetitionSettings(c.slug, c.organiser, settings('bullet')), /fixed once it starts/)
   await updateCompetitionSettings(c.slug, c.organiser, settings('rapid'))
+})
+
+test('scheduled start: due ones start; too few players tells the organiser and clears the date', async () => {
+  const yesterday = new Date(Date.now() - 86_400_000)
+  const ready = await competition('league', ['o', 'a'], { startsAt: yesterday })
+  const lonely = await competition('league', ['o'], { startsAt: yesterday })
+  const later = await competition('league', ['o', 'a'], { startsAt: new Date(Date.now() + 86_400_000) })
+  assert.ok((await startScheduled()) >= 1)
+  assert.equal((await ready.state()).status, 'running')
+  const alone = await lonely.state()
+  assert.equal(alone.status, 'open')
+  assert.equal(alone.startsAt, null)
+  assert.equal((await later.state()).status, 'open')
+  const told = await db.select().from(notifications).where(eq(notifications.userId, lonely.ids[0]))
+  assert.ok(told.some((n) => n.title.includes("couldn't start")))
+})
+
+test('tie-breaks: head-to-head first crowns the player who won the game between them', async () => {
+  // o beats a, a beats b, b beats o: all on 3 points, one win each
+  const c = await competition('league', ['o', 'a', 'b'], { tieBreaks: ['headToHead', 'wins', 'forfeits'] })
+  await startCompetition(c.slug, c.organiser)
+  const [o, a, b] = c.ids
+  const beats: Record<string, string> = { [o]: a, [a]: b, [b]: o }
+  for (const m of await c.rows()) {
+    if (!m.homeUserId || !m.awayUserId) continue
+    const homeWins = beats[m.homeUserId] === m.awayUserId
+    await decideMatch(c.slug, c.organiser, m.id, { kind: 'result', result: homeWins ? 'white' : 'black', homeWhite: true }, null)
+  }
+  const end = await c.state()
+  assert.equal(end.status, 'finished')
+  const table = (await getCompetition(c.slug, c.organiser))?.standings?.map((r) => r.player.id)
+  assert.equal(end.championUserId, table?.[0], 'the champion is the top of the table')
 })

@@ -15,7 +15,7 @@ import { canJoin } from '#/lib/join-policy'
 import { matchdayCount } from '#/lib/round-robin'
 import { fetchPlayerProfile } from './chesscom.server'
 import { syncResults } from './results.server'
-import { type Tally, tallyStandings } from './standings'
+import { rankStandings, type Tally } from './standings'
 
 // What people see: their competitions, the open ones, an invite preview and
 // the competition page itself.
@@ -102,6 +102,7 @@ export async function getInvite(code: string, viewerId: string | null) {
       points: competitions.points,
       requireApproval: competitions.requireApproval,
       maxPlayers: competitions.maxPlayers,
+      startsAt: competitions.startsAt,
       organiser: sql<string>`coalesce(${chessAccounts.username}, ${user.name})`,
     })
     .from(competitions)
@@ -348,25 +349,21 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
   const standings: Array<StandingRow> | null =
     competition.format === 'league'
       ? [
-          ...tallyStandings(matchRows, [...players.keys()], new Date(now), {
-            unplayed: competition.unplayedRule,
-            points: competition.points,
-          }),
-        ]
-          .map(([id, tally]) => ({
-            player: player(id) as PlayerView,
-            ...tally,
-          }))
-          .filter((row) => row.player)
-          .sort(
-            (a, b) =>
-              b.points - a.points ||
-              b.wins - a.wins ||
-              a.forfeits - b.forfeits ||
-              (a.player.chessUsername ?? a.player.name).localeCompare(
-                b.player.chessUsername ?? b.player.name,
-              ),
-          )
+          ...rankStandings(
+            matchRows,
+            [...players.keys()],
+            new Date(now),
+            { unplayed: competition.unplayedRule, points: competition.points },
+            competition.tieBreaks,
+            (id) => {
+              const p = player(id)
+              return p ? (p.chessUsername ?? p.name) : id
+            },
+          ),
+        ].map(({ id, ...tally }) => ({
+          player: player(id) as PlayerView,
+          ...tally,
+        }))
       : null
 
   const isMember = viewerId !== null && players.has(viewerId)
@@ -392,6 +389,8 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       leaveRule: competition.leaveRule,
       earlyRounds: competition.earlyRounds,
       timeControl: competition.timeControl,
+      tieBreaks: competition.tieBreaks,
+      startsAt: competition.startsAt?.getTime() ?? null,
       maxPlayers: competition.maxPlayers,
       requireApproval: competition.requireApproval,
       finishedAt: competition.finishedAt?.getTime() ?? null,
