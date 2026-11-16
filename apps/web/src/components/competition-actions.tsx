@@ -216,7 +216,11 @@ export function ConcedeButton({
   return (
     <Confirm
       trigger={
-        <Button variant="ghost" size="sm" className="text-muted-foreground">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full text-muted-foreground"
+        >
           Can't play? Give walkover
         </Button>
       }

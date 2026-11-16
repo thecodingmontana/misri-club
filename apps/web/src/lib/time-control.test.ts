@@ -24,7 +24,7 @@ test('labels read like chess.com', () => {
   assert.equal(timeControlLabel('any'), 'Any time control')
   assert.equal(timeControlLabel('blitz'), 'Blitz (any clock)')
   assert.equal(timeControlLabel('180+2'), 'Blitz 3+2')
-  assert.equal(timeControlLabel('600'), 'Rapid 10 min')
+  assert.equal(timeControlLabel('600'), 'Rapid 10+0')
   assert.equal(timeControlLabel('1/259200'), 'Daily 3 days per move')
 })
 

@@ -31,15 +31,14 @@ export function speedOf(value: string): Speed | null {
   return SPEEDS.find((speed) => PRESETS[speed].includes(value)) ?? null
 }
 
-/** "3+2", "10 min", "1 day per move" */
+/** "3+2", "10+0", "1 day per move": minutes + seconds added per move */
 export function clockLabel(preset: string): string {
   if (preset.startsWith('1/')) {
     const days = Number(preset.slice(2)) / 86400
     return `${days} day${days === 1 ? '' : 's'} per move`
   }
-  const [base, increment] = preset.split('+').map(Number)
-  const minutes = base / 60
-  return increment ? `${minutes}+${increment}` : `${minutes} min`
+  const [base, increment = 0] = preset.split('+').map(Number)
+  return `${base / 60}+${increment}`
 }
 
 /** "Any time control", "Blitz (any clock)", "Blitz 3+2" */
