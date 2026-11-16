@@ -6,6 +6,8 @@ import { competitions } from '#/db/schema'
 import { remindDeadlines } from '#/server/notifications.server'
 import { syncResults } from '#/server/results.server'
 
+const SYNC_BATCH = 5
+
 /** Vercel Cron sends `Authorization: Bearer $CRON_SECRET`; nothing else may run this. */
 function authorised(request: Request) {
   const secret = process.env.CRON_SECRET
@@ -27,9 +29,20 @@ export const Route = createFileRoute('/api/cron/deadlines')({
           .select({ id: competitions.id })
           .from(competitions)
           .where(eq(competitions.status, 'running'))
-        for (const { id } of running) {
-          await syncResults(id).catch((error) =>
-            console.error('[cron] sync failed', id, (error as Error).message),
+        // a few at a time: chess.com calls queue anyway, the database stays calm
+        for (let i = 0; i < running.length; i += SYNC_BATCH) {
+          await Promise.all(
+            running
+              .slice(i, i + SYNC_BATCH)
+              .map(({ id }) =>
+                syncResults(id).catch((error) =>
+                  console.error(
+                    '[cron] sync failed',
+                    id,
+                    (error as Error).message,
+                  ),
+                ),
+              ),
           )
         }
         const reminded = await remindDeadlines()

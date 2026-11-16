@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lte, ne, sql } from 'drizzle-orm'
+import { and, eq, gt, inArray, isNull, lte, ne, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { db } from '#/db/client.server'
 import {
@@ -253,7 +253,16 @@ export async function remindDeadlines(now = new Date()) {
         isNull(matches.remindedAt),
         isNull(matches.result),
         isNull(matches.winnerUserId),
+        eq(matches.voided, false),
         sql`${matches.homeUserId} is not null and ${matches.awayUserId} is not null`,
+        // a finished or deleted competition's leftovers aren't anyone's deadline
+        inArray(
+          matches.competitionId,
+          db
+            .select({ id: competitions.id })
+            .from(competitions)
+            .where(eq(competitions.status, 'running')),
+        ),
         lte(matches.opensAt, now),
         gt(matches.dueAt, now),
         lte(matches.dueAt, new Date(now.getTime() + DAY)),

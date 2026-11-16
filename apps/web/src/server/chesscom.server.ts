@@ -39,6 +39,10 @@ async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
 
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms))
 
+// One slow chess.com answer must not hold a request (and a queue slot) forever.
+const TIMEOUT_MS = 10_000
+const MAX_WAIT_MS = 5_000
+
 /**
  * GET a chess.com endpoint. Returns `null` on 404 (missing player/archive) so
  * callers can treat "doesn't exist" as data rather than as an error. Retries
@@ -51,6 +55,7 @@ async function apiGet<T>(path: string, retries = 3): Promise<T | null> {
     for (let attempt = 0; ; attempt++) {
       const res = await fetch(url, {
         headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+        signal: AbortSignal.timeout(TIMEOUT_MS),
       })
 
       if (res.status === 404 || res.status === 410) return null
@@ -63,9 +68,12 @@ async function apiGet<T>(path: string, retries = 3): Promise<T | null> {
 
       const retryAfter = Number(res.headers.get('retry-after'))
       await sleep(
-        Number.isFinite(retryAfter) && retryAfter > 0
-          ? retryAfter * 1000
-          : 500 * 2 ** attempt,
+        Math.min(
+          MAX_WAIT_MS,
+          Number.isFinite(retryAfter) && retryAfter > 0
+            ? retryAfter * 1000
+            : 500 * 2 ** attempt,
+        ),
       )
     }
   })

@@ -765,9 +765,10 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       .map(async (m) => {
         const profile = await fetchPlayerProfile(
           m.chessUsername as string,
-        ).catch(() => null)
-        if (!profile) return
-        m.chessAvatar = profile.avatar ?? ''
+        ).catch(() => undefined)
+        // a failed call tries again next time; a missing player is stored as no avatar
+        if (profile === undefined) return
+        m.chessAvatar = profile?.avatar ?? ''
         await db
           .update(chessAccounts)
           .set({ avatar: m.chessAvatar })
