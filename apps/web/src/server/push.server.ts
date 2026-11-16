@@ -2,6 +2,7 @@ import { eq, inArray } from 'drizzle-orm'
 import webpush from 'web-push'
 import { db } from '#/db/client.server'
 import { pushSubscriptions } from '#/db/schema'
+import { isPushEndpoint } from '#/lib/push-endpoint'
 
 // Web push to the browsers and phones people turned on in Account → Notifications.
 // The service worker (public/sw.js) shows each message and opens its link when tapped.
@@ -33,7 +34,7 @@ export interface PushMessage {
 /** Sends each message to every device of its person; forgets devices the browser dropped. */
 export async function sendPushes(messages: PushMessage[]) {
   if (!ready || messages.length === 0) return 0
-  const subs = await db
+  const all = await db
     .select()
     .from(pushSubscriptions)
     .where(
@@ -41,6 +42,20 @@ export async function sendPushes(messages: PushMessage[]) {
         ...new Set(messages.map((m) => m.userId)),
       ]),
     )
+  // rows saved before the allowlist are forgotten, never contacted
+  const subs = all.filter((s) => isPushEndpoint(s.endpoint))
+  const bad = all.filter((s) => !isPushEndpoint(s.endpoint)).map((s) => s.id)
+  if (bad.length > 0) {
+    await db
+      .delete(pushSubscriptions)
+      .where(inArray(pushSubscriptions.id, bad))
+      .catch((error) =>
+        console.error(
+          '[push] forgetting bad endpoints failed',
+          (error as Error).message,
+        ),
+      )
+  }
   let sent = 0
   await Promise.allSettled(
     messages.flatMap(({ userId, ...message }) =>

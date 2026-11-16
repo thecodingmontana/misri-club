@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '#/db/client.server'
 import { pushSubscriptions } from '#/db/schema'
+import { isPushEndpoint } from '#/lib/push-endpoint'
 import { userMiddleware } from './auth.functions'
 import { pushPublicKey, sendPushes } from './push.server'
 import { takeAllowance } from './rate-limit.server'
@@ -15,7 +16,10 @@ export const getPushKeyFn = createServerFn({ method: 'GET' }).handler(() =>
 )
 
 const subscription = z.object({
-  endpoint: z.string().url().startsWith('https://').max(1000),
+  endpoint: z
+    .string()
+    .max(1000)
+    .refine(isPushEndpoint, 'That is not a browser push address.'),
   p256dh: z.string().min(1).max(200),
   auth: z.string().min(1).max(100),
 })
