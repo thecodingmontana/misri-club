@@ -14,6 +14,7 @@ import { ScoringRules } from '#/components/scoring-rules'
 import { TimeControlChoice } from '#/components/time-control'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
+import { BEST_OF } from '#/lib/challenge'
 import { normalizeName } from '#/lib/competition-names'
 import type { LeaveRule } from '#/lib/leave'
 import { seo } from '#/lib/seo'
@@ -27,7 +28,7 @@ import { POINTS, type Points, type UnplayedRule } from '#/server/standings'
 
 export const Route = createFileRoute('/_authed/competitions/new')({
   validateSearch: z.object({
-    format: z.enum(['league', 'knockout']).catch('league'),
+    format: z.enum(['league', 'knockout', 'challenge']).catch('league'),
   }),
   head: () =>
     seo({
@@ -99,6 +100,7 @@ function NewCompetition() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [legs, setLegs] = useState<1 | 2>(1)
+  const [bestOf, setBestOf] = useState<(typeof BEST_OF)[number]>(3)
   const [matchdayDays, setMatchdayDays] = useState(2)
   const [timeControl, setTimeControl] = useState('any')
   const [visibility, setVisibility] = useState<'private' | 'public'>('private')
@@ -112,6 +114,7 @@ function NewCompetition() {
   const [allowLateEntry, setAllowLateEntry] = useState(false)
   const [busy, setBusy] = useState(false)
   const league = format === 'league'
+  const challenge = format === 'challenge'
   const nameCheck = useNameCheck(name)
 
   async function submit(event: FormEvent) {
@@ -123,6 +126,7 @@ function NewCompetition() {
           name,
           format,
           legs: league ? legs : 1,
+          bestOf: challenge ? bestOf : 1,
           matchdayDays,
           timeControl,
           visibility,
@@ -143,7 +147,11 @@ function NewCompetition() {
     <div className="space-y-5 pt-2">
       <header className="text-center">
         <h1 className="display text-3xl">
-          {league ? 'New league' : 'New tournament'}
+          {league
+            ? 'New league'
+            : challenge
+              ? 'New challenge'
+              : 'New tournament'}
         </h1>
         <p className="mt-1 text-xs text-muted-foreground">
           {FORMAT_INFO[format].summary}
@@ -165,7 +173,13 @@ function NewCompetition() {
               id="competition-name"
               maxLength={60}
               className="pr-11"
-              placeholder={league ? 'Friday league' : 'Summer cup'}
+              placeholder={
+                league
+                  ? 'Friday league'
+                  : challenge
+                    ? 'Grudge match'
+                    : 'Summer cup'
+              }
               value={name}
               aria-describedby="competition-name-status"
               aria-invalid={nameCheck.available === false || undefined}
@@ -227,9 +241,18 @@ function NewCompetition() {
           />
         )}
 
+        {challenge && (
+          <Choice
+            label="Best of"
+            value={bestOf}
+            onChange={setBestOf}
+            options={BEST_OF.map((n) => ({ value: n, label: String(n) }))}
+          />
+        )}
+
         <Field>
           <label htmlFor="matchday-days" className="text-sm font-medium">
-            Days per round
+            {challenge ? 'Days to play' : 'Days per round'}
           </label>
           <Input
             id="matchday-days"
@@ -245,38 +268,46 @@ function NewCompetition() {
             }
           />
           <p className="text-xs text-muted-foreground">
-            How long players have to play each game.
+            {challenge
+              ? 'How long you both have to play every game.'
+              : 'How long players have to play each game.'}
           </p>
         </Field>
 
         <TimeControlChoice value={timeControl} onChange={setTimeControl} />
 
-        <MaxPlayersField value={maxPlayers} onSave={setMaxPlayers} />
+        {!challenge && (
+          <MaxPlayersField value={maxPlayers} onSave={setMaxPlayers} />
+        )}
 
-        <label className="flex items-start gap-3 text-sm">
-          <input
-            type="checkbox"
-            className="mt-0.5 size-4 accent-primary"
-            checked={requireApproval}
-            onChange={(event) => setRequireApproval(event.target.checked)}
-          />
-          <span>
-            <span className="block font-medium">Approve each player</span>
-            <span className="block text-xs text-muted-foreground">
-              Joining sends you a request instead of letting them straight in.
+        {!challenge && (
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 accent-primary"
+              checked={requireApproval}
+              onChange={(event) => setRequireApproval(event.target.checked)}
+            />
+            <span>
+              <span className="block font-medium">Approve each player</span>
+              <span className="block text-xs text-muted-foreground">
+                Joining sends you a request instead of letting them straight in.
+              </span>
             </span>
-          </span>
-        </label>
+          </label>
+        )}
 
-        <Choice
-          label="Who can join"
-          value={visibility}
-          onChange={setVisibility}
-          options={[
-            { value: 'private', label: 'Invite only' },
-            { value: 'public', label: 'Anyone' },
-          ]}
-        />
+        {!challenge && (
+          <Choice
+            label="Who can join"
+            value={visibility}
+            onChange={setVisibility}
+            options={[
+              { value: 'private', label: 'Invite only' },
+              { value: 'public', label: 'Anyone' },
+            ]}
+          />
+        )}
 
         {league && (
           <label className="flex items-start gap-3 text-sm">

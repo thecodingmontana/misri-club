@@ -28,11 +28,11 @@ const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0')
 
 /** One line anyone can read: how unplayed matches go and what results are worth. */
 export function scoringSummary(
-  format: 'league' | 'knockout',
+  format: 'league' | 'knockout' | 'challenge',
   unplayedRule: UnplayedRule,
   points: Points,
 ) {
-  if (format === 'knockout') return 'Unplayed matches: the organiser decides'
+  if (format !== 'league') return 'Unplayed matches: the organiser decides'
   const rule = {
     organiser: 'the organiser decides',
     both_forfeit: 'both lose it',
@@ -61,7 +61,7 @@ export function ScoringRules({
   disabled,
   onChange,
 }: Scoring & {
-  format: 'league' | 'knockout'
+  format: 'league' | 'knockout' | 'challenge'
   disabled?: boolean
   onChange: (next: Scoring) => void
 }) {
@@ -69,7 +69,7 @@ export function ScoringRules({
   // typed values stay local until the field is left, so each key isn't a save
   const [draft, setDraft] = useState<Partial<Record<keyof Points, string>>>({})
 
-  if (format === 'knockout') {
+  if (format !== 'league') {
     return (
       <div className="space-y-1">
         <p className="text-sm font-medium">Unplayed matches</p>

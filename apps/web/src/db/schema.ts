@@ -196,6 +196,7 @@ export const chessAccounts = pgTable('chess_accounts', {
 export const competitionFormat = pgEnum('competition_format', [
   'league',
   'knockout',
+  'challenge',
 ])
 export const competitionStatus = pgEnum('competition_status', [
   'open',
@@ -229,6 +230,8 @@ export const competitions = pgTable('competitions', {
   format: competitionFormat('format').notNull(),
   /** 1 = everyone meets once, 2 = home and away (leagues only) */
   legs: integer('legs').notNull().default(1),
+  /** Challenges: best of how many games (1, 3, 5, 7). */
+  bestOf: integer('best_of').notNull().default(1),
   /** How long each round stays open for its games. */
   matchdayDays: integer('matchday_days').notNull().default(2),
   status: competitionStatus('status').notNull().default('open'),

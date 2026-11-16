@@ -87,8 +87,11 @@ export const createCompetitionFn = createServerFn({ method: 'POST' })
   .validator(
     z.object({
       name: z.string().trim().min(1, 'Give it a name.').max(60),
-      format: z.enum(['league', 'knockout']),
+      format: z.enum(['league', 'knockout', 'challenge']),
       legs: z.union([z.literal(1), z.literal(2)]).default(1),
+      bestOf: z
+        .union([z.literal(1), z.literal(3), z.literal(5), z.literal(7)])
+        .default(1),
       matchdayDays: z.number().int().min(1).max(14).default(2),
       visibility: z.enum(['public', 'private']).default('private'),
       allowLateEntry: z.boolean().default(false),

@@ -171,7 +171,7 @@ export function LeaveButton({
 }: {
   slug: string
   started: boolean
-  format: 'league' | 'knockout'
+  format: 'league' | 'knockout' | 'challenge'
   leaveRule: LeaveRule
 }) {
   const leave = useServerFn(leaveCompetitionFn)
@@ -453,7 +453,7 @@ export function RemovePlayer({
   userId: string
   name: string
   started: boolean
-  format: 'league' | 'knockout'
+  format: 'league' | 'knockout' | 'challenge'
   leaveRule: LeaveRule
 }) {
   const remove = useServerFn(removePlayerFn)

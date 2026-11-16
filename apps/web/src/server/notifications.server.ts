@@ -187,10 +187,27 @@ export async function notifyDeleted(name: string, memberIds: string[]) {
 /** The champion first, then everyone else in it. */
 export async function notifyFinished(
   competitionId: string,
-  championId: string,
+  championId: string | null,
 ) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
+  if (!championId) {
+    // a challenge that ended level
+    const members = await db
+      .select({ userId: competitionMembers.userId })
+      .from(competitionMembers)
+      .where(eq(competitionMembers.competitionId, competitionId))
+    await bestEffort(
+      members.map(({ userId }) => ({
+        userId,
+        title: `${competition.name} ended level`,
+        body: 'A drawn match: neither of you could be caught.',
+        url: `/c/${competition.slug}`,
+        tag: `finish-${competition.slug}`,
+      })),
+    )
+    return
+  }
   const members = await db
     .select({ userId: competitionMembers.userId })
     .from(competitionMembers)

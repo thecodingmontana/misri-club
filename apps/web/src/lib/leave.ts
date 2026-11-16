@@ -29,12 +29,13 @@ export function settleLeaver(
   matches: LeaverMatch[],
   leaverId: string,
   rule: LeaveRule,
-  format: 'league' | 'knockout',
+  format: 'league' | 'knockout' | 'challenge',
 ): Settlement {
   const theirs = matches.filter(
     (m) => m.homeUserId === leaverId || m.awayUserId === leaverId,
   )
-  const effective = format === 'knockout' ? 'award' : rule
+  // only a league has a choice: elsewhere the opponent always gets the games
+  const effective = format === 'league' ? rule : 'award'
   if (effective === 'void') {
     return { award: [], remove: theirs.map((m) => m.id) }
   }

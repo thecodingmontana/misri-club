@@ -10,7 +10,11 @@ import { cn } from '#/lib/utils'
 import type { CompetitionSummary } from '#/server/competition-view.server'
 import { joinCompetitionFn } from '#/server/competitions.functions'
 
-export const FORMAT_LABEL = { league: 'League', knockout: 'Tournament' }
+export const FORMAT_LABEL = {
+  league: 'League',
+  knockout: 'Tournament',
+  challenge: '1v1 challenge',
+}
 
 /** What each format is, in plain words, wherever people choose or join one. */
 export const FORMAT_INFO = {
@@ -30,6 +34,15 @@ export const FORMAT_INFO = {
       'Each round halves the field until the final.',
       'One game per pairing. The organiser settles unplayed ones.',
       'Closed to new players once it starts.',
+    ],
+  },
+  challenge: {
+    summary: 'You against one player, best of 1, 3, 5 or 7.',
+    points: [
+      'Send your opponent the link; it starts when they join.',
+      'Play every game on chess.com before the deadline.',
+      'A win is a point, a draw half. First out of reach wins.',
+      'Level after every game is a drawn match.',
     ],
   },
 } as const
@@ -206,6 +219,12 @@ const CHOICES = [
     search: { format: 'knockout' as const },
     title: 'Create a tournament',
     description: FORMAT_INFO.knockout.summary,
+  },
+  {
+    to: '/competitions/new',
+    search: { format: 'challenge' as const },
+    title: 'Challenge a player',
+    description: FORMAT_INFO.challenge.summary,
   },
 ] as const
 

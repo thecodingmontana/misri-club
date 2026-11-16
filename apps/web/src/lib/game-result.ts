@@ -58,6 +58,8 @@ function outcome(game: ChessGame): FoundResult['result'] | null {
 export function findMatchResult(
   games: ChessGame[],
   match: MatchWindow,
+  /** games already counted for another match: one game never counts twice */
+  used: ReadonlySet<string> = new Set(),
 ): FoundResult | null {
   const home = match.home.toLowerCase()
   const away = match.away.toLowerCase()
@@ -71,6 +73,7 @@ export function findMatchResult(
           (white === away && black === home)) &&
         ended >= match.opensAt.getTime() &&
         ended <= match.dueAt.getTime() &&
+        !used.has(g.url) &&
         (g.rules ?? 'chess') === 'chess' &&
         fitsTimeControl(match.timeControl ?? 'any', g)
       )

@@ -3,7 +3,7 @@
  * server function and the page show the same rule.
  */
 
-type Format = 'league' | 'knockout'
+type Format = 'league' | 'knockout' | 'challenge'
 type Status = 'open' | 'running' | 'finished'
 
 export type JoinDecision = { ok: true } | { ok: false; reason: string }
@@ -23,6 +23,9 @@ export function canJoin({
   }
   if (format === 'knockout') {
     return { ok: false, reason: 'This tournament has started.' }
+  }
+  if (format === 'challenge') {
+    return { ok: false, reason: 'This challenge has started.' }
   }
   return allowLateEntry
     ? { ok: true }

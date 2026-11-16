@@ -11,6 +11,8 @@ import {
 } from '#/db/schema'
 import { getCompetition } from '#/server/competition-view.server'
 import {
+  createCompetition,
+  joinCompetition,
   seedCompetition,
   startCompetition,
   startScheduled,
@@ -246,4 +248,63 @@ test('concede: a player hands the opponent the walkover and the bracket moves on
   await concedeMatch(c.slug, v(second.awayUserId as string), second.id)
   const final = (await c.rows()).find((m) => m.round === 2)
   assert.deepEqual([final?.homeUserId, final?.awayUserId], [first.homeUserId, second.homeUserId])
+})
+
+async function challenge(bestOf: number) {
+  const tag = Math.random().toString(36).slice(2, 10)
+  const [me, them] = [`t${tag}m`, `t${tag}t`]
+  made.push(me, them)
+  await db.insert(user).values([me, them].map((id) => ({ id, name: id, email: `${id}@test.local` })))
+  const slug = await createCompetition(me, {
+    name: `Duel ${tag}`,
+    format: 'challenge',
+    legs: 1,
+    bestOf,
+    matchdayDays: 3,
+    visibility: 'public',
+    allowLateEntry: false,
+    unplayedRule: 'organiser',
+    leaveRule: 'award',
+    maxPlayers: null,
+    requireApproval: true,
+    points: { win: 3, draw: 1, loss: 0, forfeit: -1 },
+  })
+  const [row] = await db.select().from(competitions).where(eq(competitions.slug, slug))
+  return { me, them, slug, row }
+}
+
+test('challenge: invite only for two, starts when the opponent joins, ends when out of reach', async () => {
+  const c = await challenge(3)
+  assert.equal(c.row.visibility, 'private')
+  assert.equal(c.row.maxPlayers, 2)
+  assert.equal(c.row.requireApproval, false)
+  await joinCompetition(c.them, { code: c.row.inviteCode })
+  const [started] = await db.select().from(competitions).where(eq(competitions.id, c.row.id))
+  assert.equal(started.status, 'running')
+  const games = (await db.select().from(matches).where(eq(matches.competitionId, c.row.id))).sort((x, y) => x.round - y.round)
+  assert.equal(games.length, 3)
+  assert.ok(games.every((g) => g.opensAt <= new Date()), 'all games open at once')
+  const me = v(c.me)
+  const iWin = (g: (typeof games)[number]) =>
+    decideMatch(c.slug, me, g.id, { kind: 'result', result: g.homeUserId === c.me ? 'white' : 'black', homeWhite: true }, null)
+  await iWin(games[0])
+  assert.equal((await db.select().from(competitions).where(eq(competitions.id, c.row.id)))[0].status, 'running')
+  await iWin(games[1])
+  const [end] = await db.select().from(competitions).where(eq(competitions.id, c.row.id))
+  assert.equal(end.status, 'finished')
+  assert.equal(end.championUserId, c.me)
+  const third = (await db.select().from(matches).where(eq(matches.id, games[2].id)))[0]
+  assert.equal(third.voided, true, 'the unneeded game is called off')
+})
+
+test('challenge: a drawn best of one ends level with no champion', async () => {
+  const c = await challenge(1)
+  await joinCompetition(c.them, { code: c.row.inviteCode })
+  const [game] = await db.select().from(matches).where(eq(matches.competitionId, c.row.id))
+  await decideMatch(c.slug, v(c.me), game.id, { kind: 'result', result: 'draw', homeWhite: true }, null)
+  const [end] = await db.select().from(competitions).where(eq(competitions.id, c.row.id))
+  assert.equal(end.status, 'finished')
+  assert.equal(end.championUserId, null)
+  const told = await db.select().from(notifications).where(eq(notifications.userId, c.them))
+  assert.ok(told.some((n) => n.title.includes('ended level')))
 })

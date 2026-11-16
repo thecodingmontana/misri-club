@@ -31,11 +31,12 @@ interface Option {
 /** What the organiser may do with this match, in plain words. */
 function optionsFor(
   match: MatchView,
-  format: 'league' | 'knockout',
+  format: 'league' | 'knockout' | 'challenge',
 ): Array<{ group: string; options: Option[] }> {
   const home = match.home ? displayName(match.home) : 'Home'
   const away = match.away ? displayName(match.away) : 'Away'
-  const league = format === 'league'
+  // only a knockout needs someone through; leagues and challenges allow draws and call-offs
+  const league = format !== 'knockout'
   const decided = ['played', 'walkover', 'void'].includes(match.status)
   const result: Option[] = [
     {
@@ -111,7 +112,7 @@ export function DecideMatch({
 }: {
   slug: string
   match: MatchView
-  format: 'league' | 'knockout'
+  format: 'league' | 'knockout' | 'challenge'
 }) {
   const decide = useServerFn(decideMatchFn)
   const router = useRouter()

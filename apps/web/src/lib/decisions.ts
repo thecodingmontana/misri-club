@@ -96,3 +96,6 @@ export function concedeTo(
   }
   return playerId === homeUserId ? awayUserId : homeUserId
 }
+
+/** The note a player's own walkover leaves on the match (not the organiser's word). */
+export const CONCEDED = 'Conceded by the player'

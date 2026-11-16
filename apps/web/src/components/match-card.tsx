@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { PlayerAvatar, PlayerChip } from '#/components/player-chip'
+import { CONCEDED } from '#/lib/decisions'
 import { countdown, formatDate } from '#/lib/format'
 import { cn } from '#/lib/utils'
 import type { MatchView, PlayerView } from '#/server/competition-view.server'
@@ -148,7 +149,7 @@ export function FixtureCard({
       <>
         {match.note && (
           <p className="mt-1.5 text-xs text-muted-foreground">
-            Organiser: {match.note}
+            {match.note === CONCEDED ? match.note : `Organiser: ${match.note}`}
           </p>
         )}
         {children}

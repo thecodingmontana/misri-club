@@ -101,3 +101,11 @@ test('only games in the competition time control count, never variants', () => {
   assert.equal(blitzOnly?.homeWasWhite, false)
   assert.equal(findMatchResult(games, { ...window, timeControl: '300' }), null)
 })
+
+test('a game already counted for another match is skipped', () => {
+  const first = game('alice', 'win', 'bob', 'resigned', '2026-11-11T09:00:00Z')
+  const second = game('bob', 'win', 'alice', 'resigned', '2026-11-11T10:00:00Z')
+  const found = findMatchResult([first, second], window, new Set([first.url]))
+  assert.equal(found?.gameUrl, second.url)
+  assert.equal(found?.homeWasWhite, false)
+})

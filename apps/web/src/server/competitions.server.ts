@@ -77,6 +77,7 @@ export interface CompetitionSettings {
   requireApproval: boolean
   points: Points
   earlyRounds?: EarlyRounds
+  bestOf?: number
   timeControl?: string
   tieBreaks?: TieBreak[]
   startsAt?: Date | null
@@ -111,6 +112,40 @@ export function checkFormatRules(settings: {
   }
   if (settings.format === 'knockout' && (settings.legs ?? 1) !== 1) {
     throw new Error('A tournament has one game per pairing.')
+  }
+  if (
+    settings.format === 'challenge' &&
+    ((settings.unplayedRule ?? 'organiser') !== 'organiser' ||
+      settings.allowLateEntry)
+  ) {
+    throw new Error(
+      'A challenge is just the two of you; you settle unplayed games.',
+    )
+  }
+}
+
+/** Game k of a best-of-N; colours aren't enforced, so home just alternates. */
+function challengeGames([a, b]: string[], bestOf: number) {
+  return Array.from({ length: bestOf }, (_, i) => ({
+    round: i + 1,
+    leg: 1,
+    homeId: i % 2 === 0 ? a : b,
+    awayId: i % 2 === 0 ? b : a,
+    byeId: null,
+  }))
+}
+
+/** A challenge is always two players, invite only, straight in. */
+function shapeSettings(settings: CompetitionSettings): CompetitionSettings {
+  if (settings.format !== 'challenge') return settings
+  return {
+    ...settings,
+    legs: 1,
+    maxPlayers: 2,
+    visibility: 'private',
+    allowLateEntry: false,
+    requireApproval: false,
+    unplayedRule: 'organiser',
   }
 }
 
@@ -210,8 +245,9 @@ export function isNameClash(error: unknown) {
 
 export async function createCompetition(
   ownerId: string,
-  settings: CompetitionSettings,
+  requested: CompetitionSettings,
 ) {
+  const settings = shapeSettings(requested)
   checkFormatRules(settings)
   const nameKey = normalizeName(settings.name)
   if ((await takenKeys([nameKey])).size) throw new Error(NAME_TAKEN)
@@ -338,6 +374,7 @@ export async function joinCompetition(
   where: { code: string } | { slug: string },
 ) {
   let outcome: { id: string; pending: boolean } | null = null
+  let challengeReady: { slug: string; ownerId: string } | null = null
   const slug = await db.transaction(async (tx) => {
     const competition = await lockCompetition(
       tx,
@@ -380,6 +417,13 @@ export async function joinCompetition(
     try {
       if (await admit(tx, competition, userId)) {
         outcome = { id: competition.id, pending: false }
+        // the opponent is in: the challenge starts by itself
+        if (competition.format === 'challenge') {
+          challengeReady = {
+            slug: competition.slug,
+            ownerId: competition.ownerId,
+          }
+        }
       }
     } catch (error) {
       // the leaver refusal is worded for organisers; say it to the player
@@ -397,6 +441,15 @@ export async function joinCompetition(
     await (done.pending
       ? notifyRequested(done.id, userId)
       : notifyJoined(done.id, userId))
+  }
+  const ready = challengeReady as { slug: string; ownerId: string } | null
+  if (ready) {
+    await startCompetition(ready.slug, {
+      id: ready.ownerId,
+      isAdmin: false,
+    }).catch((error) =>
+      console.error('[challenge] auto-start failed', (error as Error).message),
+    )
   }
   return { slug, pending: done?.pending ?? false }
 }
@@ -421,6 +474,9 @@ export async function startCompetition(slug: string, viewer: Viewer) {
         asc(competitionMembers.userId),
       )
     if (members.length < 2) throw new Error('You need at least two players.')
+    if (competition.format === 'challenge' && members.length !== 2) {
+      throw new Error('A challenge is between exactly two players.')
+    }
     const ids = members.map((m) => m.userId)
 
     const now = Date.now()
@@ -436,11 +492,16 @@ export async function startCompetition(slug: string, viewer: Viewer) {
               awayId: f.awayId,
               byeId: f.byeId,
             }))
-        : generateKnockoutRound1(ids).map((m) => ({ ...m, leg: 1 }))
+        : competition.format === 'challenge'
+          ? challengeGames(ids, competition.bestOf)
+          : generateKnockoutRound1(ids).map((m) => ({ ...m, leg: 1 }))
 
     await tx.insert(matches).values(
       rows.map((m, position) => {
-        const opensAt = new Date(now + (m.round - 1) * days)
+        // a challenge's games are all open at once; rounds otherwise follow each other
+        const opensAt = new Date(
+          now + (competition.format === 'challenge' ? 0 : (m.round - 1) * days),
+        )
         return {
           competitionId: competition.id,
           round: m.round,
@@ -517,7 +578,18 @@ export async function updateCompetitionSettings(
   if (scoringChanged && (await hasResults(competition.id))) {
     throw new Error("Scoring can't change once a result is in.")
   }
-  await db.update(competitions).set(settings).where(eq(competitions.slug, slug))
+  // a challenge stays two players, invite only, straight in
+  const shaped =
+    competition.format === 'challenge'
+      ? {
+          ...settings,
+          maxPlayers: 2,
+          visibility: 'private' as const,
+          requireApproval: false,
+          startsAt: null,
+        }
+      : settings
+  await db.update(competitions).set(shaped).where(eq(competitions.slug, slug))
 }
 
 async function hasResults(competitionId: string) {

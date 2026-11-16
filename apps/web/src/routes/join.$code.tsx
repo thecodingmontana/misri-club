@@ -71,7 +71,9 @@ function Invite() {
     ['Status', STATUS_LABEL[invite.status]],
     [
       'Time to play',
-      `${invite.matchdayDays} day${invite.matchdayDays === 1 ? '' : 's'} per round`,
+      invite.format === 'challenge'
+        ? `Best of ${invite.bestOf}, ${invite.matchdayDays} day${invite.matchdayDays === 1 ? '' : 's'} for every game`
+        : `${invite.matchdayDays} day${invite.matchdayDays === 1 ? '' : 's'} per round`,
     ],
     [
       'Joining',

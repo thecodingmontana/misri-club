@@ -95,6 +95,7 @@ function CompetitionPage() {
   } = data
   const { user } = useAdmin()
   const league = competition.format === 'league'
+  const challenge = competition.format === 'challenge'
   const champion = members.find(
     (m: PlayerView) => m.id === competition.championId,
   )
@@ -117,9 +118,11 @@ function CompetitionPage() {
           {competition.maxPlayers
             ? `${playerCount} of ${competition.maxPlayers} players`
             : `${playerCount} player${playerCount === 1 ? '' : 's'}`}
-          {league && competition.legs === 2 && ' · home & away'} ·{' '}
+          {league && competition.legs === 2 && ' · home & away'}
+          {challenge && ` · best of ${competition.bestOf}`} ·{' '}
           {competition.matchdayDays} day
-          {competition.matchdayDays === 1 ? '' : 's'} per round
+          {competition.matchdayDays === 1 ? '' : 's'}{' '}
+          {challenge ? 'to play' : 'per round'}
         </p>
         <p className="numeric mt-0.5 text-xs text-muted-foreground">
           {scoringSummary(
@@ -135,6 +138,13 @@ function CompetitionPage() {
           slug={competition.slug}
           champion={champion}
           isYou={user?.id === champion.id}
+        />
+      )}
+
+      {challenge && data.matches.length > 0 && (
+        <ChallengeScore
+          matches={data.matches}
+          finished={competition.status === 'finished'}
         />
       )}
 
@@ -178,12 +188,20 @@ function CompetitionPage() {
 
       {canSeeDetails ? (
         <Tabs
-          defaultValue={competition.status === 'open' ? 'players' : 'table'}
+          defaultValue={
+            competition.status === 'open'
+              ? 'players'
+              : challenge
+                ? 'fixtures'
+                : 'table'
+          }
         >
           <TabsList className="w-full">
-            <TabsTrigger value="table">
-              {league ? 'Table' : 'Bracket'}
-            </TabsTrigger>
+            {!challenge && (
+              <TabsTrigger value="table">
+                {league ? 'Table' : 'Bracket'}
+              </TabsTrigger>
+            )}
             <TabsTrigger value="fixtures">Fixtures</TabsTrigger>
             <TabsTrigger value="players">Players</TabsTrigger>
           </TabsList>
@@ -258,6 +276,8 @@ function OwnerPanel({ data }: { data: Data }) {
   const openEarly = useServerFn(openEarlyRoundFn)
   const [busy, setBusy] = useState(false)
   const league = competition.format === 'league'
+  // two players, invite only, starts when the opponent joins: nothing to set there
+  const challenge = competition.format === 'challenge'
 
   async function run(action: () => Promise<unknown>, done?: string) {
     setBusy(true)
@@ -343,7 +363,7 @@ function OwnerPanel({ data }: { data: Data }) {
         />
       )}
 
-      {competition.status !== 'finished' && (
+      {!challenge && competition.status !== 'finished' && (
         <MaxPlayersField
           key={competition.maxPlayers ?? 'none'}
           value={competition.maxPlayers}
@@ -351,17 +371,19 @@ function OwnerPanel({ data }: { data: Data }) {
         />
       )}
 
-      <Choice
-        label="Who can join"
-        value={competition.visibility}
-        onChange={(visibility) => save({ visibility })}
-        options={[
-          { value: 'private', label: 'Invite only' },
-          { value: 'public', label: 'Anyone' },
-        ]}
-      />
+      {!challenge && (
+        <Choice
+          label="Who can join"
+          value={competition.visibility}
+          onChange={(visibility) => save({ visibility })}
+          options={[
+            { value: 'private', label: 'Invite only' },
+            { value: 'public', label: 'Anyone' },
+          ]}
+        />
+      )}
 
-      {competition.status !== 'finished' && (
+      {!challenge && competition.status !== 'finished' && (
         <label className="flex items-start gap-3 text-sm">
           <input
             type="checkbox"
@@ -408,7 +430,7 @@ function OwnerPanel({ data }: { data: Data }) {
         </label>
       )}
 
-      {competition.status === 'open' && (
+      {!challenge && competition.status === 'open' && (
         <StartDateField
           key={competition.startsAt ?? 'none'}
           value={startDayOf(competition.startsAt)}
@@ -606,6 +628,7 @@ function knockoutRoundName(matchCount: number, round: number) {
 }
 
 function roundLabel(data: Data, round: number, matchCount: number) {
+  if (data.competition.format === 'challenge') return `Game ${round}`
   if (data.competition.format === 'knockout') {
     return knockoutRoundName(matchCount, round)
   }
@@ -659,6 +682,56 @@ function decidable(data: Data, match: MatchView) {
     data.competition.status === 'running' &&
     match.home !== null &&
     match.away !== null
+  )
+}
+
+/** A challenge's running score: a win a point, a draw half, a walkover a point. */
+function ChallengeScore({
+  matches,
+  finished,
+}: {
+  matches: MatchView[]
+  finished: boolean
+}) {
+  const [first] = matches
+  if (!first?.home || !first.away) return null
+  const [a, b] = [first.home, first.away]
+  let scoreA = 0
+  let scoreB = 0
+  for (const m of matches) {
+    if (m.status === 'void') continue
+    if (m.result === 'draw') {
+      scoreA += 0.5
+      scoreB += 0.5
+      continue
+    }
+    const winner =
+      m.winnerId ??
+      (m.homeWon === null ? null : m.homeWon ? m.home?.id : m.away?.id)
+    if (winner === a.id) scoreA++
+    else if (winner === b.id) scoreB++
+  }
+  const show = (n: number) => (n % 1 ? `${Math.floor(n) || ''}½` : String(n))
+  return (
+    <section
+      aria-label="Score"
+      className="rounded-2xl bg-card px-4 py-4 shadow-card"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <PlayerChip username={displayName(a)} image={a.image} />
+        <p className="display numeric shrink-0 text-3xl">
+          {show(scoreA)}
+          <span className="px-1.5 text-muted-foreground">:</span>
+          {show(scoreB)}
+        </p>
+        <PlayerChip username={displayName(b)} image={b.image} />
+      </div>
+      {finished && scoreA === scoreB && (
+        <p className="mt-2 text-center text-sm text-muted-foreground">
+          Drawn match: neither could be caught.
+        </p>
+      )}
+    </section>
   )
 }
 

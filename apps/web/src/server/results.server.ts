@@ -9,8 +9,10 @@ import {
   user,
 } from '#/db/schema'
 import { authorize, roleOf, type Viewer } from '#/lib/access'
+import { challengeOutcome } from '#/lib/challenge'
 import { knockoutStep, leagueComplete } from '#/lib/competition-progress'
 import {
+  CONCEDED,
   concedeTo,
   type Decision,
   decisionFields,
@@ -59,6 +61,20 @@ export async function syncResults(competitionId: string, now = new Date()) {
     })
   if (!claimed) return 0
 
+  // games already counted in this competition never count again
+  const used = new Set(
+    (
+      await db
+        .select({ url: matches.gameUrl })
+        .from(matches)
+        .where(
+          and(
+            eq(matches.competitionId, competitionId),
+            sql`${matches.gameUrl} is not null`,
+          ),
+        )
+    ).map((r) => r.url as string),
+  )
   const open = await db
     .select({
       id: matches.id,
@@ -83,6 +99,8 @@ export async function syncResults(competitionId: string, now = new Date()) {
         lte(matches.opensAt, now),
       ),
     )
+    // earlier games of a challenge claim the earlier chess.com games
+    .orderBy(matches.round, matches.position)
 
   // one archive fetch per player-month, shared by their matches
   const months = new Map<string, ReturnType<typeof fetchMonthGames>>()
@@ -106,14 +124,19 @@ export async function syncResults(competitionId: string, now = new Date()) {
         archiveMonths(m.opensAt, until).map((month) => gamesOf(home, month)),
       )
     ).flat()
-    const found = findMatchResult(games, {
-      home,
-      away,
-      opensAt: m.opensAt,
-      dueAt: m.dueAt,
-      timeControl: claimed.timeControl,
-    })
+    const found = findMatchResult(
+      games,
+      {
+        home,
+        away,
+        opensAt: m.opensAt,
+        dueAt: m.dueAt,
+        timeControl: claimed.timeControl,
+      },
+      used,
+    )
     if (!found) continue
+    used.add(found.gameUrl)
     const whiteUserId = found.homeWasWhite ? homeUserId : awayUserId
     const blackUserId = found.homeWasWhite ? awayUserId : homeUserId
     const written = await db
@@ -150,6 +173,7 @@ export async function syncResults(competitionId: string, now = new Date()) {
  */
 export async function advance(competitionId: string, now = new Date()) {
   let opened: number | null = null
+  let drawn = false
   const championId = await db.transaction(async (tx) => {
     const [competition] = await tx
       .select()
@@ -161,6 +185,29 @@ export async function advance(competitionId: string, now = new Date()) {
       .select()
       .from(matches)
       .where(eq(matches.competitionId, competitionId))
+
+    if (competition.format === 'challenge') {
+      const [first] = rows
+      if (!first?.homeUserId || !first.awayUserId) return null
+      const outcome = challengeOutcome(rows, first.homeUserId, first.awayUserId)
+      if (outcome.kind === 'going') return null
+      // decided: the games nobody needs to play are called off
+      await tx
+        .update(matches)
+        .set({ voided: true })
+        .where(
+          and(
+            eq(matches.competitionId, competitionId),
+            isNull(matches.result),
+            isNull(matches.winnerUserId),
+          ),
+        )
+      if (outcome.kind === 'drawn') {
+        drawn = true
+        return finish(tx, competitionId, null, now)
+      }
+      return finish(tx, competitionId, outcome.userId, now)
+    }
 
     if (competition.format === 'knockout') {
       const leavers = await tx
@@ -226,7 +273,7 @@ export async function advance(competitionId: string, now = new Date()) {
     )
     return top ? finish(tx, competitionId, top.id, now) : null
   })
-  if (championId) await notifyFinished(competitionId, championId)
+  if (championId || drawn) await notifyFinished(competitionId, championId)
   if (opened) await notifyRoundOpened(competitionId, opened)
 }
 
@@ -298,7 +345,7 @@ export async function openEarlyRound(slug: string, viewer: Viewer) {
 async function finish(
   tx: Tx,
   competitionId: string,
-  championId: string,
+  championId: string | null,
   now: Date,
 ) {
   await tx
@@ -429,7 +476,7 @@ export async function concedeMatch(
     // only if still open: a result or decision in the meantime wins
     const written = await tx
       .update(matches)
-      .set({ winnerUserId: opponent, note: 'Conceded by the player' })
+      .set({ winnerUserId: opponent, note: CONCEDED })
       .where(
         and(
           eq(matches.id, match.id),
