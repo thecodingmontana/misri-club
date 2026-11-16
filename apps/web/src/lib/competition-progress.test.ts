@@ -11,6 +11,7 @@ const past = new Date('2026-11-14T12:00:00Z')
 const future = new Date('2026-11-16T12:00:00Z')
 const m = (over: Partial<ProgressMatch>): ProgressMatch => ({
   round: 1,
+  position: 0,
   homeUserId: 'a',
   awayUserId: 'b',
   byeUserId: null,
@@ -80,4 +81,23 @@ test('knockout: the final’s winner is the champion', () => {
     m({ round: 2, homeUserId: 'a', awayUserId: 'd', winnerUserId: 'd' }),
   ])
   assert.deepEqual(step, { kind: 'champion', userId: 'd' })
+})
+
+test('knockout: pairs by bracket position, not by the order rows arrive', () => {
+  const step = knockoutStep([
+    m({ position: 3, homeUserId: 'g', awayUserId: 'h', winnerUserId: 'h' }),
+    m({ position: 0, homeUserId: 'a', awayUserId: 'b', winnerUserId: 'a' }),
+    m({ position: 2, homeUserId: 'e', awayUserId: 'f', winnerUserId: 'e' }),
+    m({ position: 1, homeUserId: 'c', awayUserId: 'd', winnerUserId: 'd' }),
+  ])
+  assert.equal(step.kind, 'next')
+  if (step.kind === 'next') {
+    assert.deepEqual(
+      step.matches.map((x) => [x.homeId, x.awayId]),
+      [
+        ['a', 'd'],
+        ['e', 'h'],
+      ],
+    )
+  }
 })

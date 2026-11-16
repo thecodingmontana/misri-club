@@ -7,6 +7,7 @@ import { type BracketMatch, nextRound } from './bracket.ts'
 
 export interface ProgressMatch {
   round: number
+  position: number
   homeUserId: string | null
   awayUserId: string | null
   byeUserId: string | null
@@ -51,7 +52,10 @@ export type KnockoutStep =
 export function knockoutStep(matches: ProgressMatch[]): KnockoutStep {
   if (matches.length === 0) return { kind: 'waiting' }
   const latest = Math.max(...matches.map((m) => m.round))
-  const round = matches.filter((m) => m.round === latest)
+  // in bracket order: neighbours meet next, whatever order the rows came in
+  const round = matches
+    .filter((m) => m.round === latest)
+    .sort((a, b) => a.position - b.position)
   const winners = round.map((m) => m.byeUserId ?? m.winnerUserId)
   if (winners.some((w) => !w)) return { kind: 'waiting' }
   if (round.length === 1) {

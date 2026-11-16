@@ -324,6 +324,8 @@ export const matches = pgTable(
       .notNull()
       .references(() => competitions.id, { onDelete: 'cascade' }),
     round: integer('round').notNull(),
+    /** Order within its round: tie 1 and 2 feed the next round's tie 1, and so on. */
+    position: integer('position').notNull().default(0),
     leg: integer('leg').notNull().default(1),
     homeUserId: varchar('home_user_id', { length: 16 }).references(
       () => user.id,

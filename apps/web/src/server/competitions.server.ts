@@ -435,11 +435,12 @@ export async function startCompetition(slug: string, viewer: Viewer) {
         : generateKnockoutRound1(ids).map((m) => ({ ...m, leg: 1 }))
 
     await tx.insert(matches).values(
-      rows.map((m) => {
+      rows.map((m, position) => {
         const opensAt = new Date(now + (m.round - 1) * days)
         return {
           competitionId: competition.id,
           round: m.round,
+          position,
           leg: m.leg,
           homeUserId: m.homeId,
           awayUserId: m.awayId,
@@ -667,6 +668,7 @@ export type MatchStatus =
 export interface MatchView {
   id: string
   round: number
+  position: number
   leg: number
   home: PlayerView | null
   away: PlayerView | null
@@ -735,7 +737,12 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       .select()
       .from(matches)
       .where(eq(matches.competitionId, competition.id))
-      .orderBy(asc(matches.round), asc(matches.leg), asc(matches.id)),
+      .orderBy(
+        asc(matches.round),
+        asc(matches.position),
+        asc(matches.leg),
+        asc(matches.id),
+      ),
     db
       .select({
         id: user.id,
@@ -786,6 +793,7 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
   const matchViews: Array<MatchView> = matchRows.map((m) => ({
     id: m.id,
     round: m.round,
+    position: m.position,
     leg: m.leg,
     home: player(m.homeUserId),
     away: player(m.awayUserId),

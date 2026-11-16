@@ -7,6 +7,7 @@ import {
 import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 import { Spinner } from '#/components/auth'
+import { BracketView } from '#/components/bracket-view'
 import { ChampionBanner } from '#/components/champion-banner'
 import {
   DeleteCompetition,
@@ -37,7 +38,6 @@ import { seo } from '#/lib/seo'
 import { toast } from '#/lib/toast'
 import { useAdmin } from '#/lib/use-admin'
 import { useCopy } from '#/lib/use-copy'
-import { cn } from '#/lib/utils'
 import {
   getCompetitionFn,
   startCompetitionFn,
@@ -170,7 +170,17 @@ function CompetitionPage() {
             <TabsTrigger value="players">Players</TabsTrigger>
           </TabsList>
           <TabsContent value="table" className="pt-2">
-            {league ? <Standings data={data} /> : <Bracket data={data} />}
+            {league ? (
+              <Standings data={data} />
+            ) : data.matches.length === 0 ? (
+              <Empty>The bracket appears once the tournament starts.</Empty>
+            ) : (
+              <BracketView
+                matches={data.matches}
+                viewerId={user?.id ?? null}
+                champion={champion ?? null}
+              />
+            )}
           </TabsContent>
           <TabsContent value="fixtures" className="pt-2">
             <Fixtures data={data} />
@@ -561,81 +571,6 @@ function decidable(data: Data, match: MatchView) {
 }
 
 /** Knockout rounds side by side as a compact list of pairings. */
-function Bracket({ data }: { data: Data }) {
-  if (data.matches.length === 0) {
-    return <Empty>The bracket appears once the tournament starts.</Empty>
-  }
-  return (
-    <div className="space-y-5">
-      {byRound(data.matches).map(([round, matches]) => (
-        <section key={round} className="space-y-2">
-          <h2 className="kicker">{knockoutRoundName(matches.length, round)}</h2>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {matches.map((match) => (
-              <div
-                key={match.id}
-                className="space-y-1 rounded-2xl bg-card px-3 py-2.5 shadow-card"
-              >
-                {match.bye ? (
-                  <BracketLine player={match.bye} won note="Bye" />
-                ) : (
-                  <>
-                    <BracketLine
-                      player={match.home}
-                      won={
-                        match.winnerId !== null &&
-                        match.winnerId === match.home?.id
-                      }
-                    />
-                    <BracketLine
-                      player={match.away}
-                      won={
-                        match.winnerId !== null &&
-                        match.winnerId === match.away?.id
-                      }
-                    />
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
-  )
-}
-
-function BracketLine({
-  player,
-  won,
-  note,
-}: {
-  player: MatchView['home']
-  won: boolean
-  note?: string
-}) {
-  return (
-    <div
-      className={cn(
-        'flex items-center justify-between gap-2',
-        !won && 'opacity-90',
-      )}
-    >
-      {player ? (
-        <PlayerChip
-          username={displayName(player)}
-          image={player.image}
-          size="sm"
-          className={won ? 'font-bold' : undefined}
-        />
-      ) : (
-        <span className="text-xs text-muted-foreground">Left</span>
-      )}
-      {note && <span className="kicker">{note}</span>}
-    </div>
-  )
-}
-
 function Empty({ children }: { children: React.ReactNode }) {
   return (
     <p className="rounded-2xl bg-card px-4 py-5 text-center text-sm text-muted-foreground shadow-card">

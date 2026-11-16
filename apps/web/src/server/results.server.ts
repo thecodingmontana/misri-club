@@ -153,9 +153,10 @@ export async function advance(competitionId: string, now = new Date()) {
       const step = knockoutStep(rows)
       if (step.kind === 'next') {
         await tx.insert(matches).values(
-          step.matches.map((m) => ({
+          step.matches.map((m, position) => ({
             competitionId,
             round: m.round,
+            position,
             homeUserId: m.homeId,
             awayUserId: m.awayId,
             byeUserId: m.byeId,
