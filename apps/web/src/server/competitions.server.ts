@@ -21,6 +21,7 @@ import {
   suggestNames,
 } from '#/lib/competition-names'
 import type { EarlyRounds } from '#/lib/early-rounds'
+import { drawGroups, groupsProblem } from '#/lib/groups'
 import { canJoin, lateEntryMatches } from '#/lib/join-policy'
 import type { LeaveRule } from '#/lib/leave'
 import { generateDoubleRoundRobin } from '#/lib/round-robin'
@@ -78,6 +79,8 @@ export interface CompetitionSettings {
   points: Points
   earlyRounds?: EarlyRounds
   bestOf?: number
+  groupCount?: number
+  advancing?: number
   timeControl?: string
   tieBreaks?: TieBreak[]
   startsAt?: Date | null
@@ -110,6 +113,9 @@ export function checkFormatRules(settings: {
   if (settings.format === 'knockout' && settings.allowLateEntry) {
     throw new Error("A tournament can't take late entries.")
   }
+  if (settings.format === 'groups' && settings.allowLateEntry) {
+    throw new Error('Groups are drawn at the start; no late entries.')
+  }
   if (
     settings.format === 'challenge' &&
     ((settings.unplayedRule ?? 'organiser') !== 'organiser' ||
@@ -119,6 +125,34 @@ export function checkFormatRules(settings: {
       'A challenge is just the two of you; you settle unplayed games.',
     )
   }
+}
+
+/** Seed order into groups (snake draw), saved on the members; each group's round robin. */
+async function drawIntoGroups(tx: Tx, competition: Competition, ids: string[]) {
+  const groups = drawGroups(ids, competition.groupCount)
+  for (const [groupNo, group] of groups.entries()) {
+    await tx
+      .update(competitionMembers)
+      .set({ groupNo })
+      .where(
+        and(
+          eq(competitionMembers.competitionId, competition.id),
+          inArray(competitionMembers.userId, group),
+        ),
+      )
+  }
+  return groups.flatMap((group, groupNo) =>
+    generateDoubleRoundRobin(group)
+      .filter((f) => f.leg <= competition.legs)
+      .map((f) => ({
+        round: f.matchday,
+        leg: f.leg,
+        homeId: f.homeId,
+        awayId: f.awayId,
+        byeId: f.byeId,
+        groupNo,
+      })),
+  )
 }
 
 /** Game k of a best-of-N; colours aren't enforced, so home just alternates. */
@@ -474,6 +508,14 @@ export async function startCompetition(slug: string, viewer: Viewer) {
     if (competition.format === 'challenge' && members.length !== 2) {
       throw new Error('A challenge is between exactly two players.')
     }
+    if (competition.format === 'groups') {
+      const problem = groupsProblem(
+        members.length,
+        competition.groupCount,
+        competition.advancing,
+      )
+      if (problem) throw new Error(problem)
+    }
     const ids = members.map((m) => m.userId)
 
     const now = Date.now()
@@ -491,7 +533,9 @@ export async function startCompetition(slug: string, viewer: Viewer) {
             }))
         : competition.format === 'challenge'
           ? challengeGames(ids, competition.bestOf)
-          : knockoutLegs(generateKnockoutRound1(ids), competition.legs)
+          : competition.format === 'groups'
+            ? await drawIntoGroups(tx, competition, ids)
+            : knockoutLegs(generateKnockoutRound1(ids), competition.legs)
 
     await tx.insert(matches).values(
       rows.map((m, index) => {
@@ -508,6 +552,7 @@ export async function startCompetition(slug: string, viewer: Viewer) {
           homeUserId: m.homeId,
           awayUserId: m.awayId,
           byeUserId: m.byeId,
+          groupNo: 'groupNo' in m ? (m.groupNo as number) : null,
           opensAt,
           dueAt: new Date(opensAt.getTime() + days),
         }
@@ -661,7 +706,10 @@ export async function seedCompetition(
     const competition = await lockCompetition(tx, eq(competitions.slug, slug))
     if (!competition) throw new Error('Not found.')
     authorizeManage(viewer, competition)
-    if (competition.format !== 'knockout' || competition.status !== 'open') {
+    if (
+      !['knockout', 'groups'].includes(competition.format) ||
+      competition.status !== 'open'
+    ) {
       throw new Error('Seeding is for a knockout that has not started.')
     }
     const members = await tx

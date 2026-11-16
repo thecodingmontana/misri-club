@@ -148,6 +148,13 @@
       "when": 1794835296716,
       "tag": "0020_warm_bastion",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794836976110,
+      "tag": "0021_chief_cable",
+      "breakpoints": true
     }
   ]
 }

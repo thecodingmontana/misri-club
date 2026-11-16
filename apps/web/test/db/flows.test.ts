@@ -345,3 +345,49 @@ test('home & away knockout: aggregate, a decider when level, two-leg final', asy
   assert.equal(end.status, 'finished')
   assert.equal(end.championUserId, final[0].homeUserId)
 })
+
+test('groups then knockout: snake draw, tables, cross-seeded bracket, champion', async () => {
+  const c = await competition('knockout', ['o', 'a', 'b', 'd', 'e', 'f', 'g', 'h'], {
+    format: 'groups',
+    groupCount: 2,
+    advancing: 2,
+  })
+  await startCompetition(c.slug, c.organiser)
+  const drawn = await db
+    .select({ userId: competitionMembers.userId, groupNo: competitionMembers.groupNo })
+    .from(competitionMembers)
+    .where(eq(competitionMembers.competitionId, c.row.id))
+  const groupOf = new Map(drawn.map((m) => [m.userId, m.groupNo]))
+  assert.equal(drawn.filter((m) => m.groupNo === 0).length, 4)
+  assert.equal(groupOf.get(c.ids[0]), 0, 'seed 1 in group A')
+  assert.equal(groupOf.get(c.ids[1]), 1, 'seed 2 in group B')
+  const groupGames = (await c.rows()).filter((m) => m.groupNo !== null)
+  assert.equal(groupGames.length, 12, 'a round robin of 4 in each group')
+  for (const m of groupGames) {
+    await decideMatch(c.slug, c.organiser, m.id, { kind: 'result', result: 'white', homeWhite: true }, null)
+  }
+  const knockout = (await c.rows()).filter((m) => m.groupNo === null)
+  assert.equal(knockout.length, 2, 'two semi-finals')
+  for (const tie of knockout) {
+    assert.notEqual(groupOf.get(tie.homeUserId as string), groupOf.get(tie.awayUserId as string), 'group-mates kept apart')
+  }
+  await assert.rejects(
+    decideMatch(c.slug, c.organiser, groupGames[0].id, { kind: 'reopen' }, null),
+    /group stage is over/,
+  )
+  const view = await getCompetition(c.slug, c.organiser)
+  assert.equal(view?.groupTables?.length, 2)
+  await assert.rejects(
+    decideMatch(c.slug, c.organiser, knockout[0].id, { kind: 'result', result: 'draw', homeWhite: true }, null),
+    /needs a winner/,
+  )
+  for (const tie of knockout) {
+    await decideMatch(c.slug, c.organiser, tie.id, { kind: 'walkover', winnerUserId: tie.homeUserId as string }, null)
+  }
+  const final = (await c.rows()).find((m) => m.groupNo === null && m.round > knockout[0].round)
+  assert.ok(final, 'the final')
+  await decideMatch(c.slug, c.organiser, final.id, { kind: 'walkover', winnerUserId: final.awayUserId as string }, null)
+  const end = await c.state()
+  assert.equal(end.status, 'finished')
+  assert.equal(end.championUserId, final.awayUserId)
+})

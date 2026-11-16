@@ -16,6 +16,7 @@ import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { BEST_OF } from '#/lib/challenge'
 import { normalizeName } from '#/lib/competition-names'
+import { ADVANCING, GROUP_COUNTS } from '#/lib/groups'
 import type { LeaveRule } from '#/lib/leave'
 import { seo } from '#/lib/seo'
 import { toast } from '#/lib/toast'
@@ -28,7 +29,9 @@ import { POINTS, type Points, type UnplayedRule } from '#/server/standings'
 
 export const Route = createFileRoute('/_authed/competitions/new')({
   validateSearch: z.object({
-    format: z.enum(['league', 'knockout', 'challenge']).catch('league'),
+    format: z
+      .enum(['league', 'knockout', 'challenge', 'groups'])
+      .catch('league'),
   }),
   head: () =>
     seo({
@@ -101,6 +104,8 @@ function NewCompetition() {
   const [name, setName] = useState('')
   const [legs, setLegs] = useState<1 | 2>(1)
   const [bestOf, setBestOf] = useState<(typeof BEST_OF)[number]>(3)
+  const [groupCount, setGroupCount] = useState<(typeof GROUP_COUNTS)[number]>(2)
+  const [advancing, setAdvancing] = useState<(typeof ADVANCING)[number]>(2)
   const [matchdayDays, setMatchdayDays] = useState(2)
   const [timeControl, setTimeControl] = useState('any')
   const [visibility, setVisibility] = useState<'private' | 'public'>('private')
@@ -115,6 +120,7 @@ function NewCompetition() {
   const [busy, setBusy] = useState(false)
   const league = format === 'league'
   const challenge = format === 'challenge'
+  const groups = format === 'groups'
   const nameCheck = useNameCheck(name)
 
   async function submit(event: FormEvent) {
@@ -127,6 +133,8 @@ function NewCompetition() {
           format,
           legs: challenge ? 1 : legs,
           bestOf: challenge ? bestOf : 1,
+          groupCount,
+          advancing,
           matchdayDays,
           timeControl,
           visibility,
@@ -151,7 +159,9 @@ function NewCompetition() {
             ? 'New league'
             : challenge
               ? 'New challenge'
-              : 'New tournament'}
+              : groups
+                ? 'New groups + knockout'
+                : 'New tournament'}
         </h1>
         <p className="mt-1 text-xs text-muted-foreground">
           {FORMAT_INFO[format].summary}
@@ -231,7 +241,7 @@ function NewCompetition() {
 
         {!challenge && (
           <Choice
-            label={league ? 'Games per pairing' : 'Games per tie'}
+            label={league || groups ? 'Games per pairing' : 'Games per tie'}
             value={legs}
             onChange={setLegs}
             options={[
@@ -239,6 +249,29 @@ function NewCompetition() {
               { value: 2, label: 'Home & away' },
             ]}
           />
+        )}
+
+        {groups && (
+          <>
+            <Choice
+              label="Groups"
+              value={groupCount}
+              onChange={setGroupCount}
+              options={GROUP_COUNTS.map((n) => ({
+                value: n,
+                label: String(n),
+              }))}
+            />
+            <Choice
+              label="Go through from each group"
+              value={advancing}
+              onChange={setAdvancing}
+              options={ADVANCING.map((n) => ({
+                value: n,
+                label: n === 1 ? 'Winner' : `Top ${n}`,
+              }))}
+            />
+          </>
         )}
 
         {challenge && (

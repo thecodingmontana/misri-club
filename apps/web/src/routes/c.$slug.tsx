@@ -44,11 +44,13 @@ import { TimeControlChoice } from '#/components/time-control'
 import { Button } from '#/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { formatDate } from '#/lib/format'
+import { groupName } from '#/lib/groups'
 import { seo } from '#/lib/seo'
 import { timeControlLabel } from '#/lib/time-control'
 import { toast } from '#/lib/toast'
 import { useAdmin } from '#/lib/use-admin'
 import { useCopy } from '#/lib/use-copy'
+import { cn } from '#/lib/utils'
 import type {
   MatchView,
   PlayerView,
@@ -96,6 +98,7 @@ function CompetitionPage() {
   const { user } = useAdmin()
   const league = competition.format === 'league'
   const challenge = competition.format === 'challenge'
+  const groups = competition.format === 'groups'
   const champion = members.find(
     (m: PlayerView) => m.id === competition.championId,
   )
@@ -119,8 +122,10 @@ function CompetitionPage() {
             ? `${playerCount} of ${competition.maxPlayers} players`
             : `${playerCount} player${playerCount === 1 ? '' : 's'}`}
           {competition.legs === 2 && ' · home & away'}
-          {challenge && ` · best of ${competition.bestOf}`} ·{' '}
-          {competition.matchdayDays} day
+          {challenge && ` · best of ${competition.bestOf}`}
+          {groups &&
+            ` · ${competition.groupCount} groups, top ${competition.advancing} through`}{' '}
+          · {competition.matchdayDays} day
           {competition.matchdayDays === 1 ? '' : 's'}{' '}
           {challenge ? 'to play' : 'per round'}
         </p>
@@ -199,14 +204,32 @@ function CompetitionPage() {
           <TabsList className="w-full">
             {!challenge && (
               <TabsTrigger value="table">
-                {league ? 'Table' : 'Bracket'}
+                {league ? 'Table' : groups ? 'Groups' : 'Bracket'}
               </TabsTrigger>
             )}
+            {groups && <TabsTrigger value="bracket">Bracket</TabsTrigger>}
             <TabsTrigger value="fixtures">Fixtures</TabsTrigger>
             <TabsTrigger value="players">Players</TabsTrigger>
           </TabsList>
+          {groups && (
+            <TabsContent value="bracket" className="pt-2">
+              {data.matches.some((m: MatchView) => m.groupNo === null) ? (
+                <BracketView
+                  matches={knockoutPart(data.matches)}
+                  viewerId={user?.id ?? null}
+                  champion={champion ?? null}
+                />
+              ) : (
+                <Empty>
+                  The bracket is drawn once every group game is settled.
+                </Empty>
+              )}
+            </TabsContent>
+          )}
           <TabsContent value="table" className="pt-2">
-            {league ? (
+            {groups ? (
+              <GroupTables data={data} />
+            ) : league ? (
               <Standings data={data} />
             ) : data.matches.length === 0 ? (
               <Empty>The bracket appears once the tournament starts.</Empty>
@@ -524,9 +547,10 @@ function OwnerPanel({ data }: { data: Data }) {
         </div>
       )}
 
-      {!league && competition.status === 'open' && (
-        <Seeding slug={competition.slug} members={members} />
-      )}
+      {(competition.format === 'knockout' || competition.format === 'groups') &&
+        competition.status === 'open' && (
+          <Seeding slug={competition.slug} members={members} />
+        )}
 
       {competition.status === 'open' && (
         <Button
@@ -558,14 +582,22 @@ function OwnerPanel({ data }: { data: Data }) {
   )
 }
 
-function Standings({ data }: { data: Data }) {
-  const rows: Array<StandingRow> = data.standings ?? []
-  if (rows.length === 0 || data.matches.length === 0) {
-    return <Empty>The table appears once the league starts.</Empty>
-  }
+function StandingsTable({
+  rows,
+  caption,
+  through = 0,
+}: {
+  rows: Array<StandingRow>
+  caption?: string
+  /** groups: how many go through (their rows are marked) */
+  through?: number
+}) {
   return (
     <div className="overflow-hidden rounded-2xl bg-card shadow-card">
       <table className="numeric w-full text-sm">
+        {caption && (
+          <caption className="kicker px-3 pt-3 text-left">{caption}</caption>
+        )}
         <thead className="kicker">
           <tr className="border-b border-border">
             <th className="w-8 py-2 pl-3 text-left font-semibold">#</th>
@@ -591,9 +623,19 @@ function Standings({ data }: { data: Data }) {
           {rows.map((row, index) => (
             <tr
               key={row.player.id}
-              className="border-b border-border/60 last:border-0"
+              className={cn(
+                'border-b border-border/60 last:border-0',
+                index < through && 'bg-primary/6',
+              )}
             >
-              <td className="py-2 pl-3 text-muted-foreground">{index + 1}</td>
+              <td
+                className={cn(
+                  'py-2 pl-3 text-muted-foreground',
+                  index < through && 'font-bold text-primary',
+                )}
+              >
+                {index + 1}
+              </td>
               <td className="max-w-0 py-2">
                 <PlayerChip
                   username={displayName(row.player)}
@@ -613,6 +655,46 @@ function Standings({ data }: { data: Data }) {
   )
 }
 
+function Standings({ data }: { data: Data }) {
+  const rows: Array<StandingRow> = data.standings ?? []
+  if (rows.length === 0 || data.matches.length === 0) {
+    return <Empty>The table appears once the league starts.</Empty>
+  }
+  return <StandingsTable rows={rows} />
+}
+
+/** Groups then knockout: a table per group, the qualifying places marked. */
+function GroupTables({ data }: { data: Data }) {
+  const tables: Array<{ name: string; rows: Array<StandingRow> }> =
+    data.groupTables ?? []
+  if (tables.length === 0) {
+    return <Empty>The groups are drawn when the organiser starts it.</Empty>
+  }
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Highlighted: going through to the knockout (top{' '}
+        {data.competition.advancing} of each group).
+      </p>
+      {tables.map((table) => (
+        <StandingsTable
+          key={table.name}
+          caption={`Group ${table.name}`}
+          rows={table.rows}
+          through={data.competition.advancing}
+        />
+      ))}
+    </div>
+  )
+}
+
+/** A groups competition's bracket: its knockout games, rounds counted from 1. */
+function knockoutPart(matches: MatchView[]) {
+  const knockout = matches.filter((m) => m.groupNo === null)
+  const offset = Math.min(...knockout.map((m) => m.round)) - 1
+  return knockout.map((m) => ({ ...m, round: m.round - offset }))
+}
+
 function byRound(matches: Array<MatchView>) {
   const rounds = new Map<number, Array<MatchView>>()
   for (const match of matches) {
@@ -630,6 +712,13 @@ function knockoutRoundName(matchCount: number, round: number) {
 
 function roundLabel(data: Data, round: number, matchCount: number) {
   if (data.competition.format === 'challenge') return `Game ${round}`
+  if (data.competition.format === 'groups') {
+    const games = data.matches.filter((m: MatchView) => m.round === round)
+    if (games.some((m: MatchView) => m.groupNo !== null)) {
+      return `Group stage · round ${round}`
+    }
+    return knockoutRoundName(matchCount, round)
+  }
   if (data.competition.format === 'knockout') {
     return knockoutRoundName(matchCount, round)
   }
@@ -650,6 +739,12 @@ function Fixtures({ data }: { data: Data }) {
           <h2 className="kicker">{roundLabel(data, round, matches.length)}</h2>
           {matches.map((match) => (
             <FixtureCard key={match.id} match={match} now={now}>
+              {data.competition.format === 'groups' &&
+                match.groupNo !== null && (
+                  <p className="mt-1.5 text-center text-xs font-medium text-muted-foreground">
+                    Group {groupName(match.groupNo)}
+                  </p>
+                )}
               {data.competition.format === 'knockout' &&
                 data.competition.legs === 2 &&
                 !match.bye && (

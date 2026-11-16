@@ -9,7 +9,7 @@ import {
   user,
 } from '#/db/schema'
 import { authorize, roleOf, type Viewer } from '#/lib/access'
-import { knockoutLegs } from '#/lib/bracket'
+import { generateKnockoutRound1, knockoutLegs } from '#/lib/bracket'
 import { challengeOutcome } from '#/lib/challenge'
 import { knockoutStep, leagueComplete } from '#/lib/competition-progress'
 import {
@@ -21,6 +21,7 @@ import {
 } from '#/lib/decisions'
 import { earlyRound } from '#/lib/early-rounds'
 import { archiveMonths, findMatchResult } from '#/lib/game-result'
+import { qualifierSeeds } from '#/lib/groups'
 import { fetchMonthGames } from './chesscom.server'
 import {
   notifyConceded,
@@ -84,6 +85,7 @@ export async function syncResults(competitionId: string, now = new Date()) {
       awayUserId: matches.awayUserId,
       opensAt: matches.opensAt,
       dueAt: matches.dueAt,
+      groupNo: matches.groupNo,
       home: sql<
         string | null
       >`(select ${chessAccounts.username} from ${chessAccounts} where ${chessAccounts.userId} = ${matches.homeUserId})`,
@@ -116,8 +118,17 @@ export async function syncResults(competitionId: string, now = new Date()) {
     return games
   }
 
+  const groupsClosed =
+    claimed.format === 'groups' &&
+    (await groupStageClosed(
+      db,
+      { id: competitionId, format: 'groups' },
+      { groupNo: 0 },
+    ))
   let changed = 0
   for (const m of open) {
+    // a late group result can't redraw a bracket already played from the tables
+    if (groupsClosed && m.groupNo !== null) continue
     if (!m.home || !m.away || !m.homeUserId || !m.awayUserId) continue
     const { home, away, homeUserId, awayUserId } = m
     const until = m.dueAt < now ? m.dueAt : now
@@ -150,7 +161,8 @@ export async function syncResults(competitionId: string, now = new Date()) {
         endedAt: found.endedAt,
         // a one-game knockout tie is decided by who won; elsewhere the result is enough
         winnerUserId:
-          claimed.format === 'knockout' && claimed.legs === 1
+          (claimed.format === 'knockout' && claimed.legs === 1) ||
+          (claimed.format === 'groups' && m.groupNo === null)
             ? winnerOf(found.result, whiteUserId, blackUserId)
             : null,
       })
@@ -212,54 +224,11 @@ export async function advance(competitionId: string, now = new Date()) {
     }
 
     if (competition.format === 'knockout') {
-      const leavers = await tx
-        .select({ userId: competitionLeavers.userId })
-        .from(competitionLeavers)
-        .where(eq(competitionLeavers.competitionId, competitionId))
-      const gone = new Set(leavers.map((l) => l.userId))
-      // a round of only byes (after someone left) is decided at once: keep going
-      for (let all = rows; ; ) {
-        const step = knockoutStep(all, gone)
-        if (step.kind === 'champion') {
-          return finish(tx, competitionId, step.userId, now)
-        }
-        const dueAt = new Date(now.getTime() + competition.matchdayDays * DAY)
-        if (step.kind === 'deciders') {
-          // level after both legs: one more game decides it
-          await tx.insert(matches).values(
-            step.ties.map((t) => ({
-              competitionId,
-              round: t.round,
-              position: t.position,
-              leg: 3,
-              homeUserId: t.homeId,
-              awayUserId: t.awayId,
-              opensAt: now,
-              dueAt,
-            })),
-          )
-          return null
-        }
-        if (step.kind !== 'next') return null
-        const inserted = await tx
-          .insert(matches)
-          .values(
-            knockoutLegs(step.matches, competition.legs).map((m) => ({
-              competitionId,
-              round: m.round,
-              position: m.position,
-              leg: m.leg,
-              homeUserId: m.homeId,
-              awayUserId: m.awayId,
-              byeUserId: m.byeId,
-              opensAt: now,
-              dueAt,
-            })),
-          )
-          .returning()
-        if (inserted.some((m) => !m.byeUserId)) return null
-        all = [...all, ...inserted]
-      }
+      return advanceKnockout(tx, competition, rows, competition.legs, now)
+    }
+
+    if (competition.format === 'groups') {
+      return advanceGroups(tx, competition, rows, now)
     }
 
     const members = await tx
@@ -274,22 +243,14 @@ export async function advance(competitionId: string, now = new Date()) {
       return null
     }
     // the same names the table sorts by, so the champion is its top row
-    const names = await tx
-      .select({
-        userId: user.id,
-        name: sql<string>`coalesce(${chessAccounts.username}, ${user.name})`,
-      })
-      .from(user)
-      .leftJoin(chessAccounts, eq(chessAccounts.userId, user.id))
-      .where(inArray(user.id, [...memberIds]))
-    const nameOf = new Map(names.map((n) => [n.userId, n.name]))
+    const nameOf = await namesOf(tx, [...memberIds])
     const [top] = rankStandings(
       rows,
       [...memberIds],
       now,
       { unplayed: competition.unplayedRule, points: competition.points },
       competition.tieBreaks,
-      (id) => nameOf.get(id) ?? id,
+      nameOf,
     )
     return top ? finish(tx, competitionId, top.id, now) : null
   })
@@ -362,6 +323,162 @@ export async function openEarlyRound(slug: string, viewer: Viewer) {
   return result.round
 }
 
+type CompetitionRow = typeof competitions.$inferSelect
+type MatchRow = typeof matches.$inferSelect
+
+/** Next knockout round, a decider, or the champion. `legs` per tie (1 or 2). */
+async function advanceKnockout(
+  tx: Tx,
+  competition: CompetitionRow,
+  rows: MatchRow[],
+  legs: number,
+  now: Date,
+) {
+  const competitionId = competition.id
+  const leavers = await tx
+    .select({ userId: competitionLeavers.userId })
+    .from(competitionLeavers)
+    .where(eq(competitionLeavers.competitionId, competitionId))
+  const gone = new Set(leavers.map((l) => l.userId))
+  // a round of only byes (after someone left) is decided at once: keep going
+  for (let all = rows; ; ) {
+    const step = knockoutStep(all, gone)
+    if (step.kind === 'champion') {
+      return finish(tx, competitionId, step.userId, now)
+    }
+    const dueAt = new Date(now.getTime() + competition.matchdayDays * DAY)
+    if (step.kind === 'deciders') {
+      // level after both legs: one more game decides it
+      await tx.insert(matches).values(
+        step.ties.map((t) => ({
+          competitionId,
+          round: t.round,
+          position: t.position,
+          leg: 3,
+          homeUserId: t.homeId,
+          awayUserId: t.awayId,
+          opensAt: now,
+          dueAt,
+        })),
+      )
+      return null
+    }
+    if (step.kind !== 'next') return null
+    const inserted = await tx
+      .insert(matches)
+      .values(
+        knockoutLegs(step.matches, legs).map((m) => ({
+          competitionId,
+          round: m.round,
+          position: m.position,
+          leg: m.leg,
+          homeUserId: m.homeId,
+          awayUserId: m.awayId,
+          byeUserId: m.byeId,
+          opensAt: now,
+          dueAt,
+        })),
+      )
+      .returning()
+    if (inserted.some((m) => !m.byeUserId)) return null
+    all = [...all, ...inserted]
+  }
+}
+
+/** Names the tables sort by (chess.com username, else account name). */
+async function namesOf(tx: Tx, ids: string[]) {
+  const names = await tx
+    .select({
+      userId: user.id,
+      name: sql<string>`coalesce(${chessAccounts.username}, ${user.name})`,
+    })
+    .from(user)
+    .leftJoin(chessAccounts, eq(chessAccounts.userId, user.id))
+    .where(inArray(user.id, ids))
+  const nameOf = new Map(names.map((n) => [n.userId, n.name]))
+  return (id: string) => nameOf.get(id) ?? id
+}
+
+/**
+ * Groups then knockout: once every group game is settled, the top of each
+ * group goes into a single-game bracket; after that it advances as a knockout.
+ */
+async function advanceGroups(
+  tx: Tx,
+  competition: CompetitionRow,
+  rows: MatchRow[],
+  now: Date,
+) {
+  const knockout = rows.filter((m) => m.groupNo === null)
+  if (knockout.length > 0) {
+    return advanceKnockout(tx, competition, knockout, 1, now)
+  }
+  const groupGames = rows.filter((m) => m.groupNo !== null)
+  const members = await tx
+    .select({
+      userId: competitionMembers.userId,
+      groupNo: competitionMembers.groupNo,
+    })
+    .from(competitionMembers)
+    .where(eq(competitionMembers.competitionId, competition.id))
+  const memberIds = new Set(members.map((m) => m.userId))
+  if (!leagueComplete(groupGames, memberIds, competition.unplayedRule, now)) {
+    return null
+  }
+  const nameOf = await namesOf(tx, [...memberIds])
+  const ranked = Array.from({ length: competition.groupCount }, (_, groupNo) =>
+    rankStandings(
+      groupGames.filter((m) => m.groupNo === groupNo),
+      members.filter((m) => m.groupNo === groupNo).map((m) => m.userId),
+      now,
+      { unplayed: competition.unplayedRule, points: competition.points },
+      competition.tieBreaks,
+      nameOf,
+    ).map((r) => r.id),
+  )
+  const seeds = qualifierSeeds(ranked, competition.advancing)
+  if (seeds.length < 2) {
+    return seeds[0] ? finish(tx, competition.id, seeds[0], now) : null
+  }
+  // knockout rounds number on from the group stage, so "a later round exists" holds
+  const round = Math.max(...groupGames.map((m) => m.round)) + 1
+  const dueAt = new Date(now.getTime() + competition.matchdayDays * DAY)
+  await tx.insert(matches).values(
+    knockoutLegs(
+      generateKnockoutRound1(seeds).map((m) => ({ ...m, round })),
+      1,
+    ).map((m) => ({
+      competitionId: competition.id,
+      round: m.round,
+      position: m.position,
+      leg: m.leg,
+      homeUserId: m.homeId,
+      awayUserId: m.awayId,
+      byeUserId: m.byeId,
+      opensAt: now,
+      dueAt,
+    })),
+  )
+  return null
+}
+
+/** A group game once the bracket is drawn from the group results: fixed. */
+async function groupStageClosed(
+  tx: Tx | typeof db,
+  competition: { id: string; format: string },
+  match: { groupNo: number | null },
+) {
+  if (competition.format !== 'groups' || match.groupNo === null) return false
+  const [bracket] = await tx
+    .select({ id: matches.id })
+    .from(matches)
+    .where(
+      and(eq(matches.competitionId, competition.id), isNull(matches.groupNo)),
+    )
+    .limit(1)
+  return Boolean(bracket)
+}
+
 async function finish(
   tx: Tx,
   competitionId: string,
@@ -411,7 +528,15 @@ export async function decideMatch(
     if (!match?.homeUserId || !match.awayUserId) {
       throw new Error('That match has no two players to decide.')
     }
-    const knockout = competition.format === 'knockout'
+    // a groups competition's bracket games are knockout games
+    const knockout =
+      competition.format === 'knockout' ||
+      (competition.format === 'groups' && match.groupNo === null)
+    const singleGame =
+      knockout && (competition.format === 'groups' || competition.legs === 1)
+    if (await groupStageClosed(tx, competition, match)) {
+      throw new Error('The group stage is over; its results are final.')
+    }
     if (knockout && decision.kind === 'void') {
       throw new Error('Someone has to go through: award a walkover instead.')
     }
@@ -435,7 +560,7 @@ export async function decideMatch(
     const fields = decisionFields(
       decision,
       { ...match, homeUserId: match.homeUserId, awayUserId: match.awayUserId },
-      knockout && competition.legs === 1,
+      singleGame,
     )
     await tx
       .update(matches)
@@ -496,6 +621,9 @@ export async function concedeMatch(
       )
       .limit(1)
     if (!match) throw new Error('Not found.')
+    if (await groupStageClosed(tx, competition, match)) {
+      throw new Error('The group stage is over; its results are final.')
+    }
     const opponent = concedeTo(match, viewer.id)
     // only if still open: a result or decision in the meantime wins
     const written = await tx

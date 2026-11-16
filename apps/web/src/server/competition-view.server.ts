@@ -11,6 +11,7 @@ import {
 } from '#/db/schema'
 import { can, roleOf, type Viewer } from '#/lib/access'
 import { earlyRound } from '#/lib/early-rounds'
+import { groupName } from '#/lib/groups'
 import { canJoin } from '#/lib/join-policy'
 import { matchdayCount } from '#/lib/round-robin'
 import { fetchPlayerProfile } from './chesscom.server'
@@ -177,6 +178,8 @@ export interface MatchView {
   round: number
   position: number
   leg: number
+  /** groups then knockout: the group (0 = A); null = a knockout game */
+  groupNo: number | null
   home: PlayerView | null
   away: PlayerView | null
   bye: PlayerView | null
@@ -234,6 +237,7 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
         chessUsername: chessAccounts.username,
         chessAvatar: chessAccounts.avatar,
         joinedAt: competitionMembers.joinedAt,
+        groupNo: competitionMembers.groupNo,
       })
       .from(competitionMembers)
       .innerJoin(user, eq(user.id, competitionMembers.userId))
@@ -307,6 +311,7 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
     round: m.round,
     position: m.position,
     leg: m.leg,
+    groupNo: m.groupNo,
     home: player(m.homeUserId),
     away: player(m.awayUserId),
     bye: player(m.byeUserId),
@@ -330,15 +335,21 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       if (!m.homeUserId || !m.awayUserId || m.voided || m.winnerUserId) {
         return false
       }
+      const knockout =
+        competition.format === 'knockout' ||
+        (competition.format === 'groups' && m.groupNo === null)
       // a drawn leg is fine (the aggregate decides); a drawn tie or decider needs a winner
-      if (competition.format === 'knockout' && m.result === 'draw') {
-        return competition.legs === 1 || m.leg >= 3
+      if (knockout && m.result === 'draw') {
+        return (
+          competition.format === 'groups' ||
+          competition.legs === 1 ||
+          m.leg >= 3
+        )
       }
       if (m.result) return false
       return (
         m.dueAt.getTime() <= now &&
-        (competition.format === 'knockout' ||
-          competition.unplayedRule === 'organiser')
+        (knockout || competition.unplayedRule === 'organiser')
       )
     })
     .map((m) => m.id)
@@ -349,6 +360,32 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
         .length
     : 0
   const scheduledRounds = (matchdayCount(startedWith) / 2) * competition.legs
+
+  const rules = {
+    unplayed: competition.unplayedRule,
+    points: competition.points,
+  }
+  const sortName = (id: string) => {
+    const p = player(id)
+    return p ? (p.chessUsername ?? p.name) : id
+  }
+  const groupTables = Array.from(
+    { length: competition.groupCount },
+    (_, groupNo) => ({
+      name: groupName(groupNo),
+      rows: rankStandings(
+        matchRows.filter((m) => m.groupNo === groupNo),
+        memberRows.filter((m) => m.groupNo === groupNo).map((m) => m.id),
+        new Date(now),
+        rules,
+        competition.tieBreaks,
+        sortName,
+      ).map(({ id, ...tally }) => ({
+        player: player(id) as PlayerView,
+        ...tally,
+      })),
+    }),
+  ).filter((table) => table.rows.length > 0)
 
   const standings: Array<StandingRow> | null =
     competition.format === 'league'
@@ -385,6 +422,8 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       format: competition.format,
       legs: competition.legs,
       bestOf: competition.bestOf,
+      groupCount: competition.groupCount,
+      advancing: competition.advancing,
       matchdayDays: competition.matchdayDays,
       status: competition.status,
       visibility: competition.visibility,
@@ -441,5 +480,8 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
     matches: details ? matchViews : [],
     scheduledRounds,
     standings: details ? standings : null,
+    // groups then knockout: one table per group (A, B, …)
+    groupTables:
+      details && competition.format === 'groups' ? groupTables : null,
   }
 }

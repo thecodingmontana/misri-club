@@ -197,6 +197,7 @@ export const competitionFormat = pgEnum('competition_format', [
   'league',
   'knockout',
   'challenge',
+  'groups',
 ])
 export const competitionStatus = pgEnum('competition_status', [
   'open',
@@ -230,6 +231,9 @@ export const competitions = pgTable('competitions', {
   format: competitionFormat('format').notNull(),
   /** 1 = everyone meets once, 2 = home and away (leagues only) */
   legs: integer('legs').notNull().default(1),
+  /** Groups then knockout: how many groups, and how many of each go through. */
+  groupCount: integer('group_count').notNull().default(2),
+  advancing: integer('advancing').notNull().default(2),
   /** Challenges: best of how many games (1, 3, 5, 7). */
   bestOf: integer('best_of').notNull().default(1),
   /** How long each round stays open for its games. */
@@ -291,6 +295,8 @@ export const competitionMembers = pgTable(
     joinedAt: ts('joined_at').defaultNow().notNull(),
     /** knockout seeding the organiser set (1 = top); null falls back to join order */
     seed: integer('seed'),
+    /** groups then knockout: which group (0 = A); null before the draw */
+    groupNo: integer('group_no'),
   },
   (t) => [
     primaryKey({ columns: [t.competitionId, t.userId] }),
@@ -345,6 +351,8 @@ export const matches = pgTable(
     /** Order within its round: tie 1 and 2 feed the next round's tie 1, and so on. */
     position: integer('position').notNull().default(0),
     leg: integer('leg').notNull().default(1),
+    /** groups then knockout: the group's game (0 = A); null = a knockout game */
+    groupNo: integer('group_no'),
     homeUserId: varchar('home_user_id', { length: 16 }).references(
       () => user.id,
       { onDelete: 'set null' },

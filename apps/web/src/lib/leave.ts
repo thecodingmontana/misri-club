@@ -29,7 +29,7 @@ export function settleLeaver(
   matches: LeaverMatch[],
   leaverId: string,
   rule: LeaveRule,
-  format: 'league' | 'knockout' | 'challenge',
+  format: 'league' | 'knockout' | 'challenge' | 'groups',
 ): Settlement {
   const theirs = matches.filter(
     (m) => m.homeUserId === leaverId || m.awayUserId === leaverId,

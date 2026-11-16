@@ -31,7 +31,7 @@ interface Option {
 /** What the organiser may do with this match, in plain words. */
 function optionsFor(
   match: MatchView,
-  format: 'league' | 'knockout' | 'challenge',
+  format: 'league' | 'knockout' | 'challenge' | 'groups',
   /** a home & away leg: it can be drawn, the aggregate decides */
   leg: boolean,
 ): Array<{ group: string; options: Option[] }> {
@@ -115,7 +115,7 @@ export function DecideMatch({
 }: {
   slug: string
   match: MatchView
-  format: 'league' | 'knockout' | 'challenge'
+  format: 'league' | 'knockout' | 'challenge' | 'groups'
   /** a home & away knockout */
   twoLegs?: boolean
 }) {

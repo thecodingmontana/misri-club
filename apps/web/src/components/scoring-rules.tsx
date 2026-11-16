@@ -28,7 +28,7 @@ const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0')
 
 /** One line anyone can read: how unplayed matches go and what results are worth. */
 export function scoringSummary(
-  format: 'league' | 'knockout' | 'challenge',
+  format: 'league' | 'knockout' | 'challenge' | 'groups',
   unplayedRule: UnplayedRule,
   points: Points,
 ) {
@@ -61,7 +61,7 @@ export function ScoringRules({
   disabled,
   onChange,
 }: Scoring & {
-  format: 'league' | 'knockout' | 'challenge'
+  format: 'league' | 'knockout' | 'challenge' | 'groups'
   disabled?: boolean
   onChange: (next: Scoring) => void
 }) {

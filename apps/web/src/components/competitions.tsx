@@ -14,6 +14,7 @@ export const FORMAT_LABEL = {
   league: 'League',
   knockout: 'Tournament',
   challenge: '1v1 challenge',
+  groups: 'Groups + knockout',
 }
 
 /** What each format is, in plain words, wherever people choose or join one. */
@@ -43,6 +44,15 @@ export const FORMAT_INFO = {
       'Play every game on chess.com before the deadline.',
       'A win is a point, a draw half. First out of reach wins.',
       'Level after every game is a drawn match.',
+    ],
+  },
+  groups: {
+    summary: 'Group tables first, then a knockout of the best.',
+    points: [
+      'Players are drawn into groups, top seeds spread out.',
+      'Everyone in a group plays everyone; each group has a table.',
+      'The top of every group goes into a knockout bracket.',
+      'Group-mates are kept apart in the first knockout round.',
     ],
   },
 } as const
@@ -225,6 +235,12 @@ const CHOICES = [
     search: { format: 'challenge' as const },
     title: 'Challenge a player',
     description: FORMAT_INFO.challenge.summary,
+  },
+  {
+    to: '/competitions/new',
+    search: { format: 'groups' as const },
+    title: 'Create groups + knockout',
+    description: FORMAT_INFO.groups.summary,
   },
 ] as const
 
