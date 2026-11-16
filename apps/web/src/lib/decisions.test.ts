@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { decisionFields, winnerOf } from './decisions.ts'
+import { concedeTo, decisionFields, winnerOf } from './decisions.ts'
 
 const DAY = 24 * 60 * 60 * 1000
 const match = { homeUserId: 'h', awayUserId: 'a', dueAt: new Date(10 * DAY) }
@@ -77,4 +77,33 @@ test('reopening clears the result and the game', () => {
   assert.equal(fields.result, null)
   assert.equal(fields.winnerUserId, null)
   assert.equal(fields.gameUrl, null)
+})
+
+test('a player concedes to their opponent, only on an undecided match of theirs', () => {
+  const open = {
+    homeUserId: 'h',
+    awayUserId: 'a',
+    result: null,
+    winnerUserId: null,
+    voided: false,
+  }
+  assert.equal(concedeTo(open, 'h'), 'a')
+  assert.equal(concedeTo(open, 'a'), 'h')
+  assert.throws(() => concedeTo(open, 'x'), /not playing/)
+  assert.throws(
+    () => concedeTo({ ...open, result: 'draw' }, 'h'),
+    /already decided/,
+  )
+  assert.throws(
+    () => concedeTo({ ...open, winnerUserId: 'a' }, 'h'),
+    /already decided/,
+  )
+  assert.throws(
+    () => concedeTo({ ...open, voided: true }, 'h'),
+    /already decided/,
+  )
+  assert.throws(
+    () => concedeTo({ ...open, awayUserId: null }, 'h'),
+    /no opponent/,
+  )
 })

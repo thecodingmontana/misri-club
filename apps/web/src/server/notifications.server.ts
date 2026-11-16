@@ -263,6 +263,37 @@ export async function notifyScheduledStart(
   ])
 }
 
+/** A player conceded: their opponent gets the win, and the organiser hears of it. */
+export async function notifyConceded(
+  competitionId: string,
+  byUserId: string,
+  toUserId: string,
+) {
+  const competition = await competitionPush(competitionId)
+  if (!competition) return
+  const by = await playerName(byUserId)
+  const to = await playerName(toUserId)
+  const url = `/c/${competition.slug}`
+  await bestEffort([
+    {
+      userId: toUserId,
+      title: `${by} gave you a walkover`,
+      body: `They can't play your ${competition.name} match. The win is yours.`,
+      url,
+    },
+    ...(competition.ownerId !== byUserId && competition.ownerId !== toUserId
+      ? [
+          {
+            userId: competition.ownerId,
+            title: `${by} conceded to ${to}`,
+            body: `In ${competition.name}. You can reopen the match if it was a mistake.`,
+            url,
+          },
+        ]
+      : []),
+  ])
+}
+
 /** Tells the organiser who joined. */
 export async function notifyJoined(competitionId: string, joinerId: string) {
   const [row] = await db

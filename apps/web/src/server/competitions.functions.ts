@@ -30,7 +30,12 @@ import {
   renameCompetition,
 } from './membership.server'
 import { takeAllowance } from './rate-limit.server'
-import { decideMatch, openEarlyRound, syncForPlayer } from './results.server'
+import {
+  concedeMatch,
+  decideMatch,
+  openEarlyRound,
+  syncForPlayer,
+} from './results.server'
 import {
   isTieBreakOrder,
   POINTS,
@@ -182,6 +187,18 @@ export const seedCompetitionFn = createServerFn({ method: 'POST' })
       throw new Error('Too many tries. Wait an hour and try again.')
     }
     await seedCompetition(data.slug, context.viewer, data.order)
+    return { ok: true }
+  })
+
+/** A player gives their opponent the walkover for one of their matches. */
+export const concedeMatchFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(z.object({ slug, matchId: z.string().min(1).max(16) }))
+  .handler(async ({ context, data }) => {
+    if (!(await takeAllowance(`concede:${context.user.id}`, 1, 20, HOUR))) {
+      throw new Error('Too many tries. Wait an hour and try again.')
+    }
+    await concedeMatch(data.slug, context.viewer, data.matchId)
     return { ok: true }
   })
 

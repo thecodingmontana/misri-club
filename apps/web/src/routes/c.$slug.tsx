@@ -10,6 +10,7 @@ import { Spinner } from '#/components/auth'
 import { BracketView } from '#/components/bracket-view'
 import { ChampionBanner } from '#/components/champion-banner'
 import {
+  ConcedeButton,
   DeleteCompetition,
   EarlyRoundsChoice,
   HandOver,
@@ -614,6 +615,7 @@ function roundLabel(data: Data, round: number, matchCount: number) {
 function Fixtures({ data }: { data: Data }) {
   // Read once per render; good enough for "2d 4h left" labels.
   const now = Date.now()
+  const viewerId = useAdmin().user?.id ?? null
   if (data.matches.length === 0) {
     return <Empty>Fixtures appear once the organiser starts it.</Empty>
   }
@@ -631,6 +633,17 @@ function Fixtures({ data }: { data: Data }) {
                   format={data.competition.format}
                 />
               )}
+              {concedable(data, match, viewerId) && (
+                <ConcedeButton
+                  slug={data.competition.slug}
+                  matchId={match.id}
+                  opponent={displayName(
+                    (match.home?.id === viewerId
+                      ? match.away
+                      : match.home) as PlayerView,
+                  )}
+                />
+              )}
             </FixtureCard>
           ))}
         </section>
@@ -646,6 +659,20 @@ function decidable(data: Data, match: MatchView) {
     data.competition.status === 'running' &&
     match.home !== null &&
     match.away !== null
+  )
+}
+
+/** The viewer's own undecided match: they may hand the opponent the walkover. */
+function concedable(data: Data, match: MatchView, viewerId: string | null) {
+  return (
+    viewerId !== null &&
+    data.competition.status === 'running' &&
+    match.home !== null &&
+    match.away !== null &&
+    (match.home.id === viewerId || match.away.id === viewerId) &&
+    match.result === null &&
+    match.winnerId === null &&
+    match.status !== 'void'
   )
 }
 

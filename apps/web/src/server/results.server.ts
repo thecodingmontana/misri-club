@@ -10,11 +10,20 @@ import {
 } from '#/db/schema'
 import { authorize, roleOf, type Viewer } from '#/lib/access'
 import { knockoutStep, leagueComplete } from '#/lib/competition-progress'
-import { type Decision, decisionFields, winnerOf } from '#/lib/decisions'
+import {
+  concedeTo,
+  type Decision,
+  decisionFields,
+  winnerOf,
+} from '#/lib/decisions'
 import { earlyRound } from '#/lib/early-rounds'
 import { archiveMonths, findMatchResult } from '#/lib/game-result'
 import { fetchMonthGames } from './chesscom.server'
-import { notifyFinished, notifyRoundOpened } from './notifications.server'
+import {
+  notifyConceded,
+  notifyFinished,
+  notifyRoundOpened,
+} from './notifications.server'
 import { rankStandings } from './standings'
 
 // Results: read from chess.com, decided by the organiser when needed, and
@@ -390,4 +399,48 @@ export async function syncForPlayer(userId: string) {
     })
   }
   return changed
+}
+
+/** A player hands their opponent the walkover; the organiser can still reopen it. */
+export async function concedeMatch(
+  slug: string,
+  viewer: Viewer,
+  matchId: string,
+) {
+  const done = await db.transaction(async (tx) => {
+    const [competition] = await tx
+      .select()
+      .from(competitions)
+      .where(eq(competitions.slug, slug))
+      .for('update')
+    if (!competition) throw new Error('Not found.')
+    if (competition.status !== 'running') {
+      throw new Error('Only a running competition takes walkovers.')
+    }
+    const [match] = await tx
+      .select()
+      .from(matches)
+      .where(
+        and(eq(matches.id, matchId), eq(matches.competitionId, competition.id)),
+      )
+      .limit(1)
+    if (!match) throw new Error('Not found.')
+    const opponent = concedeTo(match, viewer.id)
+    // only if still open: a result or decision in the meantime wins
+    const written = await tx
+      .update(matches)
+      .set({ winnerUserId: opponent, note: 'Conceded by the player' })
+      .where(
+        and(
+          eq(matches.id, match.id),
+          isNull(matches.result),
+          isNull(matches.winnerUserId),
+        ),
+      )
+      .returning({ id: matches.id })
+    if (written.length === 0) throw new Error('That match is already decided.')
+    return { competitionId: competition.id, opponent }
+  })
+  await advance(done.competitionId)
+  await notifyConceded(done.competitionId, viewer.id, done.opponent)
 }

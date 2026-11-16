@@ -17,7 +17,11 @@ import {
   updateCompetitionSettings,
 } from '#/server/competitions.server'
 import { leaveCompetition, removePlayer } from '#/server/membership.server'
-import { decideMatch, openEarlyRound } from '#/server/results.server'
+import {
+  concedeMatch,
+  decideMatch,
+  openEarlyRound,
+} from '#/server/results.server'
 
 // Whole flows through the real server code on a local database (pnpm test:db).
 // Each test makes its own players and competition and removes them after.
@@ -224,4 +228,22 @@ test('tie-breaks: head-to-head first crowns the player who won the game between 
   assert.equal(end.status, 'finished')
   const table = (await getCompetition(c.slug, c.organiser))?.standings?.map((r) => r.player.id)
   assert.equal(end.championUserId, table?.[0], 'the champion is the top of the table')
+})
+
+test('concede: a player hands the opponent the walkover and the bracket moves on', async () => {
+  const c = await competition('knockout', ['o', 'a', 'b', 'c'])
+  await startCompetition(c.slug, c.organiser)
+  const [first, second] = (await c.rows()).sort((x, y) => x.position - y.position)
+  const quitter = first.awayUserId as string
+  const outsider = second.homeUserId as string
+  await assert.rejects(concedeMatch(c.slug, v(outsider), first.id), /not playing/)
+  await concedeMatch(c.slug, v(quitter), first.id)
+  await assert.rejects(concedeMatch(c.slug, v(quitter), first.id), /already decided/)
+  const conceded = (await c.rows()).find((m) => m.id === first.id)
+  assert.equal(conceded?.winnerUserId, first.homeUserId)
+  const told = await db.select().from(notifications).where(eq(notifications.userId, first.homeUserId as string))
+  assert.ok(told.some((n) => n.title.includes('gave you a walkover')))
+  await concedeMatch(c.slug, v(second.awayUserId as string), second.id)
+  const final = (await c.rows()).find((m) => m.round === 2)
+  assert.deepEqual([final?.homeUserId, final?.awayUserId], [first.homeUserId, second.homeUserId])
 })

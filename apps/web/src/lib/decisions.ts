@@ -71,3 +71,28 @@ export function decisionFields(
       return { ...CLEARED, gameUrl: null, endedAt: null }
   }
 }
+
+/**
+ * A player gives their opponent the walkover (they know they can't play).
+ * Returns the opponent; throws when this player can't concede this match.
+ */
+export function concedeTo(
+  match: {
+    homeUserId: string | null
+    awayUserId: string | null
+    result: string | null
+    winnerUserId: string | null
+    voided: boolean
+  },
+  playerId: string,
+): string {
+  const { homeUserId, awayUserId } = match
+  if (!homeUserId || !awayUserId) throw new Error('That match has no opponent.')
+  if (playerId !== homeUserId && playerId !== awayUserId) {
+    throw new Error("You're not playing in that match.")
+  }
+  if (match.result !== null || match.winnerUserId !== null || match.voided) {
+    throw new Error('That match is already decided.')
+  }
+  return playerId === homeUserId ? awayUserId : homeUserId
+}

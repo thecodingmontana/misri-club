@@ -27,6 +27,7 @@ import type { LeaveRule } from '#/lib/leave'
 import { toast } from '#/lib/toast'
 import {
   answerRequestFn,
+  concedeMatchFn,
   deleteCompetitionFn,
   handOverCompetitionFn,
   leaveCompetitionFn,
@@ -195,6 +196,38 @@ export function LeaveButton({
           .then(() => router.invalidate())
           .then(() => toast.success('You left the competition'))
           .catch(fail("Couldn't leave"))
+      }
+    />
+  )
+}
+
+/** A player who can't play gives their opponent the walkover. */
+export function ConcedeButton({
+  slug,
+  matchId,
+  opponent,
+}: {
+  slug: string
+  matchId: string
+  opponent: string
+}) {
+  const concede = useServerFn(concedeMatchFn)
+  const router = useRouter()
+  return (
+    <Confirm
+      trigger={
+        <Button variant="ghost" size="sm" className="text-muted-foreground">
+          Can't play? Give walkover
+        </Button>
+      }
+      title={`Give ${opponent} the walkover?`}
+      description={`${opponent} gets the win for this match. You can't take it back; only the organiser can reopen it.`}
+      confirmLabel="Give walkover"
+      onConfirm={() =>
+        concede({ data: { slug, matchId } })
+          .then(() => router.invalidate())
+          .then(() => toast.success(`${opponent} has the walkover`))
+          .catch(fail("Couldn't give the walkover"))
       }
     />
   )
