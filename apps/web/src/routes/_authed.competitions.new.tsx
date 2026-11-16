@@ -11,6 +11,7 @@ import {
 import { Choice, FORMAT_INFO, FormatExplainer } from '#/components/competitions'
 import { Check, MagicWand } from '#/components/icons'
 import { ScoringRules } from '#/components/scoring-rules'
+import { TimeControlChoice } from '#/components/time-control'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { normalizeName } from '#/lib/competition-names'
@@ -99,6 +100,7 @@ function NewCompetition() {
   const [name, setName] = useState('')
   const [legs, setLegs] = useState<1 | 2>(1)
   const [matchdayDays, setMatchdayDays] = useState(2)
+  const [timeControl, setTimeControl] = useState('any')
   const [visibility, setVisibility] = useState<'private' | 'public'>('private')
   const [leaveRule, setLeaveRule] = useState<LeaveRule>('award')
   const [maxPlayers, setMaxPlayers] = useState<number | null>(null)
@@ -122,6 +124,7 @@ function NewCompetition() {
           format,
           legs: league ? legs : 1,
           matchdayDays,
+          timeControl,
           visibility,
           allowLateEntry: league && allowLateEntry,
           maxPlayers,
@@ -245,6 +248,8 @@ function NewCompetition() {
             How long players have to play each game.
           </p>
         </Field>
+
+        <TimeControlChoice value={timeControl} onChange={setTimeControl} />
 
         <MaxPlayersField value={maxPlayers} onSave={setMaxPlayers} />
 

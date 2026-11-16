@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Spinner } from '#/components/auth'
 import { ChevronRight, Trophy, UserPlus, UsersFilled } from '#/components/icons'
 import { Button } from '#/components/ui/button'
+import { timeControlLabel } from '#/lib/time-control'
 import { toast } from '#/lib/toast'
 import { cn } from '#/lib/utils'
 import type { CompetitionSummary } from '#/server/competition-view.server'
@@ -88,6 +89,12 @@ export function CompetitionCard({
           </span>
           <span className="numeric flex items-center gap-1.5 text-xs text-muted-foreground">
             {FORMAT_LABEL[competition.format]}
+            {competition.timeControl !== 'any' && (
+              <>
+                <span aria-hidden>·</span>
+                {timeControlLabel(competition.timeControl)}
+              </>
+            )}
             <span aria-hidden>·</span>
             <UsersFilled className="size-3.5" aria-hidden />
             {competition.members}

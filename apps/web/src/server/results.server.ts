@@ -43,7 +43,10 @@ export async function syncResults(competitionId: string, now = new Date()) {
         ),
       ),
     )
-    .returning({ format: competitions.format })
+    .returning({
+      format: competitions.format,
+      timeControl: competitions.timeControl,
+    })
   if (!claimed) return 0
 
   const open = await db
@@ -98,6 +101,7 @@ export async function syncResults(competitionId: string, now = new Date()) {
       away,
       opensAt: m.opensAt,
       dueAt: m.dueAt,
+      timeControl: claimed.timeControl,
     })
     if (!found) continue
     const whiteUserId = found.homeWasWhite ? homeUserId : awayUserId

@@ -34,9 +34,11 @@ import { DecideMatch } from '#/components/match-decision'
 import { PlayerChip } from '#/components/player-chip'
 import { ScoringRules, scoringSummary } from '#/components/scoring-rules'
 import { Seeding } from '#/components/seeding'
+import { TimeControlChoice } from '#/components/time-control'
 import { Button } from '#/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { seo } from '#/lib/seo'
+import { timeControlLabel } from '#/lib/time-control'
 import { toast } from '#/lib/toast'
 import { useAdmin } from '#/lib/use-admin'
 import { useCopy } from '#/lib/use-copy'
@@ -95,6 +97,7 @@ function CompetitionPage() {
       <header className="text-center">
         <p className="kicker">
           {FORMAT_LABEL[competition.format]} ·{' '}
+          {timeControlLabel(competition.timeControl)} ·{' '}
           {STATUS_LABEL[competition.status]}
         </p>
         <h1 className="display mt-1 text-3xl">{competition.name}</h1>
@@ -270,6 +273,7 @@ function OwnerPanel({ data }: { data: Data }) {
           points: competition.points,
           leaveRule: competition.leaveRule,
           earlyRounds: competition.earlyRounds,
+          timeControl: competition.timeControl,
           maxPlayers: competition.maxPlayers,
           requireApproval: competition.requireApproval,
           ...patch,
@@ -388,6 +392,13 @@ function OwnerPanel({ data }: { data: Data }) {
             </span>
           </span>
         </label>
+      )}
+
+      {competition.status === 'open' && (
+        <TimeControlChoice
+          value={competition.timeControl}
+          onChange={(timeControl) => save({ timeControl })}
+        />
       )}
 
       {competition.status !== 'finished' && (

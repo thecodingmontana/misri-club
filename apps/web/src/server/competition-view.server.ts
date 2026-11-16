@@ -36,6 +36,7 @@ const summaryColumns = {
   status: competitions.status,
   legs: competitions.legs,
   allowLateEntry: competitions.allowLateEntry,
+  timeControl: competitions.timeControl,
   members: sql<number>`coalesce(${memberCount.members}, 0)`.mapWith(Number),
 }
 
@@ -390,6 +391,7 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       points: competition.points,
       leaveRule: competition.leaveRule,
       earlyRounds: competition.earlyRounds,
+      timeControl: competition.timeControl,
       maxPlayers: competition.maxPlayers,
       requireApproval: competition.requireApproval,
       finishedAt: competition.finishedAt?.getTime() ?? null,

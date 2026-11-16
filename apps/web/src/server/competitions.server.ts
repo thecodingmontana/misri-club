@@ -76,6 +76,7 @@ export interface CompetitionSettings {
   requireApproval: boolean
   points: Points
   earlyRounds?: EarlyRounds
+  timeControl?: string
 }
 
 /** Create and join need a verified chess.com account: results come from there. */
@@ -468,6 +469,7 @@ export type EditableSettings = Pick<
   | 'leaveRule'
   | 'maxPlayers'
   | 'earlyRounds'
+  | 'timeControl'
 >
 
 export async function updateCompetitionSettings(
@@ -483,12 +485,22 @@ export async function updateCompetitionSettings(
       format: competitions.format,
       unplayedRule: competitions.unplayedRule,
       points: competitions.points,
+      status: competitions.status,
+      timeControl: competitions.timeControl,
     })
     .from(competitions)
     .where(eq(competitions.slug, slug))
     .limit(1)
   if (!competition) throw new Error('Not found.')
   authorizeManage(viewer, competition)
+  // games already being read against one clock: changing it mid-way would be unfair
+  if (
+    settings.timeControl !== undefined &&
+    settings.timeControl !== competition.timeControl &&
+    competition.status !== 'open'
+  ) {
+    throw new Error('The time control is fixed once it starts.')
+  }
   checkFormatRules({ ...settings, format: competition.format })
   const scoringChanged =
     settings.unplayedRule !== competition.unplayedRule ||

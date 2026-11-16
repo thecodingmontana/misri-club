@@ -137,6 +137,8 @@ export interface ArchivedGame {
   rated?: boolean
   rules?: string
   time_class?: string
+  /** e.g. "180+2" or "1/86400" */
+  time_control?: string
   pgn?: string
   /** URL of the opening's page, e.g. `…/openings/Queens-Pawn-Opening-2.Bf4` */
   eco?: string

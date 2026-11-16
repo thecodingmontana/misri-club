@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
+import { isTimeControl } from '#/lib/time-control'
 import { userMiddleware } from './auth.functions'
 import {
   getCompetition,
@@ -37,6 +38,10 @@ const HOUR = 60 * MINUTE
 const slug = z.string().trim().min(1).max(80)
 const point = z.number().int().min(-10).max(10)
 const maxPlayers = z.number().int().min(2).max(256)
+const timeControl = z
+  .string()
+  .max(20)
+  .refine(isTimeControl, 'Pick a time control from the list.')
 const scoring = {
   unplayedRule: z.enum(UNPLAYED_RULES).default('organiser'),
   leaveRule: z.enum(['award', 'void', 'keep']).default('award'),
@@ -68,6 +73,7 @@ export const createCompetitionFn = createServerFn({ method: 'POST' })
       matchdayDays: z.number().int().min(1).max(14).default(2),
       visibility: z.enum(['public', 'private']).default('private'),
       allowLateEntry: z.boolean().default(false),
+      timeControl: timeControl.default('any'),
       ...scoring,
     }),
   )
@@ -186,6 +192,7 @@ export const updateCompetitionSettingsFn = createServerFn({ method: 'POST' })
       requireApproval: z.boolean(),
       points: scoring.points.unwrap(),
       earlyRounds: z.enum(['wait', 'auto', 'organiser']),
+      timeControl,
     }),
   )
   .handler(async ({ context, data }) => {

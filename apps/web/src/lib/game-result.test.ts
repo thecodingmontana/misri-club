@@ -78,3 +78,26 @@ test('archiveMonths spans a window across a month boundary', () => {
     ['2026/11', '2026/12'],
   )
 })
+
+test('only games in the competition time control count, never variants', () => {
+  const rapid = {
+    ...game('alice', 'win', 'bob', 'resigned', '2026-11-11T09:00:00Z'),
+    time_class: 'rapid',
+    time_control: '600',
+  }
+  const blitz = {
+    ...game('bob', 'win', 'alice', 'timeout', '2026-11-11T10:00:00Z'),
+    time_class: 'blitz',
+    time_control: '180+2',
+  }
+  const chess960 = {
+    ...game('alice', 'win', 'bob', 'resigned', '2026-11-11T08:00:00Z'),
+    rules: 'chess960',
+  }
+  const games = [chess960, rapid, blitz]
+  assert.equal(findMatchResult(games, window)?.result, 'white') // the rapid game
+  assert.equal(findMatchResult(games, window)?.homeWasWhite, true)
+  const blitzOnly = findMatchResult(games, { ...window, timeControl: 'blitz' })
+  assert.equal(blitzOnly?.homeWasWhite, false)
+  assert.equal(findMatchResult(games, { ...window, timeControl: '300' }), null)
+})

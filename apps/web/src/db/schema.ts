@@ -244,6 +244,8 @@ export const competitions = pgTable('competitions', {
   unplayedRule: unplayedRule('unplayed_rule').notNull().default('organiser'),
   /** Leagues: award / void / keep a leaver's games (see lib/leave). */
   leaveRule: leaveRule('leave_rule').notNull().default('award'),
+  /** "any", a speed or an exact clock (lib/time-control); only fitting games count. */
+  timeControl: text('time_control').notNull().default('any'),
   /** Leagues: open the next round early when everyone has played. */
   earlyRounds: earlyRounds('early_rounds').notNull().default('organiser'),
   /** Leagues: what a win, draw, loss and forfeit are worth. */

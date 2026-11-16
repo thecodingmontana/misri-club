@@ -15,6 +15,7 @@ import { Trophy } from '#/components/icons'
 import { scoringSummary } from '#/components/scoring-rules'
 import { Button } from '#/components/ui/button'
 import { seo } from '#/lib/seo'
+import { timeControlLabel } from '#/lib/time-control'
 import { getSessionFn } from '#/server/auth.functions'
 import { getInviteFn } from '#/server/competitions.functions'
 
@@ -61,6 +62,7 @@ function Invite() {
         ? 'League, home & away'
         : FORMAT_LABEL[invite.format],
     ],
+    ['Time control', timeControlLabel(invite.timeControl)],
     ['Players', players],
     ['Status', STATUS_LABEL[invite.status]],
     [

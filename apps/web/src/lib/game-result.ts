@@ -3,12 +3,18 @@
  * players (either colour) that ended inside the match window counts.
  */
 
+import { fitsTimeControl } from './time-control.ts'
+
 export interface ChessGame {
   url: string
   /** unix seconds */
   end_time: number
   white: { username: string; result: string }
   black: { username: string; result: string }
+  /** "chess" for standard games; variants (chess960, …) never count */
+  rules?: string
+  time_class?: string
+  time_control?: string
 }
 
 export interface MatchWindow {
@@ -17,6 +23,8 @@ export interface MatchWindow {
   away: string
   opensAt: Date
   dueAt: Date
+  /** the competition's time control (lib/time-control); default any */
+  timeControl?: string
 }
 
 export interface FoundResult {
@@ -62,7 +70,9 @@ export function findMatchResult(
         ((white === home && black === away) ||
           (white === away && black === home)) &&
         ended >= match.opensAt.getTime() &&
-        ended <= match.dueAt.getTime()
+        ended <= match.dueAt.getTime() &&
+        (g.rules ?? 'chess') === 'chess' &&
+        fitsTimeControl(match.timeControl ?? 'any', g)
       )
     })
     .sort((a, b) => a.end_time - b.end_time)

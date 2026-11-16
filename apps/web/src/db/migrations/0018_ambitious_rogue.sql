@@ -1,0 +1,1 @@
+ALTER TABLE "competitions" ADD COLUMN "time_control" text DEFAULT 'any' NOT NULL;
