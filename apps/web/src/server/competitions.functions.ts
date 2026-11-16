@@ -127,7 +127,7 @@ export const getCompetitionFn = createServerFn({ method: 'GET' })
 /** What an invite link points at; null for an unknown code. */
 export const getInviteFn = createServerFn({ method: 'GET' })
   .validator(z.object({ code: z.string().trim().toUpperCase().max(16) }))
-  .handler(({ data }) => getInvite(data.code))
+  .handler(async ({ data }) => getInvite(data.code, await viewerId()))
 
 export const startCompetitionFn = createServerFn({ method: 'POST' })
   .middleware([userMiddleware])

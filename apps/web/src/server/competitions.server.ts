@@ -581,22 +581,65 @@ export async function listOpenCompetitions(viewerId: string | null) {
 }
 
 /** What an invite link shows before you join. */
-export async function getInvite(code: string) {
+/**
+ * What an invite shows before you join: the competition, its rules, who runs
+ * it, and where the viewer already stands (in it, asked, or left for good).
+ */
+export async function getInvite(code: string, viewerId: string | null) {
   const [competition] = await db
     .select({
       ...summaryColumns,
+      id: competitions.id,
       visibility: competitions.visibility,
+      matchdayDays: competitions.matchdayDays,
+      unplayedRule: competitions.unplayedRule,
+      points: competitions.points,
+      requireApproval: competitions.requireApproval,
+      maxPlayers: competitions.maxPlayers,
+      organiser: sql<string>`coalesce(${chessAccounts.username}, ${user.name})`,
     })
     .from(competitions)
     .leftJoin(memberCount, eq(memberCount.competitionId, competitions.id))
+    .innerJoin(user, eq(user.id, competitions.ownerId))
+    .leftJoin(chessAccounts, eq(chessAccounts.userId, competitions.ownerId))
     .where(eq(competitions.inviteCode, code))
     .limit(1)
   if (!competition) return null
+  const { id, ...shown } = competition
+  const where = (
+    table:
+      | typeof competitionMembers
+      | typeof competitionRequests
+      | typeof competitionLeavers,
+  ) =>
+    viewerId
+      ? db
+          .select({ userId: table.userId })
+          .from(table)
+          .where(and(eq(table.competitionId, id), eq(table.userId, viewerId)))
+          .limit(1)
+      : Promise.resolve([])
+  const [member, request, left] = await Promise.all([
+    where(competitionMembers),
+    where(competitionRequests),
+    where(competitionLeavers),
+  ])
   const decision = canJoin(competition)
+  const full = Boolean(
+    competition.maxPlayers && competition.members >= competition.maxPlayers,
+  )
   return {
-    ...competition,
-    canJoin: decision.ok,
-    reason: decision.ok ? null : decision.reason,
+    ...shown,
+    isMember: member.length > 0,
+    requested: request.length > 0,
+    canJoin: decision.ok && !full && left.length === 0,
+    reason: !decision.ok
+      ? decision.reason
+      : left.length > 0
+        ? "You left this one after it started, so you can't rejoin."
+        : full
+          ? "It's full."
+          : null,
   }
 }
 

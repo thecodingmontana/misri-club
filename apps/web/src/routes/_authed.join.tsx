@@ -6,7 +6,7 @@ import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { seo } from '#/lib/seo'
 import { toast } from '#/lib/toast'
-import { joinCompetitionFn } from '#/server/competitions.functions'
+import { getInviteFn } from '#/server/competitions.functions'
 
 export const Route = createFileRoute('/_authed/join')({
   head: () =>
@@ -19,18 +19,23 @@ export const Route = createFileRoute('/_authed/join')({
 })
 
 function Join() {
-  const join = useServerFn(joinCompetitionFn)
+  const lookUp = useServerFn(getInviteFn)
   const navigate = useNavigate()
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
 
+  // look first: the invite page shows what it is, and Join or Decline
   async function submit(event: FormEvent) {
     event.preventDefault()
     setBusy(true)
     try {
-      const { slug, pending } = await join({ data: { code } })
-      if (pending) toast.success('Request sent to the organiser')
-      await navigate({ to: '/c/$slug', params: { slug } })
+      const invite = await lookUp({ data: { code } })
+      if (!invite) {
+        toast.error('No competition has that code.')
+        setBusy(false)
+        return
+      }
+      await navigate({ to: '/join/$code', params: { code: code.trim() } })
     } catch (error) {
       toast.error((error as Error).message)
       setBusy(false)
@@ -69,7 +74,7 @@ function Join() {
           disabled={busy || code.trim().length !== 8}
         >
           {busy && <Spinner />}
-          Join
+          Continue
         </Button>
       </form>
       <p className="text-center text-sm text-muted-foreground">
