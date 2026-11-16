@@ -151,25 +151,32 @@ export async function advance(competitionId: string, now = new Date()) {
         .select({ userId: competitionLeavers.userId })
         .from(competitionLeavers)
         .where(eq(competitionLeavers.competitionId, competitionId))
-      const step = knockoutStep(rows, new Set(leavers.map((l) => l.userId)))
-      if (step.kind === 'next') {
-        await tx.insert(matches).values(
-          step.matches.map((m, position) => ({
-            competitionId,
-            round: m.round,
-            position,
-            homeUserId: m.homeId,
-            awayUserId: m.awayId,
-            byeUserId: m.byeId,
-            opensAt: now,
-            dueAt: new Date(now.getTime() + competition.matchdayDays * DAY),
-          })),
-        )
-        return null
+      const gone = new Set(leavers.map((l) => l.userId))
+      // a round of only byes (after someone left) is decided at once: keep going
+      for (let all = rows; ; ) {
+        const step = knockoutStep(all, gone)
+        if (step.kind === 'champion') {
+          return finish(tx, competitionId, step.userId, now)
+        }
+        if (step.kind !== 'next') return null
+        const inserted = await tx
+          .insert(matches)
+          .values(
+            step.matches.map((m, position) => ({
+              competitionId,
+              round: m.round,
+              position,
+              homeUserId: m.homeId,
+              awayUserId: m.awayId,
+              byeUserId: m.byeId,
+              opensAt: now,
+              dueAt: new Date(now.getTime() + competition.matchdayDays * DAY),
+            })),
+          )
+          .returning()
+        if (inserted.some((m) => !m.byeUserId)) return null
+        all = [...all, ...inserted]
       }
-      return step.kind === 'champion'
-        ? finish(tx, competitionId, step.userId, now)
-        : null
     }
 
     const members = await tx
