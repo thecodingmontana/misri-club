@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm'
+import { and, eq, gt, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import {
   chessAccounts,
@@ -10,9 +10,10 @@ import {
 import { authorize, roleOf, type Viewer } from '#/lib/access'
 import { knockoutStep, leagueComplete } from '#/lib/competition-progress'
 import { type Decision, decisionFields, winnerOf } from '#/lib/decisions'
+import { earlyRound } from '#/lib/early-rounds'
 import { archiveMonths, findMatchResult } from '#/lib/game-result'
 import { fetchMonthGames } from './chesscom.server'
-import { notifyFinished } from './notifications.server'
+import { notifyFinished, notifyRoundOpened } from './notifications.server'
 import { compareStanding, tallyStandings } from './standings'
 
 // Results: read from chess.com, decided by the organiser when needed, and
@@ -134,6 +135,7 @@ export async function syncResults(competitionId: string, now = new Date()) {
  * champion. Locked, so two requests can't both create a round.
  */
 export async function advance(competitionId: string, now = new Date()) {
+  let opened: number | null = null
   const championId = await db.transaction(async (tx) => {
     const [competition] = await tx
       .select()
@@ -185,6 +187,9 @@ export async function advance(competitionId: string, now = new Date()) {
       .where(eq(competitionMembers.competitionId, competitionId))
     const memberIds = new Set(members.map((m) => m.userId))
     if (!leagueComplete(rows, memberIds, competition.unplayedRule, now)) {
+      if (competition.earlyRounds === 'auto') {
+        opened = await openRound(tx, competition, rows, memberIds, now)
+      }
       return null
     }
     const names = await tx
@@ -203,6 +208,72 @@ export async function advance(competitionId: string, now = new Date()) {
     return top ? finish(tx, competitionId, top.id, now) : null
   })
   if (championId) await notifyFinished(competitionId, championId)
+  if (opened) await notifyRoundOpened(competitionId, opened)
+}
+
+/** Opens the next league round now if everyone has played; its deadline stays. */
+async function openRound(
+  tx: Tx,
+  competition: typeof competitions.$inferSelect,
+  rows: Array<typeof matches.$inferSelect>,
+  memberIds: Set<string>,
+  now: Date,
+) {
+  const round = earlyRound(rows, memberIds, competition.unplayedRule, now)
+  if (round === null) return null
+  await tx
+    .update(matches)
+    .set({ opensAt: now })
+    .where(
+      and(
+        eq(matches.competitionId, competition.id),
+        eq(matches.round, round),
+        gt(matches.opensAt, now),
+      ),
+    )
+  return round
+}
+
+/** The organiser opens the next league round early (the "Let me decide" setting). */
+export async function openEarlyRound(slug: string, viewer: Viewer) {
+  const now = new Date()
+  const result = await db.transaction(async (tx) => {
+    const [competition] = await tx
+      .select()
+      .from(competitions)
+      .where(eq(competitions.slug, slug))
+      .for('update')
+    if (!competition) throw new Error('Not found.')
+    authorize('manage', {
+      role: roleOf(viewer, competition, false),
+      isAdmin: viewer.isAdmin,
+      visibility: competition.visibility,
+    })
+    if (competition.format !== 'league' || competition.status !== 'running') {
+      throw new Error('Only a running league opens rounds early.')
+    }
+    if (competition.earlyRounds === 'wait') {
+      throw new Error('This league waits for each round’s date.')
+    }
+    const rows = await tx
+      .select()
+      .from(matches)
+      .where(eq(matches.competitionId, competition.id))
+    const members = await tx
+      .select({ userId: competitionMembers.userId })
+      .from(competitionMembers)
+      .where(eq(competitionMembers.competitionId, competition.id))
+    const memberIds = new Set(members.map((m) => m.userId))
+    const round = await openRound(tx, competition, rows, memberIds, now)
+    if (round === null) {
+      throw new Error(
+        'Some games are still to play, or this is the last round.',
+      )
+    }
+    return { id: competition.id, round }
+  })
+  await notifyRoundOpened(result.id, result.round)
+  return result.round
 }
 
 async function finish(

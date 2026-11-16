@@ -22,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '#/components/ui/select'
+import type { EarlyRounds } from '#/lib/early-rounds'
 import type { LeaveRule } from '#/lib/leave'
 import { toast } from '#/lib/toast'
 import {
@@ -69,6 +70,47 @@ export function LeaveRuleChoice({
       />
       <p className="text-xs text-muted-foreground">
         {LEAVE_HELP[value]} They can't rejoin once it has started.
+      </p>
+    </div>
+  )
+}
+
+const EARLY_LABEL: Record<EarlyRounds, string> = {
+  organiser: 'Let me decide',
+  auto: 'Open the next round',
+  wait: 'Wait for its date',
+}
+
+const EARLY_HELP: Record<EarlyRounds, string> = {
+  organiser:
+    'When everyone has played, you get a button to open the next round.',
+  auto: 'The next round opens by itself as soon as everyone has played.',
+  wait: 'Each round opens on its scheduled date.',
+}
+
+/** Leagues: what happens when every game of a round is in before its window ends. */
+export function EarlyRoundsChoice({
+  value,
+  onChange,
+}: {
+  value: EarlyRounds
+  onChange: (rule: EarlyRounds) => void
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Choice
+        label="When a round finishes early"
+        value={value}
+        onChange={onChange}
+        options={(Object.keys(EARLY_LABEL) as EarlyRounds[]).map((rule) => ({
+          value: rule,
+          label: EARLY_LABEL[rule],
+        }))}
+      />
+      <p className="text-xs text-muted-foreground">
+        {EARLY_HELP[value]}
+        {value !== 'wait' &&
+          ' Players are told; deadlines stay the same, so playing early is optional.'}
       </p>
     </div>
   )

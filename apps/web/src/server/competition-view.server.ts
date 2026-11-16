@@ -10,6 +10,7 @@ import {
   user,
 } from '#/db/schema'
 import { can, roleOf, type Viewer } from '#/lib/access'
+import { earlyRound } from '#/lib/early-rounds'
 import { canJoin } from '#/lib/join-policy'
 import { matchdayCount } from '#/lib/round-robin'
 import { fetchPlayerProfile } from './chesscom.server'
@@ -388,6 +389,7 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       unplayedRule: competition.unplayedRule,
       points: competition.points,
       leaveRule: competition.leaveRule,
+      earlyRounds: competition.earlyRounds,
       maxPlayers: competition.maxPlayers,
       requireApproval: competition.requireApproval,
       finishedAt: competition.finishedAt?.getTime() ?? null,
@@ -402,6 +404,19 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
     canManage: can('manage', access),
     canSeeDetails: details,
     awaitingDecision: can('manage', access) ? awaiting : [],
+    // a league round the organiser could open now (everyone has played)
+    earlyRound:
+      can('manage', access) &&
+      competition.format === 'league' &&
+      competition.status === 'running' &&
+      competition.earlyRounds !== 'wait'
+        ? earlyRound(
+            matchRows,
+            new Set(players.keys()),
+            competition.unplayedRule,
+            new Date(now),
+          )
+        : null,
     // who asked to join: the organiser sees them all, a player only their own
     requests: can('manage', access)
       ? requestRows.map(

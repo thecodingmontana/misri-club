@@ -11,6 +11,7 @@ import { BracketView } from '#/components/bracket-view'
 import { ChampionBanner } from '#/components/champion-banner'
 import {
   DeleteCompetition,
+  EarlyRoundsChoice,
   HandOver,
   JoinRequests,
   LeaveButton,
@@ -46,6 +47,7 @@ import type {
 } from '#/server/competition-view.server'
 import {
   getCompetitionFn,
+  openEarlyRoundFn,
   startCompetitionFn,
   updateCompetitionSettingsFn,
 } from '#/server/competitions.functions'
@@ -238,6 +240,7 @@ function OwnerPanel({ data }: { data: Data }) {
   const router = useRouter()
   const start = useServerFn(startCompetitionFn)
   const update = useServerFn(updateCompetitionSettingsFn)
+  const openEarly = useServerFn(openEarlyRoundFn)
   const [busy, setBusy] = useState(false)
   const league = competition.format === 'league'
 
@@ -266,6 +269,7 @@ function OwnerPanel({ data }: { data: Data }) {
           unplayedRule: competition.unplayedRule,
           points: competition.points,
           leaveRule: competition.leaveRule,
+          earlyRounds: competition.earlyRounds,
           maxPlayers: competition.maxPlayers,
           requireApproval: competition.requireApproval,
           ...patch,
@@ -394,6 +398,35 @@ function OwnerPanel({ data }: { data: Data }) {
           disabled={busy}
           onChange={(scoring) => save(scoring)}
         />
+      )}
+
+      {league && competition.status !== 'finished' && (
+        <EarlyRoundsChoice
+          value={competition.earlyRounds}
+          onChange={(earlyRounds) => save({ earlyRounds })}
+        />
+      )}
+
+      {data.earlyRound !== null && (
+        <div className="flex items-center gap-3 rounded-xl bg-primary/10 p-3">
+          <p className="min-w-0 flex-1 text-sm">
+            Everyone has played. Open round {data.earlyRound} now? Its deadline
+            stays the same.
+          </p>
+          <Button
+            size="sm"
+            className="rounded-full"
+            disabled={busy}
+            onClick={() =>
+              run(
+                () => openEarly({ data: { slug: competition.slug } }),
+                `Round ${data.earlyRound} is open. Players were told.`,
+              )
+            }
+          >
+            Open round {data.earlyRound}
+          </Button>
+        </div>
       )}
 
       {league && competition.status !== 'finished' && (

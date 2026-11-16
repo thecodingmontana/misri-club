@@ -216,6 +216,32 @@ export async function notifyFinished(
   )
 }
 
+/** A league round opened early: its players, and that playing now is optional. */
+export async function notifyRoundOpened(competitionId: string, round: number) {
+  const competition = await competitionPush(competitionId)
+  if (!competition) return
+  const rows = await db
+    .select({ home: matches.homeUserId, away: matches.awayUserId })
+    .from(matches)
+    .where(
+      and(eq(matches.competitionId, competitionId), eq(matches.round, round)),
+    )
+  const players = new Set(
+    rows
+      .flatMap((r) => [r.home, r.away])
+      .filter((id): id is string => Boolean(id)),
+  )
+  await bestEffort(
+    [...players].map((userId) => ({
+      userId,
+      title: `Round ${round} of ${competition.name} is open early`,
+      body: 'Everyone finished the last round. Play now if you like; the deadline is unchanged.',
+      url: `/c/${competition.slug}`,
+      tag: `round-${competition.slug}-${round}`,
+    })),
+  )
+}
+
 /** Tells the organiser who joined. */
 export async function notifyJoined(competitionId: string, joinerId: string) {
   const [row] = await db

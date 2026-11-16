@@ -29,7 +29,7 @@ import {
   renameCompetition,
 } from './membership.server'
 import { takeAllowance } from './rate-limit.server'
-import { decideMatch, syncForPlayer } from './results.server'
+import { decideMatch, openEarlyRound, syncForPlayer } from './results.server'
 import { POINTS, UNPLAYED_RULES } from './standings'
 
 const MINUTE = 60 * 1000
@@ -165,6 +165,14 @@ export const seedCompetitionFn = createServerFn({ method: 'POST' })
     return { ok: true }
   })
 
+/** The organiser opens the next league round now: everyone has played. */
+export const openEarlyRoundFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(z.object({ slug }))
+  .handler(async ({ context, data }) => {
+    return { round: await openEarlyRound(data.slug, context.viewer) }
+  })
+
 export const updateCompetitionSettingsFn = createServerFn({ method: 'POST' })
   .middleware([userMiddleware])
   .validator(
@@ -177,6 +185,7 @@ export const updateCompetitionSettingsFn = createServerFn({ method: 'POST' })
       maxPlayers: maxPlayers.nullable(),
       requireApproval: z.boolean(),
       points: scoring.points.unwrap(),
+      earlyRounds: z.enum(['wait', 'auto', 'organiser']),
     }),
   )
   .handler(async ({ context, data }) => {

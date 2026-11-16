@@ -214,6 +214,8 @@ export const unplayedRule = pgEnum('unplayed_rule', [
 ])
 /** What happens to a league player's games when they leave after the start. */
 export const leaveRule = pgEnum('leave_rule', ['award', 'void', 'keep'])
+/** Leagues: what happens when a round finishes early; see lib/early-rounds. */
+export const earlyRounds = pgEnum('early_rounds', ['wait', 'auto', 'organiser'])
 export const matchResult = pgEnum('match_result', ['white', 'black', 'draw'])
 
 export const competitions = pgTable('competitions', {
@@ -242,6 +244,8 @@ export const competitions = pgTable('competitions', {
   unplayedRule: unplayedRule('unplayed_rule').notNull().default('organiser'),
   /** Leagues: award / void / keep a leaver's games (see lib/leave). */
   leaveRule: leaveRule('leave_rule').notNull().default('award'),
+  /** Leagues: open the next round early when everyone has played. */
+  earlyRounds: earlyRounds('early_rounds').notNull().default('organiser'),
   /** Leagues: what a win, draw, loss and forfeit are worth. */
   points: jsonb('points')
     .$type<{ win: number; draw: number; loss: number; forfeit: number }>()

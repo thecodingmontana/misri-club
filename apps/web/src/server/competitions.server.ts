@@ -20,6 +20,7 @@ import {
   suggestFrom,
   suggestNames,
 } from '#/lib/competition-names'
+import type { EarlyRounds } from '#/lib/early-rounds'
 import { canJoin, lateEntryMatches } from '#/lib/join-policy'
 import type { LeaveRule } from '#/lib/leave'
 import { generateDoubleRoundRobin } from '#/lib/round-robin'
@@ -74,6 +75,7 @@ export interface CompetitionSettings {
   maxPlayers: number | null
   requireApproval: boolean
   points: Points
+  earlyRounds?: EarlyRounds
 }
 
 /** Create and join need a verified chess.com account: results come from there. */
@@ -465,6 +467,7 @@ export type EditableSettings = Pick<
   | 'points'
   | 'leaveRule'
   | 'maxPlayers'
+  | 'earlyRounds'
 >
 
 export async function updateCompetitionSettings(
