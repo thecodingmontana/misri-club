@@ -158,9 +158,8 @@ export async function removePlayer(
     const started = await depart(tx, competition, userId)
     return { id: competition.id, started }
   })
-  await afterDeparture(
-    removed.started ? removed.id : null,
-    () => notifyRemoved(removed.id, userId),
+  await afterDeparture(removed.started ? removed.id : null, () =>
+    notifyRemoved(removed.id, userId),
   )
 }
 
