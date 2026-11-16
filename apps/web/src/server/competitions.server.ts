@@ -24,6 +24,7 @@ import { canJoin, lateEntryMatches } from '#/lib/join-policy'
 import type { LeaveRule } from '#/lib/leave'
 import { generateDoubleRoundRobin } from '#/lib/round-robin'
 import { auth, isAdminEmail } from './auth.server'
+import { fetchPlayerRating } from './chesscom.server'
 import {
   notifyJoined,
   notifyRequested,
@@ -403,12 +404,16 @@ export async function startCompetition(slug: string, viewer: Viewer) {
     if (competition.status !== 'open')
       throw new Error('It has already started.')
 
-    // Join order is the seeding: shortcut until organisers can seed by hand.
+    // the organiser's seeding first; anyone unseeded follows in join order
     const members = await tx
       .select({ userId: competitionMembers.userId })
       .from(competitionMembers)
       .where(eq(competitionMembers.competitionId, competition.id))
-      .orderBy(asc(competitionMembers.joinedAt), asc(competitionMembers.userId))
+      .orderBy(
+        sql`${competitionMembers.seed} asc nulls last`,
+        asc(competitionMembers.joinedAt),
+        asc(competitionMembers.userId),
+      )
     if (members.length < 2) throw new Error('You need at least two players.')
     const ids = members.map((m) => m.userId)
 
@@ -507,4 +512,78 @@ async function hasResults(competitionId: string) {
     )
     .limit(1)
   return Boolean(decided)
+}
+
+/**
+ * The organiser orders a knockout's players before the start (top seed
+ * first; byes go to the top seeds), by hand or by chess.com rating.
+ */
+export async function seedCompetition(
+  slug: string,
+  viewer: Viewer,
+  order: string[] | 'rating',
+) {
+  let wanted = order
+  if (wanted === 'rating') {
+    const rows = await db
+      .select({
+        userId: competitionMembers.userId,
+        username: chessAccounts.username,
+      })
+      .from(competitionMembers)
+      .innerJoin(
+        competitions,
+        eq(competitions.id, competitionMembers.competitionId),
+      )
+      .leftJoin(
+        chessAccounts,
+        eq(chessAccounts.userId, competitionMembers.userId),
+      )
+      .where(eq(competitions.slug, slug))
+    const rated = await Promise.all(
+      rows.map(async (r) => ({
+        userId: r.userId,
+        rating: r.username
+          ? ((await fetchPlayerRating(r.username).catch(() => null))?.rating ??
+            null)
+          : null,
+      })),
+    )
+    // unrated players go last, keeping their order
+    wanted = rated
+      .map((r, i) => ({ ...r, i }))
+      .sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1) || a.i - b.i)
+      .map((r) => r.userId)
+  }
+  const ids = wanted
+  await db.transaction(async (tx) => {
+    const competition = await lockCompetition(tx, eq(competitions.slug, slug))
+    if (!competition) throw new Error('Not found.')
+    authorizeManage(viewer, competition)
+    if (competition.format !== 'knockout' || competition.status !== 'open') {
+      throw new Error('Seeding is for a knockout that has not started.')
+    }
+    const members = await tx
+      .select({ userId: competitionMembers.userId })
+      .from(competitionMembers)
+      .where(eq(competitionMembers.competitionId, competition.id))
+    const memberIds = new Set(members.map((m) => m.userId))
+    if (
+      ids.length !== memberIds.size ||
+      !ids.every((id) => memberIds.has(id))
+    ) {
+      throw new Error('The players changed. Reload and try again.')
+    }
+    for (const [i, userId] of ids.entries()) {
+      await tx
+        .update(competitionMembers)
+        .set({ seed: i + 1 })
+        .where(
+          and(
+            eq(competitionMembers.competitionId, competition.id),
+            eq(competitionMembers.userId, userId),
+          ),
+        )
+    }
+  })
 }

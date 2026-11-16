@@ -13,6 +13,7 @@ import {
   currentViewer,
   joinCompetition,
   requireChessAccount,
+  seedCompetition,
   startCompetition,
   suggestCompetitionNames,
   updateCompetitionSettings,
@@ -136,6 +137,31 @@ export const startCompetitionFn = createServerFn({ method: 'POST' })
   .validator(z.object({ slug }))
   .handler(async ({ context, data }) => {
     await startCompetition(data.slug, context.viewer)
+    return { ok: true }
+  })
+
+/** The organiser orders a knockout's players before the start. */
+export const seedCompetitionFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(
+    z.object({
+      slug,
+      // the player ids top seed first, or "rating" to sort by chess.com rating
+      order: z.union([
+        z.array(z.string().min(1).max(16)).max(256),
+        z.literal('rating'),
+      ]),
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    // rating seeding asks chess.com about every player
+    if (
+      data.order === 'rating' &&
+      !(await takeAllowance(`seed-rating:${context.user.id}`, 1, 10, HOUR))
+    ) {
+      throw new Error('Too many tries. Wait an hour and try again.')
+    }
+    await seedCompetition(data.slug, context.viewer, data.order)
     return { ok: true }
   })
 

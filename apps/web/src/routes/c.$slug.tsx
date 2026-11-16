@@ -32,6 +32,7 @@ import { displayName, FixtureCard } from '#/components/match-card'
 import { DecideMatch } from '#/components/match-decision'
 import { PlayerChip } from '#/components/player-chip'
 import { ScoringRules, scoringSummary } from '#/components/scoring-rules'
+import { Seeding } from '#/components/seeding'
 import { Button } from '#/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#/components/ui/tabs'
 import { seo } from '#/lib/seo'
@@ -423,6 +424,10 @@ function OwnerPanel({ data }: { data: Data }) {
               </FixtureCard>
             ))}
         </div>
+      )}
+
+      {!league && competition.status === 'open' && (
+        <Seeding slug={competition.slug} members={members} />
       )}
 
       {competition.status === 'open' && (

@@ -273,6 +273,8 @@ export const competitionMembers = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     joinedAt: ts('joined_at').defaultNow().notNull(),
+    /** knockout seeding the organiser set (1 = top); null falls back to join order */
+    seed: integer('seed'),
   },
   (t) => [
     primaryKey({ columns: [t.competitionId, t.userId] }),

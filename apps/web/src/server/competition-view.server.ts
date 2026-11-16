@@ -235,7 +235,11 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       .innerJoin(user, eq(user.id, competitionMembers.userId))
       .leftJoin(chessAccounts, eq(chessAccounts.userId, user.id))
       .where(eq(competitionMembers.competitionId, competition.id))
-      .orderBy(asc(competitionMembers.joinedAt)),
+      // seeded players in seed order, then everyone by when they joined
+      .orderBy(
+        sql`${competitionMembers.seed} asc nulls last`,
+        asc(competitionMembers.joinedAt),
+      ),
     db
       .select()
       .from(matches)

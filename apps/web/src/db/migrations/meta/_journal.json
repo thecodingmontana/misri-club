@@ -113,6 +113,13 @@
       "when": 1794829778797,
       "tag": "0015_backfill_match_position",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1794831939239,
+      "tag": "0016_abandoned_firestar",
+      "breakpoints": true
     }
   ]
 }

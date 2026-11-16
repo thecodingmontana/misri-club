@@ -1,0 +1,1 @@
+ALTER TABLE "competition_members" ADD COLUMN "seed" integer;
