@@ -11,7 +11,7 @@ const emit = () => {
   for (const listener of listeners) listener()
 }
 
-const VERSION_CHECK_MS = 5 * 60 * 1000
+const VERSION_CHECK_MS = 2 * 60 * 1000
 let started = false
 let updateShown = false
 
@@ -39,20 +39,50 @@ export function startPwa() {
     announceUpdate()
   })
   if (__BUILD_ID__ === 'dev') return
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') void checkVersion()
-  })
-  setInterval(() => void checkVersion(), VERSION_CHECK_MS)
+  // Phones restore an installed app from memory without always firing
+  // visibilitychange, so listen to every "you're back" signal there is.
+  const onReturn = () => {
+    if (document.visibilityState === 'visible') void checkVersion(true)
+  }
+  document.addEventListener('visibilitychange', onReturn)
+  addEventListener('pageshow', onReturn)
+  addEventListener('focus', onReturn)
+  addEventListener('online', onReturn)
+  void checkVersion(true)
+  setInterval(() => void checkVersion(false), VERSION_CHECK_MS)
 }
 
-async function checkVersion() {
+const RELOADED_AT = 'misri-reloaded-for'
+
+/**
+ * `returning`: the app was just opened or brought back. An installed app has
+ * no reload button, so there it loads the new version straight away (before
+ * any input); a browser tab, or anyone mid-use, gets the notice instead.
+ */
+async function checkVersion(returning: boolean) {
   if (updateShown) return
   try {
     const response = await fetch('/api/version', { cache: 'no-store' })
     const { id } = (await response.json()) as { id?: string }
-    if (id && id !== 'dev' && id !== __BUILD_ID__) announceUpdate()
+    if (!id || id === 'dev' || id === __BUILD_ID__) return
+    if (returning && isStandalone() && reloadOnceFor(id)) {
+      location.reload()
+      return
+    }
+    announceUpdate()
   } catch {
     // offline or mid-deploy: try again next time
+  }
+}
+
+/** True the first time for this build id: a deploy can never cause a loop. */
+function reloadOnceFor(id: string) {
+  try {
+    if (sessionStorage.getItem(RELOADED_AT) === id) return false
+    sessionStorage.setItem(RELOADED_AT, id)
+    return true
+  } catch {
+    return false
   }
 }
 

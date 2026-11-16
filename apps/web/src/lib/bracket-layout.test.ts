@@ -50,3 +50,9 @@ test('names by ties left; nothing drawn before the start', () => {
   assert.equal(roundName(8), 'Round of 16')
   assert.deepEqual(bracketLayout([]), [])
 })
+
+test('rounds from before positions existed still show every tie', () => {
+  const legacy = [0, 1, 2, 3].map(() => tie(1, 0))
+  const layout = bracketLayout(legacy)
+  assert.equal(layout[0].slots.filter((slot) => slot.match).length, 4)
+})

@@ -42,10 +42,17 @@ export function bracketLayout<M extends LayoutMatch>(
   let number = 1
   for (let round = 1, ties = first.length; ties >= 1; round++, ties /= 2) {
     const inRound = matches.filter((m) => m.round === round)
+    // older rounds have no positions (all 0): place their ties in order rather than hide them
+    const positioned =
+      new Set(inRound.map((m) => m.position)).size === inRound.length
+    const at = (position: number) =>
+      positioned
+        ? (inRound.find((m) => m.position === position) ?? null)
+        : (inRound[position] ?? null)
     const previous = rounds.at(-1)
     const slots: Slot<M>[] = Array.from({ length: ties }, (_, position) => ({
       number: number++,
-      match: inRound.find((m) => m.position === position) ?? null,
+      match: at(position),
       feeds: previous
         ? [
             previous.slots[position * 2].number,
