@@ -12,6 +12,7 @@ import { ThemeProvider } from 'next-themes'
 import { useEffect } from 'react'
 import { AppSidebar } from '#/components/app-sidebar'
 import { BottomNav } from '#/components/bottom-nav'
+import { CommandMenu } from '#/components/command-menu'
 import { Toaster } from '#/components/toast/toaster'
 import { TopBar } from '#/components/top-bar'
 import { ScrollArea } from '#/components/ui/scroll-area'
@@ -106,6 +107,7 @@ function RootLayout() {
     <div className="fixed inset-0 flex bg-background">
       {/* Signed-in players get the sidebar; visitors keep the tab bar. */}
       {user && <AppSidebar open={sidebarOpen} />}
+      {user && <CommandMenu />}
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar />
         <ScrollArea

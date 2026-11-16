@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { Bell, ShieldCheck, UserRound } from '#/components/icons'
+import { openCommandMenu } from '#/components/command-menu'
+import { Bell, Search, ShieldCheck, UserRound } from '#/components/icons'
 import { SoundToggle } from '#/components/sound-toggle'
 import { ThemeToggle } from '#/components/theme-toggle'
 import { Button } from '#/components/ui/button'
@@ -24,6 +25,19 @@ export function TopBar() {
       </Link>
 
       <div className="flex items-center justify-end gap-0.5">
+        {auth.user && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full"
+            aria-label="Search and jump (Ctrl K)"
+            aria-keyshortcuts="Control+K Meta+K"
+            data-tip="Search · Ctrl K"
+            onClick={openCommandMenu}
+          >
+            <Search className="size-[1.15rem]" />
+          </Button>
+        )}
         {auth.user && <InboxBell />}
         {auth.user ? (
           <Button
