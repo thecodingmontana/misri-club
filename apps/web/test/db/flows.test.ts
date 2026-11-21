@@ -481,3 +481,35 @@ test('reminders: a deadline just past 24 hours away is still reminded, once', as
   assert.ok(m.remindedAt, 'reminded')
   assert.equal(await remindDeadlines(new Date(now)), 0, 'not twice')
 })
+
+test('knockout: the next round opens when the last game ended, not at the sync', async () => {
+  const c = await competition('knockout', ['o', 'a', 'b', 'c'])
+  await startCompetition(c.slug, c.organiser)
+  const names = c.ids.map((id) => id.toLowerCase())
+  const nameOf = new Map(c.ids.map((id, i) => [id, names[i]]))
+  await db.insert(chessAccounts).values(c.ids.map((userId, i) => ({ userId, username: names[i], verifiedAt: new Date() })))
+  const now = Date.now()
+  await db.update(matches).set({ opensAt: new Date(now - 86_400_000) }).where(eq(matches.competitionId, c.row.id))
+  const ties = await c.rows()
+  // both semi-finals played; the later one ended two hours ago
+  const lastEnd = Math.floor((now - 2 * 3_600_000) / 1000)
+  const games = ties.map((m, i) => ({
+    url: `https://www.chess.com/game/live/${c.row.id}${i}`,
+    end_time: lastEnd - i * 3600,
+    rules: 'chess',
+    time_class: 'blitz',
+    time_control: '180',
+    white: { username: nameOf.get(m.homeUserId as string), result: 'win' },
+    black: { username: nameOf.get(m.awayUserId as string), result: 'resigned' },
+  }))
+  const realFetch = globalThis.fetch
+  try {
+    globalThis.fetch = (async () => Response.json({ games })) as typeof fetch
+    await syncResults(c.row.id, new Date(now))
+  } finally {
+    globalThis.fetch = realFetch
+  }
+  const final = (await c.rows()).find((m) => m.round === 2)
+  assert.ok(final, 'the final was drawn')
+  assert.equal(final.opensAt.getTime(), lastEnd * 1000)
+})

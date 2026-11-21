@@ -47,6 +47,7 @@ export function decisionFields(
       return {
         ...CLEARED,
         result: decision.result,
+        endedAt: new Date(now),
         whiteUserId,
         winnerUserId: knockout
           ? winnerOf(decision.result, whiteUserId, blackUserId)
@@ -57,7 +58,11 @@ export function decisionFields(
       if (![homeUserId, awayUserId].includes(decision.winnerUserId)) {
         throw new Error('The walkover goes to one of the two players.')
       }
-      return { ...CLEARED, winnerUserId: decision.winnerUserId }
+      return {
+        ...CLEARED,
+        winnerUserId: decision.winnerUserId,
+        endedAt: new Date(now),
+      }
     case 'void':
       if (knockout) {
         throw new Error('Someone has to go through: award a walkover instead.')

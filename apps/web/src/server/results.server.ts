@@ -275,7 +275,7 @@ async function openRound(
   if (round === null) return null
   await tx
     .update(matches)
-    .set({ opensAt: now })
+    .set({ opensAt: lastResultAt(rows, now) })
     .where(
       and(
         eq(matches.competitionId, competition.id),
@@ -331,6 +331,19 @@ export async function openEarlyRound(slug: string, viewer: Viewer) {
 type CompetitionRow = typeof competitions.$inferSelect
 type MatchRow = typeof matches.$inferSelect
 
+/**
+ * When the last result came in. A round that opens because of it opens then,
+ * not when a sync first noticed (maybe hours later), so games the players
+ * played straight away still count.
+ */
+function lastResultAt(rows: MatchRow[], now: Date) {
+  const ended = rows
+    .map((m) => m.endedAt?.getTime() ?? 0)
+    .filter((t) => t <= now.getTime())
+  const latest = Math.max(0, ...ended)
+  return latest ? new Date(latest) : now
+}
+
 /** Next knockout round, a decider, or the champion. `legs` per tie (1 or 2). */
 async function advanceKnockout(
   tx: Tx,
@@ -352,6 +365,7 @@ async function advanceKnockout(
       return finish(tx, competitionId, step.userId, now)
     }
     const dueAt = new Date(now.getTime() + competition.matchdayDays * DAY)
+    const opensAt = lastResultAt(all, now)
     if (step.kind === 'deciders') {
       // level after both legs: one more game decides it
       await tx.insert(matches).values(
@@ -362,7 +376,7 @@ async function advanceKnockout(
           leg: 3,
           homeUserId: t.homeId,
           awayUserId: t.awayId,
-          opensAt: now,
+          opensAt,
           dueAt,
         })),
       )
@@ -380,7 +394,7 @@ async function advanceKnockout(
           homeUserId: m.homeId,
           awayUserId: m.awayId,
           byeUserId: m.byeId,
-          opensAt: now,
+          opensAt,
           dueAt,
         })),
       )
@@ -460,7 +474,7 @@ async function advanceGroups(
       homeUserId: m.homeId,
       awayUserId: m.awayId,
       byeUserId: m.byeId,
-      opensAt: now,
+      opensAt: lastResultAt(groupGames, now),
       dueAt,
     })),
   )
