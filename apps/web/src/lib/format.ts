@@ -54,9 +54,3 @@ export function formatDate(input: number | string | Date): string {
 export function record(wins: number, draws: number, losses: number): string {
   return `${wins}–${draws}–${losses}`
 }
-
-export function winRate(wins: number, draws: number, losses: number): string {
-  const played = wins + draws + losses
-  if (played === 0) return 'No games'
-  return `${Math.round(((wins + draws / 2) / played) * 100)}%`
-}
