@@ -25,6 +25,7 @@ import {
   refuseIfOwner,
   removePlayer,
 } from '#/server/membership.server'
+import { remindDeadlines } from '#/server/notifications.server'
 import {
   concedeMatch,
   decideMatch,
@@ -467,4 +468,16 @@ test('account deletion: refused while you own a competition others are in', asyn
   await asUser(c.ids[1])
   const solo = await competition('league', ['s'])
   await asUser(solo.ids[0])
+})
+
+test('reminders: a deadline just past 24 hours away is still reminded, once', async () => {
+  const c = await competition('league', ['o', 'a'], { legs: 1 })
+  await startCompetition(c.slug, c.organiser)
+  const now = Date.now()
+  // the daily cron ran a few seconds earlier than the round opened
+  await db.update(matches).set({ dueAt: new Date(now + 86_400_000 + 4_000) }).where(eq(matches.competitionId, c.row.id))
+  await remindDeadlines(new Date(now))
+  const [m] = await c.rows()
+  assert.ok(m.remindedAt, 'reminded')
+  assert.equal(await remindDeadlines(new Date(now)), 0, 'not twice')
 })

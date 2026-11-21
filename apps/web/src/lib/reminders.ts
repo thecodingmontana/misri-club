@@ -18,7 +18,7 @@ export function reminderPushes(due: DueMatch[]): PushMessage[] {
       [m.awayUserId, m.homeName],
     ].map(([userId, opponent]) => ({
       userId,
-      title: `Under 24 hours left in ${m.competition}`,
+      title: `About a day left in ${m.competition}`,
       body: `Play ${opponent} on chess.com before the deadline.`,
       url: `/c/${m.slug}`,
       tag: `due-${m.matchId}`,
