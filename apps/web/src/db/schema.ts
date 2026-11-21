@@ -377,6 +377,8 @@ export const matches = pgTable(
     endedAt: ts('ended_at'),
     /** Called off by the organiser (or the "no result" rule): counts for nobody. */
     voided: boolean('voided').notNull().default(false),
+    /** A late joiner's game: late games share one round while it's open. */
+    late: boolean('late').notNull().default(false),
     /** The organiser's word on a decision, shown on the match card. */
     note: text('note'),
     /** When the 24-hour reminder went out; null until then (sent once). */

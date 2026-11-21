@@ -3,7 +3,10 @@ import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import { competitions } from '#/db/schema'
-import { startScheduled } from '#/server/competitions.server'
+import {
+  reconcileAllFixtures,
+  startScheduled,
+} from '#/server/competitions.server'
 import { remindDeadlines } from '#/server/notifications.server'
 import { syncResults } from '#/server/results.server'
 
@@ -32,6 +35,14 @@ export const Route = createFileRoute('/api/cron/deadlines')({
           )
           return 0
         })
+        // every pair of members has their games before results are read
+        const added = await reconcileAllFixtures().catch((error) => {
+          console.error(
+            '[cron] fixture recheck failed',
+            (error as Error).message,
+          )
+          return 0
+        })
         // results first, so a game already played gets no reminder
         const running = await db
           .select({ id: competitions.id })
@@ -54,7 +65,12 @@ export const Route = createFileRoute('/api/cron/deadlines')({
           )
         }
         const reminded = await remindDeadlines()
-        return Response.json({ started, synced: running.length, reminded })
+        return Response.json({
+          started,
+          added,
+          synced: running.length,
+          reminded,
+        })
       },
     },
   },

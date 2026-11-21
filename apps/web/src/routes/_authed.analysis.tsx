@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { useMemo, useState } from 'react'
 import { Spinner } from '#/components/auth'
-import { Cpu, ExternalLink, Fire, Stop, Target } from '#/components/icons'
+import { ChevronRight, Cpu, Fire, Stop, Target } from '#/components/icons'
 import { PlayerAvatar } from '#/components/player-chip'
 import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
@@ -353,10 +353,9 @@ function GameRow({
   accuracy: number | null
 }) {
   return (
-    <a
-      href={game.chessComUrl}
-      target="_blank"
-      rel="noreferrer noopener"
+    <Link
+      to="/analysis/game"
+      search={{ game: game.chessComUrl }}
       className="flex items-center gap-3 rounded-2xl bg-card py-2.5 pr-3 pl-3 shadow-card transition-opacity hover:opacity-80"
     >
       <span
@@ -396,9 +395,9 @@ function GameRow({
         </span>
         <span className="flex items-center gap-1 text-[0.62rem] text-muted-foreground">
           {relativeTime(game.endedAt)}
-          <ExternalLink className="size-3" />
+          <ChevronRight className="size-3" />
         </span>
       </span>
-    </a>
+    </Link>
   )
 }

@@ -1,7 +1,7 @@
 // English only: the root import ships every locale in the server bundle
 import { faker } from '@faker-js/faker/locale/en'
 import { getRequestHeaders } from '@tanstack/react-start/server'
-import { and, asc, eq, inArray, lte, max, or, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, lte, or, sql } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import {
   type Competition,
@@ -22,7 +22,7 @@ import {
 } from '#/lib/competition-names'
 import type { EarlyRounds } from '#/lib/early-rounds'
 import { drawGroups, groupsProblem } from '#/lib/groups'
-import { canJoin, lateEntryMatches } from '#/lib/join-policy'
+import { canJoin, lateRoundWindow, missingFixtures } from '#/lib/join-policy'
 import type { LeaveRule } from '#/lib/leave'
 import { generateDoubleRoundRobin } from '#/lib/round-robin'
 import { auth, isAdminEmail } from './auth.server'
@@ -321,11 +321,6 @@ export async function lockCompetition(tx: Tx, where: ReturnType<typeof eq>) {
 }
 
 /**
- * Joins `userId` to the competition found by `where`. Idempotent. A late
- * joiner in a running league gets a match against every member, in one extra
- * round. The row lock makes two late joiners at once still meet each other.
- */
-/**
  * Lets a player in, under the row lock the caller holds: refuses leavers,
  * closed competitions and full ones, and gives a late joiner their matches.
  * False when they were already in.
@@ -365,35 +360,105 @@ export async function admit(tx: Tx, competition: Competition, userId: string) {
     .insert(competitionMembers)
     .values({ competitionId: competition.id, userId })
 
-  if (competition.status === 'running') {
-    const [latest] = await tx
-      .select({ round: max(matches.round), dueAt: max(matches.dueAt) })
-      .from(matches)
-      .where(eq(matches.competitionId, competition.id))
-    const late = lateEntryMatches({
-      userId,
-      memberIds: members.map((m) => m.userId),
-      legs: competition.legs,
-      round: (latest?.round ?? 0) + 1,
-      matchdayDays: competition.matchdayDays,
-      latestDueAt: latest?.dueAt ?? null,
-      now: new Date(),
+  await reconcileFixtures(tx, competition)
+  return true
+}
+
+/**
+ * Rechecks a running league's fixtures, under the row lock the caller holds:
+ * every pair of current members must have their games. Anything missing (a
+ * late joiner's games, or a pair that slipped through) goes into the shared
+ * late round. Returns how many games it added.
+ */
+export async function reconcileFixtures(tx: Tx, competition: Competition) {
+  if (competition.format !== 'league' || competition.status !== 'running') {
+    return 0
+  }
+  const members = await tx
+    .select({ userId: competitionMembers.userId })
+    .from(competitionMembers)
+    .where(eq(competitionMembers.competitionId, competition.id))
+    .orderBy(asc(competitionMembers.joinedAt), asc(competitionMembers.userId))
+  const existing = await tx
+    .select({
+      round: matches.round,
+      homeUserId: matches.homeUserId,
+      awayUserId: matches.awayUserId,
+      dueAt: matches.dueAt,
+      late: matches.late,
     })
-    if (late.length > 0) {
-      await tx.insert(matches).values(
-        late.map((m) => ({
-          competitionId: competition.id,
-          round: m.round,
-          leg: m.leg,
-          homeUserId: m.homeId,
-          awayUserId: m.awayId,
-          opensAt: m.opensAt,
-          dueAt: m.dueAt,
-        })),
+    .from(matches)
+    .where(eq(matches.competitionId, competition.id))
+  const missing = missingFixtures(
+    members.map((m) => m.userId),
+    existing,
+    competition.legs,
+  )
+  if (missing.length === 0) return 0
+
+  const now = new Date()
+  const openLate = existing
+    .filter((m) => m.late && m.dueAt > now)
+    .sort((a, b) => b.round - a.round)[0]
+  const window = lateRoundWindow({
+    openLate: openLate ?? null,
+    lastRound: Math.max(0, ...existing.map((m) => m.round)),
+    lastDueAt: existing.length
+      ? new Date(Math.max(...existing.map((m) => m.dueAt.getTime())))
+      : null,
+    matchdayDays: competition.matchdayDays,
+    now,
+  })
+  // one round, one deadline: a later joiner's extra time is everyone's
+  if (openLate && window.dueAt > openLate.dueAt) {
+    await tx
+      .update(matches)
+      .set({ dueAt: window.dueAt, remindedAt: null })
+      .where(
+        and(
+          eq(matches.competitionId, competition.id),
+          eq(matches.round, window.round),
+        ),
       )
+  }
+  await tx.insert(matches).values(
+    missing.map((m) => ({
+      competitionId: competition.id,
+      round: window.round,
+      leg: m.leg,
+      homeUserId: m.homeId,
+      awayUserId: m.awayId,
+      opensAt: now,
+      dueAt: window.dueAt,
+      late: true,
+    })),
+  )
+  return missing.length
+}
+
+/** The fixture recheck for every running league, each under its own lock. */
+export async function reconcileAllFixtures() {
+  const running = await db
+    .select({ id: competitions.id })
+    .from(competitions)
+    .where(
+      and(
+        eq(competitions.status, 'running'),
+        eq(competitions.format, 'league'),
+      ),
+    )
+  let added = 0
+  for (const { id } of running) {
+    try {
+      added += await db.transaction(async (tx) => {
+        const competition = await lockCompetition(tx, eq(competitions.id, id))
+        return competition ? reconcileFixtures(tx, competition) : 0
+      })
+    } catch (error) {
+      console.error('[fixtures] recheck failed', id, (error as Error).message)
     }
   }
-  return true
+  return added
 }
 
 /**
