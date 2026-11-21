@@ -36,6 +36,13 @@ const MODES = [
       'How to spot sacrifices and killer moves, with master examples.',
   },
   {
+    to: '/analysis',
+    icon: Target,
+    title: 'Analyse your games',
+    description:
+      'Stockfish checks your latest chess.com games for blunders and accuracy.',
+  },
+  {
     to: '/train/play',
     icon: Cpu,
     title: 'Play Stockfish',

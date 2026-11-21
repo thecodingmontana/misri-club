@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": { "source": "github", "repo": "DietrichGebert/ponytail" }
+    },
+    "improve": {
+      "source": { "source": "github", "repo": "shadcn/improve" }
+    }
+  },
+  "enabledPlugins": {
+    "ponytail@ponytail": true,
+    "improve@improve": true
+  }
+}
