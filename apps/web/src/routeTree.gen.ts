@@ -34,6 +34,7 @@ import { Route as TrainBrilliantRouteImport } from './routes/train.brilliant'
 import { Route as TrainPlayRouteImport } from './routes/train.play'
 import { Route as TrainProgressRouteImport } from './routes/train.progress'
 import { Route as TrainPuzzlesRouteImport } from './routes/train.puzzles'
+import { Route as AuthedAnalysisGameRouteImport } from './routes/_authed.analysis_.game'
 import { Route as AuthedCompetitionsNewRouteImport } from './routes/_authed.competitions.new'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCronDeadlinesRouteImport } from './routes/api/cron/deadlines'
@@ -166,6 +167,11 @@ const TrainPuzzlesRoute = TrainPuzzlesRouteImport.update({
   path: '/train/puzzles',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedAnalysisGameRoute = AuthedAnalysisGameRouteImport.update({
+  id: '/analysis_/game',
+  path: '/analysis/game',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedCompetitionsNewRoute = AuthedCompetitionsNewRouteImport.update({
   id: '/competitions/new',
   path: '/competitions/new',
@@ -227,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/train/progress': typeof TrainProgressRoute
   '/train/puzzles': typeof TrainPuzzlesRoute
   '/train/': typeof TrainIndexRoute
+  '/analysis/game': typeof AuthedAnalysisGameRoute
   '/competitions/new': typeof AuthedCompetitionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/deadlines': typeof ApiCronDeadlinesRoute
@@ -260,6 +267,7 @@ export interface FileRoutesByTo {
   '/train/puzzles': typeof TrainPuzzlesRoute
   '/': typeof AuthedIndexRoute
   '/train': typeof TrainIndexRoute
+  '/analysis/game': typeof AuthedAnalysisGameRoute
   '/competitions/new': typeof AuthedCompetitionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/deadlines': typeof ApiCronDeadlinesRoute
@@ -295,6 +303,7 @@ export interface FileRoutesById {
   '/train/puzzles': typeof TrainPuzzlesRoute
   '/_authed/': typeof AuthedIndexRoute
   '/train/': typeof TrainIndexRoute
+  '/_authed/analysis_/game': typeof AuthedAnalysisGameRoute
   '/_authed/competitions/new': typeof AuthedCompetitionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/deadlines': typeof ApiCronDeadlinesRoute
@@ -330,6 +339,7 @@ export interface FileRouteTypes {
     | '/train/progress'
     | '/train/puzzles'
     | '/train/'
+    | '/analysis/game'
     | '/competitions/new'
     | '/api/auth/$'
     | '/api/cron/deadlines'
@@ -363,6 +373,7 @@ export interface FileRouteTypes {
     | '/train/puzzles'
     | '/'
     | '/train'
+    | '/analysis/game'
     | '/competitions/new'
     | '/api/auth/$'
     | '/api/cron/deadlines'
@@ -397,6 +408,7 @@ export interface FileRouteTypes {
     | '/train/puzzles'
     | '/_authed/'
     | '/train/'
+    | '/_authed/analysis_/game'
     | '/_authed/competitions/new'
     | '/api/auth/$'
     | '/api/cron/deadlines'
@@ -610,6 +622,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TrainPuzzlesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/analysis_/game': {
+      id: '/_authed/analysis_/game'
+      path: '/analysis/game'
+      fullPath: '/analysis/game'
+      preLoaderRoute: typeof AuthedAnalysisGameRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/competitions/new': {
       id: '/_authed/competitions/new'
       path: '/competitions/new'
@@ -670,6 +689,7 @@ interface AuthedRouteChildren {
   AuthedOnboardingRoute: typeof AuthedOnboardingRoute
   AuthedStartRoute: typeof AuthedStartRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedAnalysisGameRoute: typeof AuthedAnalysisGameRoute
   AuthedCompetitionsNewRoute: typeof AuthedCompetitionsNewRoute
 }
 
@@ -681,6 +701,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedOnboardingRoute: AuthedOnboardingRoute,
   AuthedStartRoute: AuthedStartRoute,
   AuthedIndexRoute: AuthedIndexRoute,
+  AuthedAnalysisGameRoute: AuthedAnalysisGameRoute,
   AuthedCompetitionsNewRoute: AuthedCompetitionsNewRoute,
 }
 
