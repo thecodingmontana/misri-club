@@ -13,6 +13,7 @@ import { getCompetition } from '#/server/competition-view.server'
 import {
   createCompetition,
   joinCompetition,
+  reconcileAllFixtures,
   seedCompetition,
   startCompetition,
   startScheduled,
@@ -390,4 +391,28 @@ test('groups then knockout: snake draw, tables, cross-seeded bracket, champion',
   const end = await c.state()
   assert.equal(end.status, 'finished')
   assert.equal(end.championUserId, final.awayUserId)
+})
+
+test('league: late joiners share one round; the recheck refills a missing game', async () => {
+  const c = await competition('league', ['o', 'a', 'b'], { allowLateEntry: true, matchdayDays: 2 })
+  await startCompetition(c.slug, c.organiser)
+  const lastRound = Math.max(...(await c.rows()).map((m) => m.round))
+  const [x, y] = ['x', 'y'].map((n) => `${c.ids[0].slice(0, -1)}${n}`)
+  made.push(x, y)
+  await db.insert(user).values([x, y].map((id) => ({ id, name: id, email: `${id}@test.local` })))
+  await joinCompetition(x, { code: c.row.inviteCode })
+  await joinCompetition(y, { code: c.row.inviteCode })
+
+  const late = (await c.rows()).filter((m) => m.late)
+  assert.equal(late.length, 3 + 4, 'x meets 3, y meets 4 (x too)')
+  assert.deepEqual([...new Set(late.map((m) => m.round))], [lastRound + 1])
+  assert.equal(new Set(late.map((m) => m.dueAt.getTime())).size, 1, 'one deadline')
+
+  const dropped = late.find((m) => m.homeUserId === y && m.awayUserId === x)
+  assert.ok(dropped)
+  await db.delete(matches).where(eq(matches.id, dropped.id))
+  assert.ok((await reconcileAllFixtures()) >= 1)
+  const back = (await c.rows()).find((m) => m.homeUserId === y && m.awayUserId === x)
+  assert.equal(back?.round, lastRound + 1)
+  assert.equal(await reconcileAllFixtures(), 0, 'nothing left to add')
 })

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { canJoin, lateEntryMatches } from './join-policy.ts'
+import { canJoin, lateRoundWindow, missingFixtures } from './join-policy.ts'
 
 test('anyone may join while a competition is open', () => {
   for (const format of ['league', 'knockout'] as const) {
@@ -44,55 +44,68 @@ test('a finished competition takes nobody', () => {
   }
 })
 
+const DAY = 24 * 60 * 60 * 1000
 const now = new Date('2026-11-15T12:00:00Z')
-const base = {
-  userId: 'new',
-  memberIds: ['a', 'b', 'c'],
-  round: 7,
-  matchdayDays: 2,
-  now,
-}
+const game = (home: string | null, away: string | null) => ({
+  homeUserId: home,
+  awayUserId: away,
+})
+// a, b, c played each other once (c had the bye at some point)
+const scheduled = [
+  game('a', 'b'),
+  game('c', 'a'),
+  game('b', 'c'),
+  game(null, null),
+]
 
-test('a late joiner meets each member once in a one-leg league', () => {
-  const matches = lateEntryMatches({ ...base, legs: 1, latestDueAt: null })
-  assert.equal(matches.length, 3)
+test('a full round-robin owes nothing', () => {
+  assert.deepEqual(missingFixtures(['a', 'b', 'c'], scheduled, 1), [])
+})
+
+test('a late joiner owes each member one game, at home', () => {
+  const owed = missingFixtures(['a', 'b', 'c', 'new'], scheduled, 1)
   assert.deepEqual(
-    matches.map((m) => m.awayId),
-    ['a', 'b', 'c'],
+    owed.map((m) => `${m.homeId}>${m.awayId}`),
+    ['new>a', 'new>b', 'new>c'],
   )
-  for (const m of matches) {
-    assert.equal(m.round, 7)
-    assert.equal(m.homeId, 'new')
-    assert.equal(m.opensAt, now)
-  }
 })
 
-test('two legs mean home and away against each member', () => {
-  const matches = lateEntryMatches({ ...base, legs: 2, latestDueAt: null })
-  assert.equal(matches.length, 6)
-  const pairs = new Set(matches.map((m) => `${m.homeId}>${m.awayId}`))
-  for (const id of base.memberIds) {
-    assert.ok(pairs.has(`new>${id}`))
-    assert.ok(pairs.has(`${id}>new`))
-  }
+test('two legs owe home and away, and only the missing half', () => {
+  const owed = missingFixtures(['a', 'new'], [game('new', 'a')], 2)
+  assert.deepEqual(owed, [{ leg: 2, homeId: 'a', awayId: 'new' }])
+  assert.equal(missingFixtures(['a', 'b', 'new'], [], 2).length, 6)
 })
 
-test('the joiner is never paired with themselves', () => {
-  const matches = lateEntryMatches({
-    ...base,
-    memberIds: ['a', 'new'],
-    legs: 1,
-    latestDueAt: null,
-  })
-  assert.equal(matches.length, 1)
+test('two late joiners meet each other too', () => {
+  const owed = missingFixtures(['a', 'b', 'c', 'x', 'y'], scheduled, 1)
+  assert.ok(owed.some((m) => m.homeId === 'y' && m.awayId === 'x'))
+  assert.equal(owed.length, 3 + 4)
 })
 
-test('due with the league’s last window, or one matchday from now if later', () => {
+test('a new late round goes after the last, due with the league or a matchday from now', () => {
   const later = new Date('2026-12-01T00:00:00Z')
-  const [m1] = lateEntryMatches({ ...base, legs: 1, latestDueAt: later })
-  assert.equal(m1.dueAt.getTime(), later.getTime())
+  const base = { openLate: null, lastRound: 6, matchdayDays: 2, now }
+  assert.deepEqual(lateRoundWindow({ ...base, lastDueAt: later }), {
+    round: 7,
+    dueAt: later,
+  })
+  const soon = new Date('2026-11-16T00:00:00Z')
+  assert.equal(
+    lateRoundWindow({ ...base, lastDueAt: soon }).dueAt.getTime(),
+    now.getTime() + 2 * DAY,
+  )
+})
 
-  const earlier = new Date('2026-11-16T00:00:00Z')
-  const [m2] = lateEntryMatches({ ...base, legs: 1, latestDueAt: earlier })
-  assert.equal(m2.dueAt.getTime(), now.getTime() + 2 * 24 * 60 * 60 * 1000)
+test('later joiners share the open late round, pushed out to a matchday', () => {
+  const base = { lastRound: 7, lastDueAt: null, matchdayDays: 2, now }
+  const roomy = new Date(now.getTime() + 5 * DAY)
+  assert.deepEqual(
+    lateRoundWindow({ ...base, openLate: { round: 7, dueAt: roomy } }),
+    { round: 7, dueAt: roomy },
+  )
+  const tight = new Date(now.getTime() + DAY)
+  assert.deepEqual(
+    lateRoundWindow({ ...base, openLate: { round: 7, dueAt: tight } }),
+    { round: 7, dueAt: new Date(now.getTime() + 2 * DAY) },
+  )
 })

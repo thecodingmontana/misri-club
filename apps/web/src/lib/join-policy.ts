@@ -40,53 +40,71 @@ export function canJoin({
 
 const DAY = 24 * 60 * 60 * 1000
 
-export interface LateMatch {
-  round: number
+export interface Fixture {
+  homeUserId: string | null
+  awayUserId: string | null
+}
+
+export interface MissingFixture {
   leg: 1 | 2
   homeId: string
   awayId: string
-  opensAt: Date
-  dueAt: Date
 }
 
 /**
- * A late joiner meets every existing member once (twice, home and away, when
- * the league has two legs), all in one extra round. The window opens now and
- * closes with the league's last window, or one matchday from now if later.
+ * The games a running league still owes between its current members: every
+ * pair meets once, or home and away with two legs. `memberIds` is in join
+ * order; the later joiner is at home in leg 1. Byes and leavers' games never
+ * count, so a league built by the round-robin owes nothing.
  */
-export function lateEntryMatches({
-  userId,
-  memberIds,
-  legs,
-  round,
+export function missingFixtures(
+  memberIds: Array<string>,
+  fixtures: Array<Fixture>,
+  legs: number,
+): Array<MissingFixture> {
+  const played = new Set(fixtures.map((f) => `${f.homeUserId}>${f.awayUserId}`))
+  return memberIds.flatMap((later, index) =>
+    memberIds.slice(0, index).flatMap((earlier): Array<MissingFixture> => {
+      const out = played.has(`${later}>${earlier}`)
+      const back = played.has(`${earlier}>${later}`)
+      if (legs !== 2) {
+        return out || back ? [] : [{ leg: 1, homeId: later, awayId: earlier }]
+      }
+      return [
+        ...(out ? [] : [{ leg: 1 as const, homeId: later, awayId: earlier }]),
+        ...(back ? [] : [{ leg: 2 as const, homeId: earlier, awayId: later }]),
+      ]
+    }),
+  )
+}
+
+/**
+ * Where late games go: the late round still open, its deadline pushed out so
+ * the newest joiner gets at least one matchday; otherwise a new round after
+ * the last, due with the league's last window or a matchday from now if later.
+ */
+export function lateRoundWindow({
+  openLate,
+  lastRound,
+  lastDueAt,
   matchdayDays,
-  latestDueAt,
   now,
 }: {
-  userId: string
-  /** Existing members, not including the joiner. */
-  memberIds: Array<string>
-  legs: number
-  round: number
+  openLate: { round: number; dueAt: Date } | null
+  lastRound: number
+  lastDueAt: Date | null
   matchdayDays: number
-  latestDueAt: Date | null
   now: Date
-}): Array<LateMatch> {
+}): { round: number; dueAt: Date } {
   const soonest = now.getTime() + matchdayDays * DAY
-  const dueAt = new Date(Math.max(latestDueAt?.getTime() ?? 0, soonest))
-  return memberIds
-    .filter((id) => id !== userId)
-    .flatMap((opponent) => {
-      const first: LateMatch = {
-        round,
-        leg: 1,
-        homeId: userId,
-        awayId: opponent,
-        opensAt: now,
-        dueAt,
-      }
-      return legs === 2
-        ? [first, { ...first, leg: 2, homeId: opponent, awayId: userId }]
-        : [first]
-    })
+  if (openLate) {
+    return {
+      round: openLate.round,
+      dueAt: new Date(Math.max(openLate.dueAt.getTime(), soonest)),
+    }
+  }
+  return {
+    round: lastRound + 1,
+    dueAt: new Date(Math.max(lastDueAt?.getTime() ?? 0, soonest)),
+  }
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "matches" ADD COLUMN "late" boolean DEFAULT false NOT NULL;
