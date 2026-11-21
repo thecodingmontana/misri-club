@@ -90,7 +90,10 @@ export class Engine {
     })
   }
 
+  /** Stops the worker; a search in flight fails rather than hanging forever. */
   terminate() {
+    this.failure ??= new Error('The chess engine was stopped.')
+    this.abort?.(this.failure)
     this.worker.terminate()
   }
 }
