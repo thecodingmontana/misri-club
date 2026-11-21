@@ -3,6 +3,7 @@ import { after, test } from 'node:test'
 import { eq, inArray } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import {
+  chessAccounts,
   competitionMembers,
   competitions,
   matches,
@@ -19,11 +20,17 @@ import {
   startScheduled,
   updateCompetitionSettings,
 } from '#/server/competitions.server'
-import { leaveCompetition, removePlayer } from '#/server/membership.server'
+import {
+  leaveCompetition,
+  refuseIfOwner,
+  removePlayer,
+} from '#/server/membership.server'
+import { remindDeadlines } from '#/server/notifications.server'
 import {
   concedeMatch,
   decideMatch,
   openEarlyRound,
+  syncResults,
 } from '#/server/results.server'
 
 // Whole flows through the real server code on a local database (pnpm test:db).
@@ -213,7 +220,8 @@ test('scheduled start: due ones start; too few players tells the organiser and c
   assert.equal(alone.startsAt, null)
   assert.equal((await later.state()).status, 'open')
   const told = await db.select().from(notifications).where(eq(notifications.userId, lonely.ids[0]))
-  assert.ok(told.some((n) => n.title.includes("couldn't start")))
+  const failed = told.find((n) => n.title.includes("couldn't start"))
+  assert.ok(failed?.body?.includes('two players'), 'says the real reason')
 })
 
 test('tie-breaks: head-to-head first crowns the player who won the game between them', async () => {
@@ -415,4 +423,138 @@ test('league: late joiners share one round; the recheck refills a missing game',
   const back = (await c.rows()).find((m) => m.homeUserId === y && m.awayUserId === x)
   assert.equal(back?.round, lastRound + 1)
   assert.equal(await reconcileAllFixtures(), 0, 'nothing left to add')
+})
+
+test('sync: chess.com failing never finishes a league; the late result then counts', async () => {
+  const c = await competition('league', ['o', 'a'], { legs: 1, unplayedRule: 'both_forfeit' })
+  await startCompetition(c.slug, c.organiser)
+  const names = c.ids.map((id) => id.toLowerCase())
+  await db.insert(chessAccounts).values(c.ids.map((userId, i) => ({ userId, username: names[i], verifiedAt: new Date() })))
+  const now = Date.now()
+  // the only game: due an hour ago, played just before the deadline
+  await db.update(matches).set({ opensAt: new Date(now - 3 * 86_400_000), dueAt: new Date(now - 3_600_000) }).where(eq(matches.competitionId, c.row.id))
+  const [m] = await c.rows()
+  const realFetch = globalThis.fetch
+  try {
+    globalThis.fetch = (async () => {
+      throw new Error('chess.com is down')
+    }) as typeof fetch
+    await syncResults(c.row.id, new Date(now))
+    assert.equal((await c.state()).status, 'running', 'no forfeits on a failed fetch')
+
+    const [home, away] = m.homeUserId === c.ids[0] ? names : [names[1], names[0]]
+    const game = {
+      url: `https://www.chess.com/game/live/${c.row.id}`,
+      end_time: Math.floor((now - 3_700_000) / 1000),
+      rules: 'chess',
+      time_class: 'blitz',
+      time_control: '180',
+      white: { username: home, result: 'win' },
+      black: { username: away, result: 'resigned' },
+    }
+    globalThis.fetch = (async () => Response.json({ games: [game] })) as typeof fetch
+    await syncResults(c.row.id, new Date(now + 6 * 60_000))
+  } finally {
+    globalThis.fetch = realFetch
+  }
+  const end = await c.state()
+  assert.equal(end.status, 'finished')
+  assert.equal(end.championUserId, m.homeUserId)
+})
+
+test('account deletion: refused while you own a competition others are in', async () => {
+  const c = await competition('league', ['o', 'a'])
+  const asUser = (id: string) => refuseIfOwner(id)
+  await assert.rejects(asUser(c.ids[0]), /Hand over/)
+  await asUser(c.ids[1])
+  const solo = await competition('league', ['s'])
+  await asUser(solo.ids[0])
+})
+
+test('reminders: a deadline just past 24 hours away is still reminded, once', async () => {
+  const c = await competition('league', ['o', 'a'], { legs: 1 })
+  await startCompetition(c.slug, c.organiser)
+  const now = Date.now()
+  // the daily cron ran a few seconds earlier than the round opened
+  await db.update(matches).set({ dueAt: new Date(now + 86_400_000 + 4_000) }).where(eq(matches.competitionId, c.row.id))
+  await remindDeadlines(new Date(now))
+  const [m] = await c.rows()
+  assert.ok(m.remindedAt, 'reminded')
+  assert.equal(await remindDeadlines(new Date(now)), 0, 'not twice')
+})
+
+test('knockout: the next round opens when the last game ended, not at the sync', async () => {
+  const c = await competition('knockout', ['o', 'a', 'b', 'c'])
+  await startCompetition(c.slug, c.organiser)
+  const names = c.ids.map((id) => id.toLowerCase())
+  const nameOf = new Map(c.ids.map((id, i) => [id, names[i]]))
+  await db.insert(chessAccounts).values(c.ids.map((userId, i) => ({ userId, username: names[i], verifiedAt: new Date() })))
+  const now = Date.now()
+  await db.update(matches).set({ opensAt: new Date(now - 86_400_000) }).where(eq(matches.competitionId, c.row.id))
+  const ties = await c.rows()
+  // both semi-finals played; the later one ended two hours ago
+  const lastEnd = Math.floor((now - 2 * 3_600_000) / 1000)
+  const games = ties.map((m, i) => ({
+    url: `https://www.chess.com/game/live/${c.row.id}${i}`,
+    end_time: lastEnd - i * 3600,
+    rules: 'chess',
+    time_class: 'blitz',
+    time_control: '180',
+    white: { username: nameOf.get(m.homeUserId as string), result: 'win' },
+    black: { username: nameOf.get(m.awayUserId as string), result: 'resigned' },
+  }))
+  const realFetch = globalThis.fetch
+  try {
+    globalThis.fetch = (async () => Response.json({ games })) as typeof fetch
+    await syncResults(c.row.id, new Date(now))
+  } finally {
+    globalThis.fetch = realFetch
+  }
+  const final = (await c.rows()).find((m) => m.round === 2)
+  assert.ok(final, 'the final was drawn')
+  assert.equal(final.opensAt.getTime(), lastEnd * 1000)
+})
+
+test('challenge: a game the organiser already recorded never counts again', async () => {
+  const c = await challenge(3)
+  await joinCompetition(c.them, { code: c.row.inviteCode })
+  const [me, them] = [c.me.toLowerCase(), c.them.toLowerCase()]
+  await db.insert(chessAccounts).values([
+    { userId: c.me, username: me, verifiedAt: new Date() },
+    { userId: c.them, username: them, verifiedAt: new Date() },
+  ])
+  const now = Date.now()
+  await db.update(matches).set({ opensAt: new Date(now - 86_400_000) }).where(eq(matches.competitionId, c.row.id))
+  const games = (await db.select().from(matches).where(eq(matches.competitionId, c.row.id))).sort((x, y) => x.round - y.round)
+  // game 1 was played ten minutes ago; the organiser types it in by hand
+  await decideMatch(c.slug, v(c.me), games[0].id, { kind: 'result', result: games[0].homeUserId === c.me ? 'white' : 'black', homeWhite: true }, null)
+  const played = {
+    url: `https://www.chess.com/game/live/${c.row.id}`,
+    end_time: Math.floor((now - 600_000) / 1000),
+    rules: 'chess',
+    time_class: 'blitz',
+    time_control: '180',
+    white: { username: me, result: 'win' },
+    black: { username: them, result: 'resigned' },
+  }
+  const realFetch = globalThis.fetch
+  try {
+    globalThis.fetch = (async () => Response.json({ games: [played] })) as typeof fetch
+    await syncResults(c.row.id, new Date(now + 6 * 60_000))
+  } finally {
+    globalThis.fetch = realFetch
+  }
+  const second = (await db.select().from(matches).where(eq(matches.id, games[1].id)))[0]
+  assert.equal(second.result, null, 'not counted as game 2 as well')
+  const [state] = await db.select().from(competitions).where(eq(competitions.id, c.row.id))
+  assert.equal(state.status, "running")
+})
+
+test('removal before the start: the player can’t walk back in with the link', async () => {
+  const c = await competition('league', ['o', 'a', 'b'], { visibility: 'public' })
+  await removePlayer(c.slug, c.organiser, c.ids[1])
+  await assert.rejects(joinCompetition(c.ids[1], { slug: c.slug }), /taken out/)
+  // leaving on your own before the start stays reversible
+  await leaveCompetition(c.slug, v(c.ids[2]))
+  await joinCompetition(c.ids[2], { slug: c.slug })
 })

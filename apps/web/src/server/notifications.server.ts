@@ -16,6 +16,7 @@ import { type PushMessage, sendPushes } from './push.server'
 // never fails the action that caused it.
 
 const DAY = 24 * 60 * 60 * 1000
+const REMINDER_SLACK_MS = 2 * 60 * 60 * 1000
 
 async function bestEffort(messages: PushMessage[]) {
   if (messages.length === 0) return
@@ -259,22 +260,25 @@ export async function notifyRoundOpened(competitionId: string, round: number) {
   )
 }
 
-/** The start day came: the organiser hears it started, or why it couldn't. */
+/**
+ * The start day came: the organiser hears it started, or why it couldn't
+ * (`failure`, null when it started).
+ */
 export async function notifyScheduledStart(
   competitionId: string,
-  started: boolean,
+  failure: string | null,
 ) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
   await bestEffort([
     {
       userId: competition.ownerId,
-      title: started
-        ? `${competition.name} has started`
-        : `${competition.name} couldn't start`,
-      body: started
-        ? 'It started on its scheduled day. Fixtures are out.'
-        : 'It needs at least two players. Start it yourself once they join.',
+      title: failure
+        ? `${competition.name} couldn't start`
+        : `${competition.name} has started`,
+      body: failure
+        ? `${failure} Start it yourself once it's ready.`
+        : 'It started on its scheduled day. Fixtures are out.',
       url: `/c/${competition.slug}`,
     },
   ])
@@ -336,7 +340,7 @@ export async function notifyJoined(competitionId: string, joinerId: string) {
 }
 
 /**
- * Open matches due within a day that nobody has played: claims them (so a
+ * Open matches due within about a day that nobody has played: claims them (so a
  * second run sends nothing) and reminds both players.
  */
 export async function remindDeadlines(now = new Date()) {
@@ -360,7 +364,9 @@ export async function remindDeadlines(now = new Date()) {
         ),
         lte(matches.opensAt, now),
         gt(matches.dueAt, now),
-        lte(matches.dueAt, new Date(now.getTime() + DAY)),
+        // the cron runs daily at a slightly different second each time: a
+        // strict 24h window misses deadlines a few seconds past it
+        lte(matches.dueAt, new Date(now.getTime() + DAY + REMINDER_SLACK_MS)),
       ),
     )
     .returning({ id: matches.id })

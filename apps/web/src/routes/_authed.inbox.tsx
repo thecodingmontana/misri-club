@@ -56,7 +56,11 @@ function Inbox() {
                       {n.body}
                     </span>
                   )}
-                  <span className="mt-0.5 block text-xs text-muted-foreground">
+                  <span
+                    className="mt-0.5 block text-xs text-muted-foreground"
+                    // "just now" can become "1 minute ago" before hydration
+                    suppressHydrationWarning
+                  >
                     {n.readAt ? '' : 'New · '}
                     {relativeTime(n.createdAt)}
                   </span>

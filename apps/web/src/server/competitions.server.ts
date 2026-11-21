@@ -332,7 +332,8 @@ export async function admit(tx: Tx, competition: Competition, userId: string) {
     .where(eq(competitionMembers.competitionId, competition.id))
   if (members.some((m) => m.userId === userId)) return false
 
-  // Leaving after the start settled their games; coming back would reopen them.
+  // Leaving after the start settled their games, and an organiser who took
+  // someone out meant it: either way, coming back is refused.
   const [left] = await tx
     .select({ userId: competitionLeavers.userId })
     .from(competitionLeavers)
@@ -345,7 +346,7 @@ export async function admit(tx: Tx, competition: Competition, userId: string) {
     .limit(1)
   if (left) {
     throw new Error(
-      "They left this one after it started, so they can't rejoin.",
+      "They left after the start or were taken out, so they can't rejoin.",
     )
   }
 
@@ -524,8 +525,8 @@ export async function joinCompetition(
     } catch (error) {
       // the leaver refusal is worded for organisers; say it to the player
       const message = (error as Error).message.replace(
-        "They left this one after it started, so they can't rejoin.",
-        "You left this one after it started, so you can't rejoin.",
+        "They left after the start or were taken out, so they can't rejoin.",
+        "You left after the start or were taken out, so you can't rejoin.",
       )
       throw new Error(message)
     }
@@ -821,15 +822,18 @@ export async function startScheduled(now = new Date()) {
   for (const c of due) {
     try {
       await startCompetition(c.slug, { id: c.ownerId, isAdmin: false })
-      await notifyScheduledStart(c.id, true)
+      await notifyScheduledStart(c.id, null)
       started++
     } catch (error) {
-      console.error('[schedule] start failed', c.slug, (error as Error).message)
-      await db
+      const reason = (error as Error).message
+      console.error('[schedule] start failed', c.slug, reason)
+      // still open: a second cron run or the organiser may have started it meanwhile
+      const [cleared] = await db
         .update(competitions)
         .set({ startsAt: null })
-        .where(eq(competitions.id, c.id))
-      await notifyScheduledStart(c.id, false)
+        .where(and(eq(competitions.id, c.id), eq(competitions.status, 'open')))
+        .returning({ id: competitions.id })
+      if (cleared) await notifyScheduledStart(c.id, reason)
     }
   }
   return started

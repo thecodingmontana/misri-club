@@ -37,6 +37,13 @@ function writeStored(url: string, scores: Array<Score>) {
 
 /** Cached scores for each game, `undefined` where it has not been analysed. */
 export function useStoredScores(urls: Array<string>) {
+  // a stable combine keeps the Map the same object between renders, so pages
+  // memoising on it don't re-parse every game on each progress tick
+  const combine = useCallback(
+    (results: Array<{ data?: Array<Score> | null }>) =>
+      new Map(urls.map((url, i) => [url, results[i].data ?? undefined])),
+    [urls],
+  )
   return useQueries({
     queries: urls.map((url) => ({
       queryKey: queryKey(url),
@@ -46,8 +53,7 @@ export function useStoredScores(urls: Array<string>) {
       staleTime: Number.POSITIVE_INFINITY,
       gcTime: Number.POSITIVE_INFINITY,
     })),
-    combine: (results) =>
-      new Map(urls.map((url, i) => [url, results[i].data ?? undefined])),
+    combine,
   })
 }
 

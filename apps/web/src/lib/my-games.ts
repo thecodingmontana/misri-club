@@ -1,3 +1,5 @@
+import { DRAWS } from './game-result.ts'
+
 /**
  * A player's own chess.com games, reduced to what the analysis page needs.
  */
@@ -30,16 +32,6 @@ export interface MyGame {
   /** unix ms */
   endedAt: number
 }
-
-// chess.com's result codes that end a game level rather than with a winner
-const DRAWS = new Set([
-  'agreed',
-  'repetition',
-  'stalemate',
-  'insufficient',
-  '50move',
-  'timevsinsufficient',
-])
 
 /** `…/openings/Queens-Pawn-Opening-2.Bf4` → "Queens Pawn Opening" */
 export function openingName(eco: string | undefined): string | null {

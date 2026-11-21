@@ -142,7 +142,6 @@ export function tallyStandings(
 /** How a league breaks a tie on points, in the organiser's order; name decides last. */
 export const TIE_BREAKS = ['wins', 'forfeits', 'headToHead'] as const
 export type TieBreak = (typeof TIE_BREAKS)[number]
-export const DEFAULT_TIE_BREAKS: TieBreak[] = ['wins', 'forfeits', 'headToHead']
 
 export function isTieBreakOrder(order: string[]): order is TieBreak[] {
   return (

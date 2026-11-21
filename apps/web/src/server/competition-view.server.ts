@@ -10,6 +10,7 @@ import {
   user,
 } from '#/db/schema'
 import { can, roleOf, type Viewer } from '#/lib/access'
+import { challengeScore } from '#/lib/challenge'
 import { earlyRound } from '#/lib/early-rounds'
 import { groupName } from '#/lib/groups'
 import { canJoin } from '#/lib/join-policy'
@@ -145,7 +146,7 @@ export async function getInvite(code: string, viewerId: string | null) {
     reason: !decision.ok
       ? decision.reason
       : left.length > 0
-        ? "You left this one after it started, so you can't rejoin."
+        ? "You left after the start or were taken out, so you can't rejoin."
         : full
           ? "It's full."
           : null,
@@ -204,6 +205,8 @@ function matchStatus(m: typeof matches.$inferSelect, now: number): MatchStatus {
   return 'expired'
 }
 
+const SYNC_WAIT_MS = 3000
+
 /**
  * Everything the competition page shows. Public read; the invite code only
  * reaches the organiser.
@@ -217,9 +220,14 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
     .where(eq(competitions.slug, slug))
     .limit(1)
   if (peek?.status === 'running') {
-    await syncResults(peek.id).catch((error) =>
+    const sync = syncResults(peek.id).catch((error) =>
       console.error('[results] sync failed', (error as Error).message),
     )
+    // a slow chess.com mustn't hold the page: show what we have after a moment
+    await Promise.race([
+      sync,
+      new Promise((resolve) => setTimeout(resolve, SYNC_WAIT_MS)),
+    ])
   }
   const [competition] = await db
     .select()
@@ -478,6 +486,18 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
     join: canJoin(competition),
     members: details ? [...players.values()] : ([] as PlayerView[]),
     matches: details ? matchViews : [],
+    // the same count the server uses to decide the winner
+    challengeScore:
+      details &&
+      competition.format === 'challenge' &&
+      matchRows[0]?.homeUserId &&
+      matchRows[0].awayUserId
+        ? challengeScore(
+            matchRows,
+            matchRows[0].homeUserId,
+            matchRows[0].awayUserId,
+          )
+        : null,
     scheduledRounds,
     standings: details ? standings : null,
     // groups then knockout: one table per group (A, B, …)

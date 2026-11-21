@@ -1,4 +1,15 @@
-import { and, eq, gt, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm'
+import {
+  and,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  max,
+  or,
+  sql,
+} from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import {
   chessAccounts,
@@ -78,6 +89,16 @@ export async function syncResults(competitionId: string, now = new Date()) {
         )
     ).map((r) => r.url as string),
   )
+  // a challenge's games come in order: a game that ended before the latest
+  // decided one (an organiser's call stores no game link) was already counted
+  const [decided] =
+    claimed.format === 'challenge'
+      ? await db
+          .select({ at: max(matches.endedAt) })
+          .from(matches)
+          .where(eq(matches.competitionId, competitionId))
+      : []
+  const after = decided?.at?.getTime() ?? 0
   const open = await db
     .select({
       id: matches.id,
@@ -108,11 +129,15 @@ export async function syncResults(competitionId: string, now = new Date()) {
 
   // one archive fetch per player-month, shared by their matches
   const months = new Map<string, ReturnType<typeof fetchMonthGames>>()
+  let fetchFailed = false
   const gamesOf = (username: string, month: string) => {
     const key = `${username}:${month}`
     let games = months.get(key)
     if (!games) {
-      games = fetchMonthGames(username, month).catch(() => [])
+      games = fetchMonthGames(username, month).catch(() => {
+        fetchFailed = true
+        return []
+      })
       months.set(key, games)
     }
     return games
@@ -142,7 +167,7 @@ export async function syncResults(competitionId: string, now = new Date()) {
       {
         home,
         away,
-        opensAt: m.opensAt,
+        opensAt: new Date(Math.max(m.opensAt.getTime(), after + 1)),
         dueAt: m.dueAt,
         timeControl: claimed.timeControl,
       },
@@ -177,7 +202,8 @@ export async function syncResults(competitionId: string, now = new Date()) {
       .returning({ id: matches.id })
     changed += written.length
   }
-  await advance(competitionId, now)
+  // a game chess.com couldn't tell us about may be the one that settles it
+  if (!fetchFailed) await advance(competitionId, now)
   return changed
 }
 
@@ -270,7 +296,7 @@ async function openRound(
   if (round === null) return null
   await tx
     .update(matches)
-    .set({ opensAt: now })
+    .set({ opensAt: lastResultAt(rows, now) })
     .where(
       and(
         eq(matches.competitionId, competition.id),
@@ -326,6 +352,19 @@ export async function openEarlyRound(slug: string, viewer: Viewer) {
 type CompetitionRow = typeof competitions.$inferSelect
 type MatchRow = typeof matches.$inferSelect
 
+/**
+ * When the last result came in. A round that opens because of it opens then,
+ * not when a sync first noticed (maybe hours later), so games the players
+ * played straight away still count.
+ */
+function lastResultAt(rows: MatchRow[], now: Date) {
+  const ended = rows
+    .map((m) => m.endedAt?.getTime() ?? 0)
+    .filter((t) => t <= now.getTime())
+  const latest = Math.max(0, ...ended)
+  return latest ? new Date(latest) : now
+}
+
 /** Next knockout round, a decider, or the champion. `legs` per tie (1 or 2). */
 async function advanceKnockout(
   tx: Tx,
@@ -347,6 +386,7 @@ async function advanceKnockout(
       return finish(tx, competitionId, step.userId, now)
     }
     const dueAt = new Date(now.getTime() + competition.matchdayDays * DAY)
+    const opensAt = lastResultAt(all, now)
     if (step.kind === 'deciders') {
       // level after both legs: one more game decides it
       await tx.insert(matches).values(
@@ -357,7 +397,7 @@ async function advanceKnockout(
           leg: 3,
           homeUserId: t.homeId,
           awayUserId: t.awayId,
-          opensAt: now,
+          opensAt,
           dueAt,
         })),
       )
@@ -375,7 +415,7 @@ async function advanceKnockout(
           homeUserId: m.homeId,
           awayUserId: m.awayId,
           byeUserId: m.byeId,
-          opensAt: now,
+          opensAt,
           dueAt,
         })),
       )
@@ -455,7 +495,7 @@ async function advanceGroups(
       homeUserId: m.homeId,
       awayUserId: m.awayId,
       byeUserId: m.byeId,
-      opensAt: now,
+      opensAt: lastResultAt(groupGames, now),
       dueAt,
     })),
   )

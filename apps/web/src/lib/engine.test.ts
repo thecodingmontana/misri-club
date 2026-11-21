@@ -28,3 +28,11 @@ test('a load error during a search fails that search', async () => {
   ;(engine.worker as EventTarget).dispatchEvent(new Event('error'))
   await assert.rejects(search, { message: 'The chess engine failed to load.' })
 })
+
+test('stopping the engine fails the search in flight', async () => {
+  const engine = new Engine()
+  const search = engine.evaluate('8/8/8/8/8/8/8/K6k w - - 0 1', 10)
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  engine.terminate()
+  await assert.rejects(search, { message: 'The chess engine was stopped.' })
+})

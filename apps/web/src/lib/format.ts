@@ -40,10 +40,12 @@ export function countdown(msRemaining: number): string {
   return 'now'
 }
 
+// the club's zone, so the server (UTC) and every browser show the same day
 const dateFormatter = new Intl.DateTimeFormat('en', {
   day: 'numeric',
   month: 'short',
   year: 'numeric',
+  timeZone: 'Africa/Nairobi',
 })
 
 export function formatDate(input: number | string | Date): string {
@@ -53,10 +55,4 @@ export function formatDate(input: number | string | Date): string {
 /** `w-d-l` in a fixed shape so columns line up in monospace. */
 export function record(wins: number, draws: number, losses: number): string {
   return `${wins}–${draws}–${losses}`
-}
-
-export function winRate(wins: number, draws: number, losses: number): string {
-  const played = wins + draws + losses
-  if (played === 0) return 'No games'
-  return `${Math.round(((wins + draws / 2) / played) * 100)}%`
 }

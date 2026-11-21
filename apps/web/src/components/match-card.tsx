@@ -92,6 +92,8 @@ export function MatchCard({
               tone === 'bad' && 'text-destructive',
               tone === 'muted' && 'text-muted-foreground',
             )}
+            // a live countdown ticks between the server's render and the browser's
+            suppressHydrationWarning
           >
             {tone === 'live' && (
               <span

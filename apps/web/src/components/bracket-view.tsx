@@ -182,6 +182,8 @@ function TieCard({
             'truncate pl-2 normal-case',
             match?.status === 'live' && 'text-primary',
           )}
+          // a live countdown ticks between the server's render and the browser's
+          suppressHydrationWarning
         >
           {slot.legs.length > 1
             ? legCaption(slot.legs, now)

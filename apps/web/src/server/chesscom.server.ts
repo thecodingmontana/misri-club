@@ -12,8 +12,6 @@
 
 const API_BASE = 'https://api.chess.com/pub'
 
-export const CLUB_ID = process.env.CHESSCOM_CLUB_ID ?? 'misri'
-
 const USER_AGENT =
   process.env.CHESSCOM_USER_AGENT ??
   'MisriClubLeague/1.0 (chess club league tracker; +https://www.chess.com/club/misri; contact: thecodingmontana@gmail.com)'
@@ -83,29 +81,6 @@ async function apiGet<T>(path: string, retries = 3): Promise<T | null> {
 // Response shapes (only the fields we actually consume)
 // ---------------------------------------------------------------------------
 
-interface ClubMember {
-  username: string
-  /** unix seconds — when they joined the club */
-  joined: number
-}
-
-interface ClubMembersResponse {
-  weekly?: Array<ClubMember>
-  monthly?: Array<ClubMember>
-  all_time?: Array<ClubMember>
-}
-
-interface ClubResponse {
-  name?: string
-  club_id?: number
-  members_count?: number
-  visibility?: string
-  admin?: Array<string>
-  icon?: string
-  /** unix seconds */
-  created?: number
-}
-
 export interface PlayerProfile {
   username: string
   player_id: number
@@ -149,86 +124,6 @@ export interface ArchivedGame {
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
-
-export interface ClubMemberSummary {
-  username: string
-  joinedAt: Date
-}
-
-export interface ClubInfo {
-  id: string
-  name: string
-  clubId: number
-  membersCount: number
-  /** chess.com reports "public" or "private" */
-  visibility: string
-  admins: Array<string>
-  icon: string | null
-  createdAt: Date | null
-}
-
-export async function fetchClub(clubId = CLUB_ID): Promise<ClubInfo | null> {
-  const data = await apiGet<ClubResponse>(`/club/${clubId}`)
-  if (!data) return null
-
-  return {
-    id: clubId,
-    name: data.name ?? clubId,
-    clubId: data.club_id ?? 0,
-    membersCount: data.members_count ?? 0,
-    visibility: data.visibility ?? 'unknown',
-    admins: (data.admin ?? []).map((url) =>
-      (url.split('/').pop() ?? '').toLowerCase(),
-    ),
-    icon: data.icon ?? null,
-    createdAt: data.created ? new Date(data.created * 1000) : null,
-  }
-}
-
-export interface ClubMembersResult {
-  /**
-   * chess.com serves `/club/{id}/members` only for public clubs; a private club
-   * answers 403 (behind a 404 status). `visible: false` means "we are not
-   * allowed to see the list", which is very different from "the club is empty".
-   */
-  visible: boolean
-  members: Array<ClubMemberSummary>
-}
-
-/**
- * Club members, merged across the weekly/monthly/all_time buckets chess.com
- * returns and deduped by username. When a username appears in several buckets
- * we keep the earliest join timestamp.
- */
-export async function fetchClubMembers(
-  clubId = CLUB_ID,
-): Promise<ClubMembersResult> {
-  const data = await apiGet<ClubMembersResponse>(`/club/${clubId}/members`)
-  if (!data) return { visible: false, members: [] }
-
-  const merged = new Map<string, ClubMemberSummary>()
-
-  for (const member of [
-    ...(data.all_time ?? []),
-    ...(data.monthly ?? []),
-    ...(data.weekly ?? []),
-  ]) {
-    if (!member?.username) continue
-    const username = member.username.toLowerCase()
-    const joinedAt = new Date((member.joined ?? 0) * 1000)
-    const existing = merged.get(username)
-    if (!existing || joinedAt < existing.joinedAt) {
-      merged.set(username, { username, joinedAt })
-    }
-  }
-
-  return {
-    visible: true,
-    members: [...merged.values()].sort((a, b) =>
-      a.username.localeCompare(b.username),
-    ),
-  }
-}
 
 /** `null` when chess.com 404s — i.e. the username does not exist. */
 export async function fetchPlayerProfile(
@@ -315,10 +210,6 @@ export async function fetchArchive(url: string): Promise<Array<ArchivedGame>> {
   const data = await apiGet<{ games: Array<ArchivedGame> }>(url)
   return data?.games ?? []
 }
-
-/** The chess.com club page for a given club id. */
-export const clubUrl = (clubId = CLUB_ID) =>
-  `https://www.chess.com/club/${clubId}`
 
 /** One month of a player's games (`month` as YYYY/MM); empty when none. */
 export function fetchMonthGames(username: string, month: string) {
