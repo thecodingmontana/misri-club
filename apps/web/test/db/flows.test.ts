@@ -220,7 +220,8 @@ test('scheduled start: due ones start; too few players tells the organiser and c
   assert.equal(alone.startsAt, null)
   assert.equal((await later.state()).status, 'open')
   const told = await db.select().from(notifications).where(eq(notifications.userId, lonely.ids[0]))
-  assert.ok(told.some((n) => n.title.includes("couldn't start")))
+  const failed = told.find((n) => n.title.includes("couldn't start"))
+  assert.ok(failed?.body?.includes('two players'), 'says the real reason')
 })
 
 test('tie-breaks: head-to-head first crowns the player who won the game between them', async () => {

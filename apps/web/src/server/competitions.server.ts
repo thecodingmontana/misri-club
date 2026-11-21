@@ -821,15 +821,18 @@ export async function startScheduled(now = new Date()) {
   for (const c of due) {
     try {
       await startCompetition(c.slug, { id: c.ownerId, isAdmin: false })
-      await notifyScheduledStart(c.id, true)
+      await notifyScheduledStart(c.id, null)
       started++
     } catch (error) {
-      console.error('[schedule] start failed', c.slug, (error as Error).message)
-      await db
+      const reason = (error as Error).message
+      console.error('[schedule] start failed', c.slug, reason)
+      // still open: a second cron run or the organiser may have started it meanwhile
+      const [cleared] = await db
         .update(competitions)
         .set({ startsAt: null })
-        .where(eq(competitions.id, c.id))
-      await notifyScheduledStart(c.id, false)
+        .where(and(eq(competitions.id, c.id), eq(competitions.status, 'open')))
+        .returning({ id: competitions.id })
+      if (cleared) await notifyScheduledStart(c.id, reason)
     }
   }
   return started

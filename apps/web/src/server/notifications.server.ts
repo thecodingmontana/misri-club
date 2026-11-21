@@ -260,22 +260,25 @@ export async function notifyRoundOpened(competitionId: string, round: number) {
   )
 }
 
-/** The start day came: the organiser hears it started, or why it couldn't. */
+/**
+ * The start day came: the organiser hears it started, or why it couldn't
+ * (`failure`, null when it started).
+ */
 export async function notifyScheduledStart(
   competitionId: string,
-  started: boolean,
+  failure: string | null,
 ) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
   await bestEffort([
     {
       userId: competition.ownerId,
-      title: started
-        ? `${competition.name} has started`
-        : `${competition.name} couldn't start`,
-      body: started
-        ? 'It started on its scheduled day. Fixtures are out.'
-        : 'It needs at least two players. Start it yourself once they join.',
+      title: failure
+        ? `${competition.name} couldn't start`
+        : `${competition.name} has started`,
+      body: failure
+        ? `${failure} Start it yourself once it's ready.`
+        : 'It started on its scheduled day. Fixtures are out.',
       url: `/c/${competition.slug}`,
     },
   ])
