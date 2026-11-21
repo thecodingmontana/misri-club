@@ -28,6 +28,9 @@ import { takeAllowance } from './rate-limit.server'
 
 const TWO_FACTOR_COOKIE_MAX_AGE = 600
 const MAGIC_LINK_MINUTES = 10
+// shortcut: sized for Resend's free plan (100 a day); raise it with the plan
+const MAGIC_LINKS_PER_DAY = 100
+const DAY_MS = 24 * 60 * 60 * 1000
 const MAGIC_LINKS_PER_HOUR = 5
 const FRESH_MINUTES = 10
 
@@ -288,6 +291,20 @@ export const auth = betterAuth({
           throw new APIError('TOO_MANY_REQUESTS', {
             message:
               'Too many sign-in links for this email. Use the last one sent, or try again in an hour.',
+          })
+        }
+        // and overall: random addresses from many IPs would still drain the quota
+        if (
+          !(await takeAllowance(
+            'magic-link:all',
+            1,
+            MAGIC_LINKS_PER_DAY,
+            DAY_MS,
+          ))
+        ) {
+          throw new APIError('TOO_MANY_REQUESTS', {
+            message:
+              'Sign-in links are paused for today. Continue with Google or a passkey.',
           })
         }
         const sent = await sendEmail(
