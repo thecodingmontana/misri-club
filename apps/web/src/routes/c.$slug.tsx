@@ -146,9 +146,10 @@ function CompetitionPage() {
         />
       )}
 
-      {challenge && data.matches.length > 0 && (
+      {data.challengeScore && (
         <ChallengeScore
           matches={data.matches}
+          score={data.challengeScore}
           finished={competition.status === 'finished'}
         />
       )}
@@ -792,29 +793,17 @@ function decidable(data: Data, match: MatchView) {
 /** A challenge's running score: a win a point, a draw half, a walkover a point. */
 function ChallengeScore({
   matches,
+  score,
   finished,
 }: {
   matches: MatchView[]
+  score: { a: number; b: number }
   finished: boolean
 }) {
   const [first] = matches
   if (!first?.home || !first.away) return null
   const [a, b] = [first.home, first.away]
-  let scoreA = 0
-  let scoreB = 0
-  for (const m of matches) {
-    if (m.status === 'void') continue
-    if (m.result === 'draw') {
-      scoreA += 0.5
-      scoreB += 0.5
-      continue
-    }
-    const winner =
-      m.winnerId ??
-      (m.homeWon === null ? null : m.homeWon ? m.home?.id : m.away?.id)
-    if (winner === a.id) scoreA++
-    else if (winner === b.id) scoreB++
-  }
+  const { a: scoreA, b: scoreB } = score
   const show = (n: number) => (n % 1 ? `${Math.floor(n) || ''}½` : String(n))
   return (
     <section

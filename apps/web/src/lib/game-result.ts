@@ -36,7 +36,7 @@ export interface FoundResult {
 }
 
 // chess.com's result codes that end a game level rather than with a winner
-const DRAWS = new Set([
+export const DRAWS = new Set([
   'agreed',
   'repetition',
   'stalemate',

@@ -10,6 +10,7 @@ import {
   user,
 } from '#/db/schema'
 import { can, roleOf, type Viewer } from '#/lib/access'
+import { challengeScore } from '#/lib/challenge'
 import { earlyRound } from '#/lib/early-rounds'
 import { groupName } from '#/lib/groups'
 import { canJoin } from '#/lib/join-policy'
@@ -478,6 +479,18 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
     join: canJoin(competition),
     members: details ? [...players.values()] : ([] as PlayerView[]),
     matches: details ? matchViews : [],
+    // the same count the server uses to decide the winner
+    challengeScore:
+      details &&
+      competition.format === 'challenge' &&
+      matchRows[0]?.homeUserId &&
+      matchRows[0].awayUserId
+        ? challengeScore(
+            matchRows,
+            matchRows[0].homeUserId,
+            matchRows[0].awayUserId,
+          )
+        : null,
     scheduledRounds,
     standings: details ? standings : null,
     // groups then knockout: one table per group (A, B, …)

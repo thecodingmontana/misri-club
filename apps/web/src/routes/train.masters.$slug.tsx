@@ -18,7 +18,7 @@ import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
 import type { ChartConfig } from '#/components/ui/chart'
 import { ChartContainer } from '#/components/ui/chart'
-import { reviewFor, winChance } from '#/lib/analysis'
+import { positionsOf, reviewFor, winChance } from '#/lib/analysis'
 import { confetti } from '#/lib/confetti'
 import type { MasterGame } from '#/lib/masters'
 import { masterGame, plyOf } from '#/lib/masters'
@@ -396,13 +396,7 @@ function EvalGraph({
   )
   const accuracy = useMemo(() => {
     if (!scores) return null
-    const chess = new Chess()
-    chess.loadPgn(game.moves)
-    const history = chess.history({ verbose: true })
-    const positions = {
-      fens: [history[0].before, ...history.map((m) => m.after)],
-      sans: history.map((m) => m.san),
-    }
+    const positions = positionsOf(game.moves)
     return {
       white: reviewFor('white', positions, scores).accuracy,
       black: reviewFor('black', positions, scores).accuracy,
