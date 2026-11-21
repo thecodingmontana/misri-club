@@ -11,7 +11,7 @@ import { useAdmin } from '#/lib/use-admin'
 import { cn } from '#/lib/utils'
 import { getOpenCompetitionsFn } from '#/server/competitions.functions'
 
-const FILTERS = ['all', 'league', 'knockout'] as const
+const FILTERS = ['all', 'league', 'knockout', 'groups'] as const
 
 /** Every public competition taking players, for anyone to browse. */
 export const Route = createFileRoute('/discover')({
@@ -44,7 +44,10 @@ function Discover() {
         </p>
       </header>
 
-      <nav aria-label="Filter by format" className="flex justify-center gap-2">
+      <nav
+        aria-label="Filter by format"
+        className="flex flex-wrap justify-center gap-2"
+      >
         {FILTERS.map((value) => (
           <Link
             key={value}
@@ -68,12 +71,12 @@ function Discover() {
           <p className="text-sm text-muted-foreground">
             {format === 'all'
               ? 'No public competitions are taking players right now.'
-              : `No public ${FORMAT_LABEL[format].toLowerCase()}s are taking players right now.`}
+              : `No public ${format === 'groups' ? 'groups + knockout competitions' : `${FORMAT_LABEL[format].toLowerCase()}s`} are taking players right now.`}
           </p>
           <Button asChild variant="secondary" className="rounded-xl">
             <Link
               to="/competitions/new"
-              search={{ format: format === 'knockout' ? 'knockout' : 'league' }}
+              search={{ format: format === 'all' ? 'league' : format }}
             >
               Start your own
             </Link>
