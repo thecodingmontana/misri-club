@@ -20,7 +20,11 @@ import {
   startScheduled,
   updateCompetitionSettings,
 } from '#/server/competitions.server'
-import { leaveCompetition, removePlayer } from '#/server/membership.server'
+import {
+  leaveCompetition,
+  refuseIfOwner,
+  removePlayer,
+} from '#/server/membership.server'
 import {
   concedeMatch,
   decideMatch,
@@ -454,4 +458,13 @@ test('sync: chess.com failing never finishes a league; the late result then coun
   const end = await c.state()
   assert.equal(end.status, 'finished')
   assert.equal(end.championUserId, m.homeUserId)
+})
+
+test('account deletion: refused while you own a competition others are in', async () => {
+  const c = await competition('league', ['o', 'a'])
+  const asUser = (id: string) => refuseIfOwner(id)
+  await assert.rejects(asUser(c.ids[0]), /Hand over/)
+  await asUser(c.ids[1])
+  const solo = await competition('league', ['s'])
+  await asUser(solo.ids[0])
 })

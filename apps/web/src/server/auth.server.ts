@@ -164,7 +164,16 @@ export const auth = betterAuth({
   // A Google sign-in joins an email-link account only when Google says the
   // email is verified; trusting Google outright would skip that check.
   account: { accountLinking: { enabled: true } },
-  user: { deleteUser: { enabled: true } },
+  user: {
+    deleteUser: {
+      enabled: true,
+      beforeDelete: async (user) => {
+        // lazy: membership.server imports this module
+        const { refuseIfOwner } = await import('./membership.server')
+        await refuseIfOwner(user.id)
+      },
+    },
+  },
   databaseHooks: {
     user: {
       update: {

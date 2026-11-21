@@ -1,4 +1,5 @@
-import { and, eq, inArray, or } from 'drizzle-orm'
+import { APIError } from 'better-auth/api'
+import { and, eq, inArray, ne, or } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import {
   type Competition,
@@ -32,6 +33,32 @@ import { advance } from './results.server'
 // plus the organiser's housekeeping (rename, a fresh invite code).
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/**
+ * Before an account is deleted: deleting the owner deletes their competitions,
+ * and everyone's games in them, so they hand those over first.
+ */
+export async function refuseIfOwner(userId: string) {
+  const [owned] = await db
+    .select({ name: competitions.name })
+    .from(competitions)
+    .innerJoin(
+      competitionMembers,
+      eq(competitionMembers.competitionId, competitions.id),
+    )
+    .where(
+      and(
+        eq(competitions.ownerId, userId),
+        ne(competitionMembers.userId, userId),
+      ),
+    )
+    .limit(1)
+  if (owned) {
+    throw new APIError('BAD_REQUEST', {
+      message: `Hand over ${owned.name} to another player before deleting your account.`,
+    })
+  }
+}
 
 /**
  * Takes a member out. Before the start that's all; after it, the organiser's
