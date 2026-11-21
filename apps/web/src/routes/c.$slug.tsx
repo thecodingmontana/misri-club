@@ -5,7 +5,7 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Spinner } from '#/components/auth'
 import { BracketView } from '#/components/bracket-view'
 import { ChampionBanner } from '#/components/champion-banner'
@@ -292,6 +292,10 @@ function CompetitionPage() {
   )
 }
 
+type SettingsPatch = Partial<
+  Omit<Parameters<typeof updateCompetitionSettingsFn>[0]['data'], 'slug'>
+>
+
 function OwnerPanel({ data }: { data: Data }) {
   const { competition, members } = data
   const router = useRouter()
@@ -299,6 +303,10 @@ function OwnerPanel({ data }: { data: Data }) {
   const update = useServerFn(updateCompetitionSettingsFn)
   const openEarly = useServerFn(openEarlyRoundFn)
   const [busy, setBusy] = useState(false)
+  // changes not yet reloaded: each save sends them all, so a save that
+  // starts before the page reloads can't put back an earlier change
+  const pending = useRef<SettingsPatch>({})
+  const saving = useRef(0)
   const league = competition.format === 'league'
   // two players, invite only, starts when the opponent joins: nothing to set there
   const challenge = competition.format === 'challenge'
@@ -316,10 +324,10 @@ function OwnerPanel({ data }: { data: Data }) {
     }
   }
 
-  const save = (
-    patch: Partial<Omit<Parameters<typeof update>[0]['data'], 'slug'>>,
-  ) =>
-    run(() =>
+  const save = (patch: SettingsPatch) => {
+    pending.current = { ...pending.current, ...patch }
+    saving.current++
+    return run(() =>
       update({
         data: {
           slug: competition.slug,
@@ -334,10 +342,14 @@ function OwnerPanel({ data }: { data: Data }) {
           startsOn: startDayOf(competition.startsAt),
           maxPlayers: competition.maxPlayers,
           requireApproval: competition.requireApproval,
-          ...patch,
+          ...pending.current,
         },
       }),
-    )
+    ).finally(() => {
+      // the page has reloaded with what was saved: start afresh
+      if (--saving.current === 0) pending.current = {}
+    })
+  }
 
   const { copied, copy } = useCopy()
   const copyLink = () =>
