@@ -513,3 +513,38 @@ test('knockout: the next round opens when the last game ended, not at the sync',
   assert.ok(final, 'the final was drawn')
   assert.equal(final.opensAt.getTime(), lastEnd * 1000)
 })
+
+test('challenge: a game the organiser already recorded never counts again', async () => {
+  const c = await challenge(3)
+  await joinCompetition(c.them, { code: c.row.inviteCode })
+  const [me, them] = [c.me.toLowerCase(), c.them.toLowerCase()]
+  await db.insert(chessAccounts).values([
+    { userId: c.me, username: me, verifiedAt: new Date() },
+    { userId: c.them, username: them, verifiedAt: new Date() },
+  ])
+  const now = Date.now()
+  await db.update(matches).set({ opensAt: new Date(now - 86_400_000) }).where(eq(matches.competitionId, c.row.id))
+  const games = (await db.select().from(matches).where(eq(matches.competitionId, c.row.id))).sort((x, y) => x.round - y.round)
+  // game 1 was played ten minutes ago; the organiser types it in by hand
+  await decideMatch(c.slug, v(c.me), games[0].id, { kind: 'result', result: games[0].homeUserId === c.me ? 'white' : 'black', homeWhite: true }, null)
+  const played = {
+    url: `https://www.chess.com/game/live/${c.row.id}`,
+    end_time: Math.floor((now - 600_000) / 1000),
+    rules: 'chess',
+    time_class: 'blitz',
+    time_control: '180',
+    white: { username: me, result: 'win' },
+    black: { username: them, result: 'resigned' },
+  }
+  const realFetch = globalThis.fetch
+  try {
+    globalThis.fetch = (async () => Response.json({ games: [played] })) as typeof fetch
+    await syncResults(c.row.id, new Date(now + 6 * 60_000))
+  } finally {
+    globalThis.fetch = realFetch
+  }
+  const second = (await db.select().from(matches).where(eq(matches.id, games[1].id)))[0]
+  assert.equal(second.result, null, 'not counted as game 2 as well')
+  const [state] = await db.select().from(competitions).where(eq(competitions.id, c.row.id))
+  assert.equal(state.status, "running")
+})

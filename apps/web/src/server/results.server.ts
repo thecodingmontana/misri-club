@@ -1,4 +1,15 @@
-import { and, eq, gt, inArray, isNull, lt, lte, or, sql } from 'drizzle-orm'
+import {
+  and,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  lt,
+  lte,
+  max,
+  or,
+  sql,
+} from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import {
   chessAccounts,
@@ -78,6 +89,16 @@ export async function syncResults(competitionId: string, now = new Date()) {
         )
     ).map((r) => r.url as string),
   )
+  // a challenge's games come in order: a game that ended before the latest
+  // decided one (an organiser's call stores no game link) was already counted
+  const [decided] =
+    claimed.format === 'challenge'
+      ? await db
+          .select({ at: max(matches.endedAt) })
+          .from(matches)
+          .where(eq(matches.competitionId, competitionId))
+      : []
+  const after = decided?.at?.getTime() ?? 0
   const open = await db
     .select({
       id: matches.id,
@@ -146,7 +167,7 @@ export async function syncResults(competitionId: string, now = new Date()) {
       {
         home,
         away,
-        opensAt: m.opensAt,
+        opensAt: new Date(Math.max(m.opensAt.getTime(), after + 1)),
         dueAt: m.dueAt,
         timeControl: claimed.timeControl,
       },
