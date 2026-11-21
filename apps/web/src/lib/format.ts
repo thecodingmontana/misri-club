@@ -40,10 +40,12 @@ export function countdown(msRemaining: number): string {
   return 'now'
 }
 
+// the club's zone, so the server (UTC) and every browser show the same day
 const dateFormatter = new Intl.DateTimeFormat('en', {
   day: 'numeric',
   month: 'short',
   year: 'numeric',
+  timeZone: 'Africa/Nairobi',
 })
 
 export function formatDate(input: number | string | Date): string {
