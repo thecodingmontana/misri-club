@@ -205,6 +205,8 @@ function matchStatus(m: typeof matches.$inferSelect, now: number): MatchStatus {
   return 'expired'
 }
 
+const SYNC_WAIT_MS = 3000
+
 /**
  * Everything the competition page shows. Public read; the invite code only
  * reaches the organiser.
@@ -218,9 +220,14 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
     .where(eq(competitions.slug, slug))
     .limit(1)
   if (peek?.status === 'running') {
-    await syncResults(peek.id).catch((error) =>
+    const sync = syncResults(peek.id).catch((error) =>
       console.error('[results] sync failed', (error as Error).message),
     )
+    // a slow chess.com mustn't hold the page: show what we have after a moment
+    await Promise.race([
+      sync,
+      new Promise((resolve) => setTimeout(resolve, SYNC_WAIT_MS)),
+    ])
   }
   const [competition] = await db
     .select()
