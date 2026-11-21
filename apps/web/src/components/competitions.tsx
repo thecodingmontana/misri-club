@@ -217,7 +217,8 @@ export function OpenCompetitions({
   )
 }
 
-const CHOICES = [
+/** Every way to start a competition, for the start page and home. */
+export const CHOICES = [
   {
     to: '/competitions/new',
     search: { format: 'league' as const },

@@ -1,5 +1,9 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { CompetitionCard, OpenCompetitions } from '#/components/competitions'
+import {
+  CHOICES,
+  CompetitionCard,
+  OpenCompetitions,
+} from '#/components/competitions'
 import { Plus, UserPlus } from '#/components/icons'
 import { InstallCard } from '#/components/install-card'
 import { Button } from '#/components/ui/button'
@@ -37,26 +41,19 @@ function Home() {
       </header>
 
       <div className="grid gap-2 sm:grid-cols-3">
-        <Button
-          asChild
-          variant="secondary"
-          className="h-auto justify-start py-3 sm:flex-col sm:justify-center"
-        >
-          <Link to="/competitions/new" search={{ format: 'league' }}>
-            <Plus className="size-5 text-primary" />
-            Create a league
-          </Link>
-        </Button>
-        <Button
-          asChild
-          variant="secondary"
-          className="h-auto justify-start py-3 sm:flex-col sm:justify-center"
-        >
-          <Link to="/competitions/new" search={{ format: 'knockout' }}>
-            <Plus className="size-5 text-primary" />
-            Create a tournament
-          </Link>
-        </Button>
+        {CHOICES.map((choice) => (
+          <Button
+            key={choice.title}
+            asChild
+            variant="secondary"
+            className="h-auto justify-start py-3 sm:flex-col sm:justify-center"
+          >
+            <Link to={choice.to} search={choice.search}>
+              <Plus className="size-5 text-primary" />
+              {choice.title}
+            </Link>
+          </Button>
+        ))}
         <Button
           asChild
           variant="secondary"
