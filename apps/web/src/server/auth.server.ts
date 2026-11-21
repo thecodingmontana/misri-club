@@ -161,8 +161,9 @@ export const auth = betterAuth({
       '/sign-in/magic-link': { window: 60, max: 3 },
     },
   },
-  // Google proves the email, so it can join an account made with an email link.
-  account: { accountLinking: { enabled: true, trustedProviders: ['google'] } },
+  // A Google sign-in joins an email-link account only when Google says the
+  // email is verified; trusting Google outright would skip that check.
+  account: { accountLinking: { enabled: true } },
   user: { deleteUser: { enabled: true } },
   databaseHooks: {
     user: {
