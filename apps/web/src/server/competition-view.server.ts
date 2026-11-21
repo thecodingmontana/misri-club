@@ -146,7 +146,7 @@ export async function getInvite(code: string, viewerId: string | null) {
     reason: !decision.ok
       ? decision.reason
       : left.length > 0
-        ? "You left this one after it started, so you can't rejoin."
+        ? "You left after the start or were taken out, so you can't rejoin."
         : full
           ? "It's full."
           : null,

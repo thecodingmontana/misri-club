@@ -549,3 +549,12 @@ test('challenge: a game the organiser already recorded never counts again', asyn
   const [state] = await db.select().from(competitions).where(eq(competitions.id, c.row.id))
   assert.equal(state.status, "running")
 })
+
+test('removal before the start: the player can’t walk back in with the link', async () => {
+  const c = await competition('league', ['o', 'a', 'b'], { visibility: 'public' })
+  await removePlayer(c.slug, c.organiser, c.ids[1])
+  await assert.rejects(joinCompetition(c.ids[1], { slug: c.slug }), /taken out/)
+  // leaving on your own before the start stays reversible
+  await leaveCompetition(c.slug, v(c.ids[2]))
+  await joinCompetition(c.ids[2], { slug: c.slug })
+})

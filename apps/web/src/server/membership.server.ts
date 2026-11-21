@@ -183,6 +183,13 @@ export async function removePlayer(
       throw new Error("They're not in this one.")
     }
     const started = await depart(tx, competition, userId)
+    // taken out before the start too: otherwise the link lets them straight back
+    if (!started) {
+      await tx
+        .insert(competitionLeavers)
+        .values({ competitionId: competition.id, userId })
+        .onConflictDoNothing()
+    }
     return { id: competition.id, started }
   })
   await afterDeparture(removed.started ? removed.id : null, () =>

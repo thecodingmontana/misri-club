@@ -321,8 +321,9 @@ export const competitionRequests = pgTable(
 ).enableRLS()
 
 /**
- * Who left after the start. Leaving settles their games, so they can't come
- * back; leaving before the start leaves no record.
+ * Who can't come back: players who left after the start (leaving settles
+ * their games) and anyone the organiser took out. Leaving on your own before
+ * the start leaves no record.
  */
 export const competitionLeavers = pgTable(
   'competition_leavers',
