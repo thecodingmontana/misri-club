@@ -18,6 +18,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as AuthedIndexRouteImport } from './routes/_authed.index'
 import { Route as AuthedAccountRouteImport } from './routes/_authed.account'
+import { Route as AuthedAnalysisRouteImport } from './routes/_authed.analysis'
 import { Route as AuthedInboxRouteImport } from './routes/_authed.inbox'
 import { Route as AuthedJoinRouteImport } from './routes/_authed.join'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed.onboarding'
@@ -83,6 +84,11 @@ const AuthedIndexRoute = AuthedIndexRouteImport.update({
 const AuthedAccountRoute = AuthedAccountRouteImport.update({
   id: '/account',
   path: '/account',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedAnalysisRoute = AuthedAnalysisRouteImport.update({
+  id: '/analysis',
+  path: '/analysis',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedInboxRoute = AuthedInboxRouteImport.update({
@@ -205,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/account': typeof AuthedAccountRoute
+  '/analysis': typeof AuthedAnalysisRoute
   '/inbox': typeof AuthedInboxRoute
   '/join': typeof AuthedJoinRoute
   '/onboarding': typeof AuthedOnboardingRoute
@@ -236,6 +243,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/account': typeof AuthedAccountRoute
+  '/analysis': typeof AuthedAnalysisRoute
   '/inbox': typeof AuthedInboxRoute
   '/join': typeof AuthedJoinRoute
   '/onboarding': typeof AuthedOnboardingRoute
@@ -270,6 +278,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/welcome': typeof WelcomeRoute
   '/_authed/account': typeof AuthedAccountRoute
+  '/_authed/analysis': typeof AuthedAnalysisRoute
   '/_authed/inbox': typeof AuthedInboxRoute
   '/_authed/join': typeof AuthedJoinRoute
   '/_authed/onboarding': typeof AuthedOnboardingRoute
@@ -305,6 +314,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/welcome'
     | '/account'
+    | '/analysis'
     | '/inbox'
     | '/join'
     | '/onboarding'
@@ -336,6 +346,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/welcome'
     | '/account'
+    | '/analysis'
     | '/inbox'
     | '/join'
     | '/onboarding'
@@ -369,6 +380,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/welcome'
     | '/_authed/account'
+    | '/_authed/analysis'
     | '/_authed/inbox'
     | '/_authed/join'
     | '/_authed/onboarding'
@@ -484,6 +496,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/account'
       preLoaderRoute: typeof AuthedAccountRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/analysis': {
+      id: '/_authed/analysis'
+      path: '/analysis'
+      fullPath: '/analysis'
+      preLoaderRoute: typeof AuthedAnalysisRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/inbox': {
@@ -645,6 +664,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthedRouteChildren {
   AuthedAccountRoute: typeof AuthedAccountRoute
+  AuthedAnalysisRoute: typeof AuthedAnalysisRoute
   AuthedInboxRoute: typeof AuthedInboxRoute
   AuthedJoinRoute: typeof AuthedJoinRoute
   AuthedOnboardingRoute: typeof AuthedOnboardingRoute
@@ -655,6 +675,7 @@ interface AuthedRouteChildren {
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccountRoute: AuthedAccountRoute,
+  AuthedAnalysisRoute: AuthedAnalysisRoute,
   AuthedInboxRoute: AuthedInboxRoute,
   AuthedJoinRoute: AuthedJoinRoute,
   AuthedOnboardingRoute: AuthedOnboardingRoute,
