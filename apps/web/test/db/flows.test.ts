@@ -3,6 +3,7 @@ import { after, test } from 'node:test'
 import { eq, inArray } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import {
+  chessAccounts,
   competitionMembers,
   competitions,
   matches,
@@ -24,6 +25,7 @@ import {
   concedeMatch,
   decideMatch,
   openEarlyRound,
+  syncResults,
 } from '#/server/results.server'
 
 // Whole flows through the real server code on a local database (pnpm test:db).
@@ -415,4 +417,41 @@ test('league: late joiners share one round; the recheck refills a missing game',
   const back = (await c.rows()).find((m) => m.homeUserId === y && m.awayUserId === x)
   assert.equal(back?.round, lastRound + 1)
   assert.equal(await reconcileAllFixtures(), 0, 'nothing left to add')
+})
+
+test('sync: chess.com failing never finishes a league; the late result then counts', async () => {
+  const c = await competition('league', ['o', 'a'], { legs: 1, unplayedRule: 'both_forfeit' })
+  await startCompetition(c.slug, c.organiser)
+  const names = c.ids.map((id) => id.toLowerCase())
+  await db.insert(chessAccounts).values(c.ids.map((userId, i) => ({ userId, username: names[i], verifiedAt: new Date() })))
+  const now = Date.now()
+  // the only game: due an hour ago, played just before the deadline
+  await db.update(matches).set({ opensAt: new Date(now - 3 * 86_400_000), dueAt: new Date(now - 3_600_000) }).where(eq(matches.competitionId, c.row.id))
+  const [m] = await c.rows()
+  const realFetch = globalThis.fetch
+  try {
+    globalThis.fetch = (async () => {
+      throw new Error('chess.com is down')
+    }) as typeof fetch
+    await syncResults(c.row.id, new Date(now))
+    assert.equal((await c.state()).status, 'running', 'no forfeits on a failed fetch')
+
+    const [home, away] = m.homeUserId === c.ids[0] ? names : [names[1], names[0]]
+    const game = {
+      url: `https://www.chess.com/game/live/${c.row.id}`,
+      end_time: Math.floor((now - 3_700_000) / 1000),
+      rules: 'chess',
+      time_class: 'blitz',
+      time_control: '180',
+      white: { username: home, result: 'win' },
+      black: { username: away, result: 'resigned' },
+    }
+    globalThis.fetch = (async () => Response.json({ games: [game] })) as typeof fetch
+    await syncResults(c.row.id, new Date(now + 6 * 60_000))
+  } finally {
+    globalThis.fetch = realFetch
+  }
+  const end = await c.state()
+  assert.equal(end.status, 'finished')
+  assert.equal(end.championUserId, m.homeUserId)
 })

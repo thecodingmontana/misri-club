@@ -108,11 +108,15 @@ export async function syncResults(competitionId: string, now = new Date()) {
 
   // one archive fetch per player-month, shared by their matches
   const months = new Map<string, ReturnType<typeof fetchMonthGames>>()
+  let fetchFailed = false
   const gamesOf = (username: string, month: string) => {
     const key = `${username}:${month}`
     let games = months.get(key)
     if (!games) {
-      games = fetchMonthGames(username, month).catch(() => [])
+      games = fetchMonthGames(username, month).catch(() => {
+        fetchFailed = true
+        return []
+      })
       months.set(key, games)
     }
     return games
@@ -177,7 +181,8 @@ export async function syncResults(competitionId: string, now = new Date()) {
       .returning({ id: matches.id })
     changed += written.length
   }
-  await advance(competitionId, now)
+  // a game chess.com couldn't tell us about may be the one that settles it
+  if (!fetchFailed) await advance(competitionId, now)
   return changed
 }
 
