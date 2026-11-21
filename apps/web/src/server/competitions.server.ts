@@ -29,6 +29,7 @@ import { auth, isAdminEmail } from './auth.server'
 import { fetchPlayerRating } from './chesscom.server'
 import {
   notifyJoined,
+  notifyRematch,
   notifyRequested,
   notifyScheduledStart,
   notifyStarted,
@@ -837,4 +838,63 @@ export async function startScheduled(now = new Date()) {
     }
   }
   return started
+}
+
+/**
+ * A finished 1v1 challenge, again: a new challenge with the same settings,
+ * owned by whoever asked, and the opponent is invited (it starts when they
+ * join, as any challenge does). Returns the new slug.
+ */
+export async function rematch(slug: string, viewerId: string) {
+  const [old] = await db
+    .select()
+    .from(competitions)
+    .where(eq(competitions.slug, slug))
+    .limit(1)
+  if (old?.format !== 'challenge') throw new Error('Not found.')
+  if (old.status !== 'finished') throw new Error('Finish this one first.')
+  const [first] = await db
+    .select({ home: matches.homeUserId, away: matches.awayUserId })
+    .from(matches)
+    .where(eq(matches.competitionId, old.id))
+    .orderBy(asc(matches.round))
+    .limit(1)
+  const players = [first?.home, first?.away]
+  if (!players.includes(viewerId)) {
+    throw new Error('Only the two players can ask for a rematch.')
+  }
+  const opponentId = players.find((id) => id && id !== viewerId)
+  if (!opponentId) throw new Error('Your opponent has left Misri.')
+
+  const base = old.name
+    .replace(/ rematch( \d+)?$/i, '')
+    .slice(0, 60 - ' rematch 10'.length)
+  const names = [`${base} rematch`]
+  for (let n = 2; n <= 10; n++) names.push(`${base} rematch ${n}`)
+  const taken = await takenKeys(names.map(normalizeName))
+  const name = names.find((candidate) => !taken.has(normalizeName(candidate)))
+  if (!name) throw new Error('Too many rematches under this name. Create one.')
+
+  const newSlug = await createCompetition(viewerId, {
+    name,
+    format: 'challenge',
+    legs: 1,
+    bestOf: old.bestOf,
+    matchdayDays: old.matchdayDays,
+    visibility: 'private',
+    allowLateEntry: false,
+    unplayedRule: 'organiser',
+    leaveRule: old.leaveRule,
+    maxPlayers: 2,
+    requireApproval: false,
+    points: old.points,
+    timeControl: old.timeControl,
+  })
+  const [created] = await db
+    .select({ id: competitions.id, inviteCode: competitions.inviteCode })
+    .from(competitions)
+    .where(eq(competitions.slug, newSlug))
+    .limit(1)
+  await notifyRematch(created.id, viewerId, opponentId, created.inviteCode)
+  return newSlug
 }

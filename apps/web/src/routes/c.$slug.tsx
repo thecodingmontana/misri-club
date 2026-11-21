@@ -2,6 +2,7 @@ import {
   createFileRoute,
   Link,
   notFound,
+  useNavigate,
   useRouter,
 } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
@@ -59,6 +60,7 @@ import type {
 import {
   getCompetitionFn,
   openEarlyRoundFn,
+  rematchFn,
   startCompetitionFn,
   updateCompetitionSettingsFn,
 } from '#/server/competitions.functions'
@@ -148,9 +150,11 @@ function CompetitionPage() {
 
       {data.challengeScore && (
         <ChallengeScore
+          slug={competition.slug}
           matches={data.matches}
           score={data.challengeScore}
           finished={competition.status === 'finished'}
+          viewerId={user?.id ?? null}
         />
       )}
 
@@ -804,14 +808,21 @@ function decidable(data: Data, match: MatchView) {
 
 /** A challenge's running score: a win a point, a draw half, a walkover a point. */
 function ChallengeScore({
+  slug,
   matches,
   score,
   finished,
+  viewerId,
 }: {
+  slug: string
   matches: MatchView[]
   score: { a: number; b: number }
   finished: boolean
+  viewerId: string | null
 }) {
+  const ask = useServerFn(rematchFn)
+  const navigate = useNavigate()
+  const [busy, setBusy] = useState(false)
   const [first] = matches
   if (!first?.home || !first.away) return null
   const [a, b] = [first.home, first.away]
@@ -835,6 +846,28 @@ function ChallengeScore({
         <p className="mt-2 text-center text-sm text-muted-foreground">
           Drawn match: neither could be caught.
         </p>
+      )}
+      {finished && (viewerId === a.id || viewerId === b.id) && (
+        <Button
+          variant="secondary"
+          className="mt-3 w-full rounded-xl"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              const created = await ask({ data: { slug } })
+              toast.success('Rematch sent. It starts when they join.')
+              await navigate({ to: '/c/$slug', params: { slug: created.slug } })
+            } catch (error) {
+              toast.error((error as Error).message)
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          {busy && <Spinner />}
+          Rematch
+        </Button>
       )}
     </section>
   )

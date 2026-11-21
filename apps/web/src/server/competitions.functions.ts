@@ -13,6 +13,7 @@ import {
   createCompetition,
   currentViewer,
   joinCompetition,
+  rematch,
   requireChessAccount,
   seedCompetition,
   startCompetition,
@@ -170,6 +171,16 @@ export const startCompetitionFn = createServerFn({ method: 'POST' })
   .handler(async ({ context, data }) => {
     await startCompetition(data.slug, context.viewer)
     return { ok: true }
+  })
+
+/** A finished challenge, again: same settings, the opponent is invited. */
+export const rematchFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(z.object({ slug }))
+  .handler(async ({ context, data }) => {
+    await requireChessAccount(context.user.id)
+    await allow('competition-create', context.user.id)
+    return { slug: await rematch(data.slug, context.user.id) }
   })
 
 /** The organiser orders a knockout's players before the start. */

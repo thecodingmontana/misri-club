@@ -15,6 +15,7 @@ import {
   createCompetition,
   joinCompetition,
   reconcileAllFixtures,
+  rematch,
   seedCompetition,
   startCompetition,
   startScheduled,
@@ -557,4 +558,31 @@ test('removal before the start: the player can’t walk back in with the link', 
   // leaving on your own before the start stays reversible
   await leaveCompetition(c.slug, v(c.ids[2]))
   await joinCompetition(c.ids[2], { slug: c.slug })
+})
+
+test('rematch: a finished challenge, again, with the opponent invited', async () => {
+  const c = await challenge(1)
+  await assert.rejects(rematch(c.slug, c.me), /Finish this one first/)
+  await joinCompetition(c.them, { code: c.row.inviteCode })
+  const [game] = await db.select().from(matches).where(eq(matches.competitionId, c.row.id))
+  await decideMatch(c.slug, v(c.me), game.id, { kind: 'result', result: 'draw', homeWhite: true }, null)
+  await assert.rejects(rematch(c.slug, 'nobody'), /two players/)
+
+  const again = await rematch(c.slug, c.them)
+  const [row] = await db.select().from(competitions).where(eq(competitions.slug, again))
+  assert.equal(row.format, 'challenge')
+  assert.equal(row.ownerId, c.them)
+  assert.equal(row.status, 'open')
+  assert.equal(row.name, `${c.row.name} rematch`)
+  const told = await db.select().from(notifications).where(eq(notifications.userId, c.me))
+  assert.ok(told.some((n) => n.title.includes('wants a rematch') && n.url === `/join/${row.inviteCode}`))
+
+  // they join from the invite and it starts, as any challenge does
+  await joinCompetition(c.me, { code: row.inviteCode })
+  const [started] = await db.select().from(competitions).where(eq(competitions.id, row.id))
+  assert.equal(started.status, 'running')
+  // a second rematch of the first gets the next free name
+  const third = await rematch(c.slug, c.me)
+  const [named] = await db.select().from(competitions).where(eq(competitions.slug, third))
+  assert.equal(named.name, `${c.row.name} rematch 2`)
 })

@@ -284,6 +284,26 @@ export async function notifyScheduledStart(
   ])
 }
 
+/** A rematch was asked for: the opponent gets the invite. */
+export async function notifyRematch(
+  competitionId: string,
+  byUserId: string,
+  opponentId: string,
+  inviteCode: string,
+) {
+  const competition = await competitionPush(competitionId)
+  if (!competition) return
+  const by = await playerName(byUserId)
+  await bestEffort([
+    {
+      userId: opponentId,
+      title: `${by} wants a rematch`,
+      body: `${competition.name}: same settings. Join to start it.`,
+      url: `/join/${inviteCode}`,
+    },
+  ])
+}
+
 /** A player conceded: their opponent gets the win, and the organiser hears of it. */
 export async function notifyConceded(
   competitionId: string,
