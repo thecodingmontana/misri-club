@@ -22,7 +22,13 @@ import {
 } from '#/lib/competition-names'
 import type { EarlyRounds } from '#/lib/early-rounds'
 import { drawGroups, groupsProblem } from '#/lib/groups'
-import { canJoin, lateRoundWindow, missingFixtures } from '#/lib/join-policy'
+import {
+  canJoin,
+  lateRoundWindow,
+  missingFixtures,
+  type PlannedRound,
+  placeLateGames,
+} from '#/lib/join-policy'
 import type { LeaveRule } from '#/lib/leave'
 import { generateDoubleRoundRobin } from '#/lib/round-robin'
 import { auth, isAdminEmail } from './auth.server'
@@ -393,22 +399,56 @@ export async function reconcileFixtures(tx: Tx, competition: Competition) {
     .orderBy(asc(competitionMembers.joinedAt), asc(competitionMembers.userId))
   const existing = await tx
     .select({
+      id: matches.id,
       round: matches.round,
       homeUserId: matches.homeUserId,
       awayUserId: matches.awayUserId,
+      byeUserId: matches.byeUserId,
+      opensAt: matches.opensAt,
       dueAt: matches.dueAt,
       late: matches.late,
     })
     .from(matches)
     .where(eq(matches.competitionId, competition.id))
-  const missing = missingFixtures(
-    members.map((m) => m.userId),
-    existing,
-    competition.legs,
-  )
+  const memberIds = members.map((m) => m.userId)
+  const missing = missingFixtures(memberIds, existing, competition.legs)
   if (missing.length === 0) return 0
 
   const now = new Date()
+  // into the scheduled rounds still to come first, as a fresh draw would
+  const plan = placeLateGames({
+    missing,
+    rounds: scheduledRounds(existing, new Set(memberIds)),
+    now,
+    matchdayDays: competition.matchdayDays,
+  })
+  for (const { matchId, fixture } of plan.fromByes) {
+    await tx
+      .update(matches)
+      .set({
+        homeUserId: fixture.homeId,
+        awayUserId: fixture.awayId,
+        byeUserId: null,
+        leg: fixture.leg,
+      })
+      .where(eq(matches.id, matchId))
+  }
+  if (plan.inRounds.length > 0) {
+    await tx.insert(matches).values(
+      plan.inRounds.map((p) => ({
+        competitionId: competition.id,
+        round: p.round,
+        leg: p.fixture.leg,
+        homeUserId: p.fixture.homeId,
+        awayUserId: p.fixture.awayId,
+        opensAt: p.opensAt,
+        dueAt: p.dueAt,
+      })),
+    )
+  }
+  if (plan.catchUp.length === 0) return missing.length
+
+  // what fits nowhere: the shared catch-up round
   const openLate = existing
     .filter((m) => m.late && m.dueAt > now)
     .sort((a, b) => b.round - a.round)[0]
@@ -434,7 +474,7 @@ export async function reconcileFixtures(tx: Tx, competition: Competition) {
       )
   }
   await tx.insert(matches).values(
-    missing.map((m) => ({
+    plan.catchUp.map((m) => ({
       competitionId: competition.id,
       round: window.round,
       leg: m.leg,
@@ -446,6 +486,42 @@ export async function reconcileFixtures(tx: Tx, competition: Competition) {
     })),
   )
   return missing.length
+}
+
+/** A league's scheduled (not catch-up) rounds, for placing late games. */
+function scheduledRounds(
+  rows: Array<{
+    id: string
+    round: number
+    homeUserId: string | null
+    awayUserId: string | null
+    byeUserId: string | null
+    opensAt: Date
+    dueAt: Date
+    late: boolean
+  }>,
+  memberIds: Set<string>,
+): PlannedRound[] {
+  const rounds = new Map<number, PlannedRound>()
+  for (const row of rows) {
+    if (row.late) continue
+    const round = rounds.get(row.round) ?? {
+      round: row.round,
+      opensAt: row.opensAt,
+      dueAt: row.dueAt,
+      byes: [],
+      busy: new Set<string>(),
+    }
+    // a bye of someone still in the league is a seat a late joiner can take
+    if (row.byeUserId && memberIds.has(row.byeUserId)) {
+      round.byes.push({ matchId: row.id, userId: row.byeUserId })
+    }
+    for (const id of [row.homeUserId, row.awayUserId]) {
+      if (id) round.busy.add(id)
+    }
+    rounds.set(row.round, round)
+  }
+  return [...rounds.values()]
 }
 
 /** The fixture recheck for every running league, each under its own lock. */
