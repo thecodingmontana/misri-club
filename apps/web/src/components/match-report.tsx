@@ -37,8 +37,12 @@ export function MatchReport({
           : away
     const by = report.byUserId === home.id ? home : away
     const other = by === home ? away : home
-    const said = `${displayName(by)} reported ${
-      winner ? `a win for ${displayName(winner)}` : 'a draw'
+    const said = `${displayName(by)} says ${
+      !winner
+        ? 'it was a draw'
+        : winner === by
+          ? 'they won'
+          : `${displayName(winner)} won`
     }.`
     return (
       <div className="mt-2 space-y-2 rounded-xl bg-secondary/60 px-3 py-2 text-center text-xs">
