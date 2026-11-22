@@ -36,6 +36,7 @@ import { Route as TrainProgressRouteImport } from './routes/train.progress'
 import { Route as TrainPuzzlesRouteImport } from './routes/train.puzzles'
 import { Route as AuthedAnalysisGameRouteImport } from './routes/_authed.analysis_.game'
 import { Route as AuthedCompetitionsNewRouteImport } from './routes/_authed.competitions.new'
+import { Route as AuthedPUsernameRouteImport } from './routes/_authed.p.$username'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCalendarTokenRouteImport } from './routes/api/calendar/$token'
 import { Route as ApiCronDeadlinesRouteImport } from './routes/api/cron/deadlines'
@@ -178,6 +179,11 @@ const AuthedCompetitionsNewRoute = AuthedCompetitionsNewRouteImport.update({
   path: '/competitions/new',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedPUsernameRoute = AuthedPUsernameRouteImport.update({
+  id: '/p/$username',
+  path: '/p/$username',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -241,6 +247,7 @@ export interface FileRoutesByFullPath {
   '/train/': typeof TrainIndexRoute
   '/analysis/game': typeof AuthedAnalysisGameRoute
   '/competitions/new': typeof AuthedCompetitionsNewRoute
+  '/p/$username': typeof AuthedPUsernameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/calendar/$token': typeof ApiCalendarTokenRoute
   '/api/cron/deadlines': typeof ApiCronDeadlinesRoute
@@ -276,6 +283,7 @@ export interface FileRoutesByTo {
   '/train': typeof TrainIndexRoute
   '/analysis/game': typeof AuthedAnalysisGameRoute
   '/competitions/new': typeof AuthedCompetitionsNewRoute
+  '/p/$username': typeof AuthedPUsernameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/calendar/$token': typeof ApiCalendarTokenRoute
   '/api/cron/deadlines': typeof ApiCronDeadlinesRoute
@@ -313,6 +321,7 @@ export interface FileRoutesById {
   '/train/': typeof TrainIndexRoute
   '/_authed/analysis_/game': typeof AuthedAnalysisGameRoute
   '/_authed/competitions/new': typeof AuthedCompetitionsNewRoute
+  '/_authed/p/$username': typeof AuthedPUsernameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/calendar/$token': typeof ApiCalendarTokenRoute
   '/api/cron/deadlines': typeof ApiCronDeadlinesRoute
@@ -350,6 +359,7 @@ export interface FileRouteTypes {
     | '/train/'
     | '/analysis/game'
     | '/competitions/new'
+    | '/p/$username'
     | '/api/auth/$'
     | '/api/calendar/$token'
     | '/api/cron/deadlines'
@@ -385,6 +395,7 @@ export interface FileRouteTypes {
     | '/train'
     | '/analysis/game'
     | '/competitions/new'
+    | '/p/$username'
     | '/api/auth/$'
     | '/api/calendar/$token'
     | '/api/cron/deadlines'
@@ -421,6 +432,7 @@ export interface FileRouteTypes {
     | '/train/'
     | '/_authed/analysis_/game'
     | '/_authed/competitions/new'
+    | '/_authed/p/$username'
     | '/api/auth/$'
     | '/api/calendar/$token'
     | '/api/cron/deadlines'
@@ -649,6 +661,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedCompetitionsNewRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/p/$username': {
+      id: '/_authed/p/$username'
+      path: '/p/$username'
+      fullPath: '/p/$username'
+      preLoaderRoute: typeof AuthedPUsernameRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -711,6 +730,7 @@ interface AuthedRouteChildren {
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedAnalysisGameRoute: typeof AuthedAnalysisGameRoute
   AuthedCompetitionsNewRoute: typeof AuthedCompetitionsNewRoute
+  AuthedPUsernameRoute: typeof AuthedPUsernameRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
@@ -723,6 +743,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedAnalysisGameRoute: AuthedAnalysisGameRoute,
   AuthedCompetitionsNewRoute: AuthedCompetitionsNewRoute,
+  AuthedPUsernameRoute: AuthedPUsernameRoute,
 }
 
 const AuthedRouteWithChildren =

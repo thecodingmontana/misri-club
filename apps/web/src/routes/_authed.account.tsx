@@ -1,4 +1,9 @@
-import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Link,
+  useNavigate,
+  useRouter,
+} from '@tanstack/react-router'
 import { QRCodeSVG } from 'qrcode.react'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { DeviceList, NameForm } from '#/components/account-settings'
@@ -59,6 +64,15 @@ function AccountPage() {
         <p className="kicker">Signed in</p>
         <h1 className="display mt-1 text-2xl">{user.name}</h1>
         <p className="mt-0.5 text-xs text-muted-foreground">{user.email}</p>
+        {user.chessUsername && (
+          <Link
+            to="/p/$username"
+            params={{ username: user.chessUsername }}
+            className="mt-1 inline-block text-xs font-semibold text-primary hover:underline"
+          >
+            Your player page
+          </Link>
+        )}
       </section>
 
       <Section

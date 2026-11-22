@@ -6,7 +6,7 @@ import {
   useRouter,
 } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { useRef, useState } from 'react'
+import { type ReactNode, useRef, useState } from 'react'
 import { Spinner } from '#/components/auth'
 import { BracketView } from '#/components/bracket-view'
 import { ChampionBanner } from '#/components/champion-banner'
@@ -255,10 +255,12 @@ function CompetitionPage() {
                 key={member.id}
                 className="flex items-center justify-between gap-2 rounded-2xl bg-card px-3 py-2.5 shadow-card"
               >
-                <PlayerChip
-                  username={displayName(member)}
-                  image={member.image}
-                />
+                <PlayerLink player={member}>
+                  <PlayerChip
+                    username={displayName(member)}
+                    image={member.image}
+                  />
+                </PlayerLink>
                 {member.id === competition.ownerId ? (
                   <span className="kicker">Organiser</span>
                 ) : (
@@ -654,11 +656,13 @@ function StandingsTable({
                 {index + 1}
               </td>
               <td className="max-w-0 py-2">
-                <PlayerChip
-                  username={displayName(row.player)}
-                  image={row.player.image}
-                  size="sm"
-                />
+                <PlayerLink player={row.player}>
+                  <PlayerChip
+                    username={displayName(row.player)}
+                    image={row.player.image}
+                    size="sm"
+                  />
+                </PlayerLink>
               </td>
               <td className="py-2 text-center">{row.wins}</td>
               <td className="py-2 text-center">{row.draws}</td>
@@ -882,6 +886,26 @@ function ChallengeScore({
         </Button>
       )}
     </section>
+  )
+}
+
+/** A player's name, linked to their page when they have a chess.com account. */
+function PlayerLink({
+  player,
+  children,
+}: {
+  player: PlayerView
+  children: ReactNode
+}) {
+  if (!player.chessUsername) return children
+  return (
+    <Link
+      to="/p/$username"
+      params={{ username: player.chessUsername }}
+      className="min-w-0 rounded-md hover:underline"
+    >
+      {children}
+    </Link>
   )
 }
 

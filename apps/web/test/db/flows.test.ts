@@ -26,6 +26,7 @@ import {
   startScheduled,
   updateCompetitionSettings,
 } from '#/server/competitions.server'
+import { getPlayer, recordOf } from '#/server/player.server'
 import {
   leaveCompetition,
   refuseIfOwner,
@@ -610,4 +611,32 @@ test('calendar: a signed link opens your open match deadlines, nobody else\'s', 
   assert.equal(feed.match(/BEGIN:VEVENT/g)?.length, theirs.length)
   assert.ok(feed.includes(`URL:https://misri.test/c/${c.slug}`))
   assert.equal(await calendarFeed('nobody', 'https://misri.test'), null)
+})
+
+test('player page: record, head-to-head, and private competitions stay private', async () => {
+  assert.deepEqual(recordOf(['win', 'draw', 'loss', 'forfeit']), { wins: 1, draws: 1, losses: 2 })
+  const c = await competition('league', ['o', 'a'], { legs: 1 })
+  const [o, a] = c.ids
+  await db.insert(chessAccounts).values(c.ids.map((userId) => ({ userId, username: userId.toLowerCase(), verifiedAt: new Date() })))
+  await startCompetition(c.slug, c.organiser)
+  const [m] = await c.rows()
+  // o wins with white
+  await decideMatch(c.slug, c.organiser, m.id, { kind: 'result', result: 'white', homeWhite: m.homeUserId === o }, null)
+
+  const seenByA = await getPlayer(o, v(a))
+  assert.ok(seenByA)
+  assert.deepEqual(seenByA.record, { wins: 1, draws: 0, losses: 0 })
+  assert.deepEqual(seenByA.headToHead, { wins: 1, draws: 0, losses: 0 }, 'o beat a')
+  assert.equal(seenByA.titles, 1, 'o won the two-player league')
+  assert.equal(seenByA.recent[0].opponentId, a)
+
+  const outsider = `${o.slice(0, -1)}z`
+  made.push(outsider)
+  await db.insert(user).values({ id: outsider, name: outsider, email: `${outsider}@test.local` })
+  const seenByOutsider = await getPlayer(o, v(outsider))
+  assert.equal(seenByOutsider?.competitions.length, 0, 'a private league is hidden')
+  assert.equal(seenByOutsider?.recent.length, 0)
+  await db.update(competitions).set({ visibility: 'public' }).where(eq(competitions.id, c.row.id))
+  assert.equal((await getPlayer(o, v(outsider)))?.competitions.length, 1, 'a public one shows')
+  assert.equal(await getPlayer('no-such-player', v(a)), null)
 })

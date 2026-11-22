@@ -30,6 +30,7 @@ import {
   removePlayer,
   renameCompetition,
 } from './membership.server'
+import { getPlayer } from './player.server'
 import { takeAllowance } from './rate-limit.server'
 import {
   concedeMatch,
@@ -369,3 +370,9 @@ export const syncMineFn = createServerFn({ method: 'POST' })
   .handler(async ({ context }) => ({
     changed: await syncForPlayer(context.user.id),
   }))
+
+/** A player's page, by chess.com username; signed-in players only. */
+export const getPlayerFn = createServerFn({ method: 'GET' })
+  .middleware([userMiddleware])
+  .validator(z.object({ username: z.string().trim().min(1).max(40) }))
+  .handler(({ context, data }) => getPlayer(data.username, context.viewer))
