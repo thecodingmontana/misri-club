@@ -422,28 +422,52 @@ test('groups then knockout: snake draw, tables, cross-seeded bracket, champion',
   assert.equal(end.championUserId, final.awayUserId)
 })
 
-test('league: late joiners share one round; the recheck refills a missing game', async () => {
+test('league: a late joiner takes the byes still to come; the rest catch up in one round', async () => {
   const c = await competition('league', ['o', 'a', 'b'], { allowLateEntry: true, matchdayDays: 2 })
   await startCompetition(c.slug, c.organiser)
-  const lastRound = Math.max(...(await c.rows()).map((m) => m.round))
+  const scheduled = Math.max(...(await c.rows()).map((m) => m.round))
+  const byesBefore = (await c.rows()).filter((m) => m.byeUserId).length
   const [x, y] = ['x', 'y'].map((n) => `${c.ids[0].slice(0, -1)}${n}`)
   made.push(x, y)
   await db.insert(user).values([x, y].map((id) => ({ id, name: id, email: `${id}@test.local` })))
   await linkChess([x, y])
-  await joinCompetition(x, { code: c.row.inviteCode })
-  await joinCompetition(y, { code: c.row.inviteCode })
 
-  const late = (await c.rows()).filter((m) => m.late)
-  assert.equal(late.length, 3 + 4, 'x meets 3, y meets 4 (x too)')
-  assert.deepEqual([...new Set(late.map((m) => m.round))], [lastRound + 1])
+  // every pair of players has exactly one game, and nobody plays twice in a scheduled round
+  const checkFixtures = async (players: string[]) => {
+    const rows = await c.rows()
+    const games = rows.filter((m) => m.homeUserId && m.awayUserId)
+    for (const [i, p] of players.entries()) {
+      for (const q of players.slice(i + 1)) {
+        const between = games.filter((m) => [m.homeUserId, m.awayUserId].sort().join() === [p, q].sort().join())
+        assert.equal(between.length, 1, `${p} and ${q} meet once`)
+      }
+    }
+    // the catch-up round is one open window for everything that didn't fit
+    for (const round of new Set(games.filter((m) => !m.late).map((m) => m.round))) {
+      const seen = games.filter((m) => m.round === round && !m.late).flatMap((m) => [m.homeUserId, m.awayUserId])
+      assert.equal(new Set(seen).size, seen.length, `nobody plays twice in round ${round}`)
+    }
+    return rows
+  }
+
+  await joinCompetition(x, { code: c.row.inviteCode })
+  let rows = await checkFixtures([...c.ids, x])
+  const xInScheduled = rows.filter((m) => m.round <= scheduled && (m.homeUserId === x || m.awayUserId === x))
+  assert.ok(xInScheduled.length >= 2, 'x took the byes of the rounds still to come')
+  assert.ok(rows.filter((m) => m.byeUserId).length <= byesBefore - 2, 'those byes became games')
+
+  await joinCompetition(y, { code: c.row.inviteCode })
+  rows = await checkFixtures([...c.ids, x, y])
+  const late = rows.filter((m) => m.late)
+  assert.ok(late.length > 0, 'what fits nowhere catches up')
+  assert.deepEqual([...new Set(late.map((m) => m.round))], [scheduled + 1], 'one catch-up round')
   assert.equal(new Set(late.map((m) => m.dueAt.getTime())).size, 1, 'one deadline')
 
-  const dropped = late.find((m) => m.homeUserId === y && m.awayUserId === x)
-  assert.ok(dropped)
+  // the recheck refills a game that went missing
+  const [dropped] = late
   await db.delete(matches).where(eq(matches.id, dropped.id))
   assert.ok((await reconcileAllFixtures()) >= 1)
-  const back = (await c.rows()).find((m) => m.homeUserId === y && m.awayUserId === x)
-  assert.equal(back?.round, lastRound + 1)
+  await checkFixtures([...c.ids, x, y])
   assert.equal(await reconcileAllFixtures(), 0, 'nothing left to add')
 })
 

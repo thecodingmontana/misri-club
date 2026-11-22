@@ -108,3 +108,96 @@ export function lateRoundWindow({
     dueAt: new Date(Math.max(lastDueAt?.getTime() ?? 0, soonest)),
   }
 }
+
+/** A scheduled league round as the planner sees it. */
+export interface PlannedRound {
+  round: number
+  opensAt: Date
+  dueAt: Date
+  /** bye rows in this round: who sits out, and the row to turn into a game */
+  byes: Array<{ matchId: string; userId: string }>
+  /** players who already have a game in this round */
+  busy: Set<string>
+}
+
+export interface LatePlan {
+  /** bye rows that become a real game (the joiner takes the empty seat) */
+  fromByes: Array<{ matchId: string; fixture: MissingFixture }>
+  /** extra games inside a scheduled round, with that round's window */
+  inRounds: Array<{
+    round: number
+    opensAt: Date
+    dueAt: Date
+    fixture: MissingFixture
+  }>
+  /** what fits nowhere: the shared catch-up round */
+  catchUp: Array<MissingFixture>
+}
+
+/**
+ * Where a late joiner's games go, as a fresh draw would put them: first into
+ * the byes of rounds still to come (the joiner plays whoever sat out), then
+ * into any remaining round where both players are free, and only the rest
+ * into a catch-up round. Nobody plays twice in one round. A round counts as
+ * remaining while half a matchday of it (and at least a day) is left.
+ */
+export function placeLateGames({
+  missing,
+  rounds,
+  now,
+  matchdayDays,
+}: {
+  missing: Array<MissingFixture>
+  rounds: Array<PlannedRound>
+  now: Date
+  matchdayDays: number
+}): LatePlan {
+  const plan: LatePlan = { fromByes: [], inRounds: [], catchUp: [] }
+  // enough time left to play: half a matchday, and never under a day
+  const enough = Math.max(DAY, (matchdayDays * DAY) / 2)
+  const open = rounds
+    .filter((r) => r.dueAt.getTime() - now.getTime() >= enough)
+    .sort((a, b) => a.round - b.round)
+  // nobody plays twice in one round: track who is busy where
+  const busy = new Map(open.map((r) => [r.round, new Set(r.busy)]))
+  const usedByes = new Set<string>()
+  const left = [...missing]
+
+  for (const r of open) {
+    for (const bye of r.byes) {
+      const roundBusy = busy.get(r.round) as Set<string>
+      const at = left.findIndex(
+        (f) =>
+          (f.homeId === bye.userId || f.awayId === bye.userId) &&
+          !roundBusy.has(f.homeId === bye.userId ? f.awayId : f.homeId),
+      )
+      if (at === -1 || usedByes.has(bye.matchId)) continue
+      const [fixture] = left.splice(at, 1)
+      usedByes.add(bye.matchId)
+      plan.fromByes.push({ matchId: bye.matchId, fixture })
+      roundBusy.add(fixture.homeId)
+      roundBusy.add(fixture.awayId)
+    }
+  }
+
+  // then any round where both players are free (two late joiners, say)
+  for (const r of open) {
+    const roundBusy = busy.get(r.round) as Set<string>
+    const at = left.findIndex(
+      (f) => !roundBusy.has(f.homeId) && !roundBusy.has(f.awayId),
+    )
+    if (at === -1) continue
+    const [fixture] = left.splice(at, 1)
+    plan.inRounds.push({
+      round: r.round,
+      opensAt: r.opensAt,
+      dueAt: r.dueAt,
+      fixture,
+    })
+    roundBusy.add(fixture.homeId)
+    roundBusy.add(fixture.awayId)
+  }
+
+  plan.catchUp = left
+  return plan
+}
