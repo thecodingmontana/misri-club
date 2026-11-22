@@ -38,6 +38,15 @@ pages. It uses the session cookie and refuses cross-site requests; GraphiQL
 opens at `/api/graphql` in development. Other apps get a typed client with
 `hc<AppType>(origin)` from `hono/client`.
 
+That API is moving out into **`apps/api`**, its own Vercel project
+(`misri-api`): Hono with GraphQL Yoga at `/graphql`, plus `GET /health`. It
+shares the schema and client through **`packages/db`** (`@misri/db`), and
+callers sign in with `Authorization: Bearer <session token>`, a Better Auth
+session from the web app. It needs only `DATABASE_URL`. So far it serves `me`,
+`myCompetitions` and `openCompetitions`; the rest follow one at a time, and the
+web app's `/api/graphql` goes once they've all moved. Run it locally with
+`pnpm --filter @misri/api dev` (port 8787).
+
 ## Environment
 
 | Variable | Purpose |
