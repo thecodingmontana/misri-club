@@ -777,6 +777,18 @@ function Fixtures({ data }: { data: Data }) {
                   twoLegs={data.competition.legs === 2}
                 />
               )}
+              {match.status === 'played' &&
+                match.gameUrl &&
+                (match.home?.id === viewerId ||
+                  match.away?.id === viewerId) && (
+                  <Link
+                    to="/analysis/game"
+                    search={{ game: match.gameUrl }}
+                    className="mt-1.5 block text-center text-xs font-semibold text-primary hover:underline"
+                  >
+                    Review your game with Stockfish
+                  </Link>
+                )}
               {concedable(data, match, viewerId) && (
                 <ConcedeButton
                   slug={data.competition.slug}
