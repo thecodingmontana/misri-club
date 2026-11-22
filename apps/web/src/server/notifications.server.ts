@@ -284,6 +284,35 @@ export async function notifyScheduledStart(
   ])
 }
 
+/** Catch-up games moved into the league's rounds: both players hear where and when. */
+export async function notifyGamesMoved(
+  competitionId: string,
+  moves: Array<{ homeId: string; awayId: string; round: number; dueAt: Date }>,
+) {
+  const competition = await competitionPush(competitionId)
+  if (!competition) return
+  const messages = []
+  for (const move of moves) {
+    const due = move.dueAt.toLocaleDateString('en', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'Africa/Nairobi',
+    })
+    for (const [me, them] of [
+      [move.homeId, move.awayId],
+      [move.awayId, move.homeId],
+    ]) {
+      messages.push({
+        userId: me,
+        title: `Your game vs ${await playerName(them)} moved to round ${move.round}`,
+        body: `In ${competition.name}. It's now part of round ${move.round}, due ${due}.`,
+        url: `/c/${competition.slug}`,
+      })
+    }
+  }
+  await bestEffort(messages)
+}
+
 /** A rematch was asked for: the opponent gets the invite. */
 export async function notifyRematch(
   competitionId: string,

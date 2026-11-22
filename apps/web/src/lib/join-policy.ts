@@ -120,18 +120,18 @@ export interface PlannedRound {
   busy: Set<string>
 }
 
-export interface LatePlan {
+export interface LatePlan<F extends MissingFixture = MissingFixture> {
   /** bye rows that become a real game (the joiner takes the empty seat) */
-  fromByes: Array<{ matchId: string; fixture: MissingFixture }>
+  fromByes: Array<{ matchId: string; fixture: F }>
   /** extra games inside a scheduled round, with that round's window */
   inRounds: Array<{
     round: number
     opensAt: Date
     dueAt: Date
-    fixture: MissingFixture
+    fixture: F
   }>
   /** what fits nowhere: the shared catch-up round */
-  catchUp: Array<MissingFixture>
+  catchUp: Array<F>
 }
 
 /**
@@ -141,18 +141,18 @@ export interface LatePlan {
  * into a catch-up round. Nobody plays twice in one round. A round counts as
  * remaining while half a matchday of it (and at least a day) is left.
  */
-export function placeLateGames({
+export function placeLateGames<F extends MissingFixture>({
   missing,
   rounds,
   now,
   matchdayDays,
 }: {
-  missing: Array<MissingFixture>
+  missing: Array<F>
   rounds: Array<PlannedRound>
   now: Date
   matchdayDays: number
-}): LatePlan {
-  const plan: LatePlan = { fromByes: [], inRounds: [], catchUp: [] }
+}): LatePlan<F> {
+  const plan: LatePlan<F> = { fromByes: [], inRounds: [], catchUp: [] }
   // enough time left to play: half a matchday, and never under a day
   const enough = Math.max(DAY, (matchdayDays * DAY) / 2)
   const open = rounds
