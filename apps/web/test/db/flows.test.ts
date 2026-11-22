@@ -23,6 +23,7 @@ import {
   joinCompetition,
   reconcileAllFixtures,
   rematch,
+  tidyLateGames,
   seedCompetition,
   startCompetition,
   startScheduled,
@@ -790,4 +791,52 @@ test('tracked here: no chess.com needed, no chess.com calls, players report and 
   // but a chess.com competition still needs a linked account
   const c = await competition('league', ['x', 'y'])
   await assert.rejects(joinCompetition(a, { code: c.row.inviteCode }), /Link your chess.com account/)
+})
+
+test('tidy-up: catch-up games from before the redraw move into the byes, automatically', async () => {
+  const c = await competition('league', ['o', 'a', 'b'], { allowLateEntry: true, matchdayDays: 3, legs: 1 })
+  const [o, a, b] = c.ids
+  await startCompetition(c.slug, c.organiser)
+  const scheduled = Math.max(...(await c.rows()).map((m) => m.round))
+  const lastDue = new Date(Math.max(...(await c.rows()).map((m) => m.dueAt.getTime())))
+
+  // x joined the old way: all three games in one catch-up round
+  const x = `${o.slice(0, -1)}x`
+  made.push(x)
+  await db.insert(user).values({ id: x, name: x, email: `${x}@test.local` })
+  await linkChess([x])
+  await db.insert(competitionMembers).values({ competitionId: c.row.id, userId: x })
+  const startedAt = new Date(Date.now() - 3_600_000)
+  await db.insert(matches).values(
+    [o, a, b].map((opponent) => ({
+      competitionId: c.row.id,
+      round: scheduled + 1,
+      homeUserId: x,
+      awayUserId: opponent,
+      opensAt: startedAt,
+      dueAt: lastDue,
+      late: true,
+    })),
+  )
+  // one of them already has a result waiting to be confirmed: it stays put
+  const xo = (await c.rows()).find((m) => m.late && m.awayUserId === o)
+  assert.ok(xo)
+  await db.update(matches).set({ report: { byUserId: x, result: 'white', homeWhite: true } }).where(eq(matches.id, xo.id))
+
+  assert.equal(await tidyLateGames(c.row.id), 2)
+  const rows = await c.rows()
+  const stillLate = rows.filter((m) => m.late)
+  assert.deepEqual(stillLate.map((m) => m.id), [xo.id], 'only the reported game is left to catch up')
+  const moved = rows.filter((m) => !m.late && (m.homeUserId === x || m.awayUserId === x))
+  assert.equal(moved.length, 2)
+  for (const m of moved) {
+    assert.ok(m.round <= scheduled, 'into a scheduled round')
+    assert.ok(m.opensAt <= startedAt, 'keeps its earlier start, so a game already played still counts')
+    const sameRound = rows.filter((r) => r.round === m.round && r.homeUserId && r.awayUserId)
+    const players = sameRound.flatMap((r) => [r.homeUserId, r.awayUserId])
+    assert.equal(new Set(players).size, players.length, 'nobody plays twice in that round')
+  }
+  const told = await db.select().from(notifications).where(eq(notifications.userId, x))
+  assert.equal(told.filter((n) => n.title.includes('moved to round')).length, 2)
+  assert.equal(await tidyLateGames(c.row.id), 0, 'nothing more to move')
 })

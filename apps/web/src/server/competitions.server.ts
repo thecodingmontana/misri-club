@@ -1,7 +1,7 @@
 // English only: the root import ships every locale in the server bundle
 import { faker } from '@faker-js/faker/locale/en'
 import { getRequestHeaders } from '@tanstack/react-start/server'
-import { and, asc, eq, inArray, lte, or, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import {
   type Competition,
@@ -34,6 +34,7 @@ import { generateDoubleRoundRobin } from '#/lib/round-robin'
 import { auth, isAdminEmail } from './auth.server'
 import { fetchPlayerRating } from './chesscom.server'
 import {
+  notifyGamesMoved,
   notifyJoined,
   notifyRematch,
   notifyRequested,
@@ -71,6 +72,14 @@ export function authorizeManage(
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/** A catch-up game moved into a scheduled round, for telling its players. */
+export type GameMove = {
+  homeId: string
+  awayId: string
+  round: number
+  dueAt: Date
+}
 
 export interface CompetitionSettings {
   name: string
@@ -524,6 +533,130 @@ function scheduledRounds(
   return [...rounds.values()]
 }
 
+/**
+ * Moves a league's unplayed catch-up games into the rounds still to come,
+ * the way a late joiner's games are placed today (byes first, then rounds
+ * where both players are free). For players who joined before that, and for
+ * any seat that opens later. A moved game keeps its earlier start, so a game
+ * already played but not yet read still counts; it takes the round's
+ * deadline. Both players are told. Returns how many games moved.
+ */
+export async function tidyLateGames(competitionId: string) {
+  const unplayedLate = and(
+    eq(matches.competitionId, competitionId),
+    eq(matches.late, true),
+    isNull(matches.result),
+    isNull(matches.winnerUserId),
+    eq(matches.voided, false),
+    isNull(matches.report),
+    isNull(matches.gameUrl),
+  )
+  // cheap check without the lock: most leagues have nothing to move
+  const [any] = await db
+    .select({ id: matches.id })
+    .from(matches)
+    .where(unplayedLate)
+    .limit(1)
+  if (!any) return 0
+
+  const moves = await db.transaction(async (tx) => {
+    const competition = await lockCompetition(
+      tx,
+      eq(competitions.id, competitionId),
+    )
+    if (competition?.format !== 'league' || competition.status !== 'running') {
+      return []
+    }
+    const members = new Set(
+      (
+        await tx
+          .select({ userId: competitionMembers.userId })
+          .from(competitionMembers)
+          .where(eq(competitionMembers.competitionId, competitionId))
+      ).map((m) => m.userId),
+    )
+    const rows = await tx
+      .select({
+        id: matches.id,
+        round: matches.round,
+        leg: matches.leg,
+        homeUserId: matches.homeUserId,
+        awayUserId: matches.awayUserId,
+        byeUserId: matches.byeUserId,
+        opensAt: matches.opensAt,
+        dueAt: matches.dueAt,
+        late: matches.late,
+      })
+      .from(matches)
+      .where(eq(matches.competitionId, competitionId))
+    const movable = new Set(
+      (
+        await tx.select({ id: matches.id }).from(matches).where(unplayedLate)
+      ).map((m) => m.id),
+    )
+    const candidates = rows.flatMap((row) =>
+      movable.has(row.id) &&
+      row.homeUserId &&
+      row.awayUserId &&
+      members.has(row.homeUserId) &&
+      members.has(row.awayUserId)
+        ? [
+            {
+              matchId: row.id,
+              startedAt: row.opensAt,
+              leg: (row.leg === 2 ? 2 : 1) as 1 | 2,
+              homeId: row.homeUserId,
+              awayId: row.awayUserId,
+            },
+          ]
+        : [],
+    )
+    if (candidates.length === 0) return []
+    const plan = placeLateGames({
+      missing: candidates,
+      rounds: scheduledRounds(rows, members),
+      now: new Date(),
+      matchdayDays: competition.matchdayDays,
+    })
+    const earlier = (a: Date, b: Date) => (a < b ? a : b)
+    const moved: GameMove[] = []
+    for (const { matchId, fixture } of plan.fromByes) {
+      const bye = rows.find((r) => r.id === matchId)
+      if (!bye) continue
+      await tx
+        .update(matches)
+        .set({
+          homeUserId: fixture.homeId,
+          awayUserId: fixture.awayId,
+          byeUserId: null,
+          leg: fixture.leg,
+          opensAt: earlier(bye.opensAt, fixture.startedAt),
+          remindedAt: null,
+        })
+        .where(eq(matches.id, matchId))
+      await tx.delete(matches).where(eq(matches.id, fixture.matchId))
+      moved.push({ ...fixture, round: bye.round, dueAt: bye.dueAt })
+    }
+    for (const placed of plan.inRounds) {
+      const { fixture } = placed
+      await tx
+        .update(matches)
+        .set({
+          round: placed.round,
+          late: false,
+          opensAt: earlier(placed.opensAt, fixture.startedAt),
+          dueAt: placed.dueAt,
+          remindedAt: null,
+        })
+        .where(eq(matches.id, fixture.matchId))
+      moved.push({ ...fixture, round: placed.round, dueAt: placed.dueAt })
+    }
+    return moved
+  })
+  if (moves.length > 0) await notifyGamesMoved(competitionId, moves)
+  return moves.length
+}
+
 /** The fixture recheck for every running league, each under its own lock. */
 export async function reconcileAllFixtures() {
   const running = await db
@@ -542,6 +675,7 @@ export async function reconcileAllFixtures() {
         const competition = await lockCompetition(tx, eq(competitions.id, id))
         return competition ? reconcileFixtures(tx, competition) : 0
       })
+      added += await tidyLateGames(id)
     } catch (error) {
       console.error('[fixtures] recheck failed', id, (error as Error).message)
     }

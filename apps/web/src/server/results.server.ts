@@ -35,6 +35,7 @@ import { earlyRound } from '#/lib/early-rounds'
 import { archiveMonths, findMatchResult } from '#/lib/game-result'
 import { qualifierSeeds } from '#/lib/groups'
 import { fetchMonthGames } from './chesscom.server'
+import { tidyLateGames } from './competitions.server'
 import {
   notifyConceded,
   notifyFinished,
@@ -638,6 +639,11 @@ export async function syncForPlayer(userId: string) {
     changed += await syncResults(id).catch((error) => {
       console.error('[results] sync failed', id, (error as Error).message)
       return 0
+    })
+    // after the results, so a game just read stays where it was played; not
+    // counted as a result: its players get their own "moved" notification
+    await tidyLateGames(id).catch((error) => {
+      console.error('[fixtures] tidy failed', id, (error as Error).message)
     })
   }
   return changed
