@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { eq, inArray } from 'drizzle-orm'
+import { graphql } from 'graphql'
 import { db } from '#/db/client.server'
 import {
   chessAccounts,
@@ -16,6 +17,7 @@ import {
   userOfToken,
 } from '#/server/calendar.server'
 import { getCompetition } from '#/server/competition-view.server'
+import { schema } from '#/server/graphql.server'
 import {
   createCompetition,
   joinCompetition,
@@ -675,4 +677,32 @@ test('reported results: the opponent confirms (it counts) or disputes (the organ
   assert.equal(row.result, 'white')
   assert.equal(row.whiteUserId, a)
   await assert.rejects(reportResult(c.slug, v(b), ab.id, 'win', true), /already decided/)
+})
+
+test('graphql: the same reads and the same access rules as the app', async () => {
+  const c = await competition('league', ['o', 'a'])
+  const [o, a] = c.ids
+  await db.insert(chessAccounts).values(c.ids.map((userId) => ({ userId, username: userId.toLowerCase(), verifiedAt: new Date() })))
+  const ask = (source: string, viewer: { id: string; isAdmin: boolean } | null) =>
+    graphql({ schema, source, contextValue: { viewer } })
+
+  const mine = await ask('{ me { id chessUsername } myCompetitions { slug members format } }', v(a))
+  assert.equal(mine.errors, undefined)
+  const data = mine.data as { me: { id: string; chessUsername: string }; myCompetitions: Array<{ slug: string; members: number }> }
+  assert.equal(data.me.id, a)
+  assert.equal(data.me.chessUsername, a.toLowerCase())
+  assert.ok(data.myCompetitions.some((m) => m.slug === c.slug && m.members === 2))
+
+  // signed out: no "me", no private lists, and a private competition shows no players
+  const out = await ask(`{ me { id } competition(slug: "${c.slug}") }`, null)
+  assert.equal((out.data as { me: null }).me, null)
+  const page = (out.data as { competition: { members: unknown[] } }).competition
+  assert.equal(page.members.length, 0, 'invite-only details stay hidden')
+  const refused = await ask('{ myCompetitions { slug } }', null)
+  assert.match(String(refused.errors?.[0]?.message), /Sign in first/)
+
+  const player = await ask(`{ player(username: "${o.toLowerCase()}") }`, v(a))
+  assert.equal((player.data as { player: { player: { name: string } } }).player.player.name, o.toLowerCase())
+  // read-only: there is no mutation type at all
+  assert.ok((await ask('mutation { x }', v(a))).errors)
 })

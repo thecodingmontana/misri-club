@@ -24,6 +24,18 @@ pnpm dev              # http://localhost:3005
 Put local settings in `apps/web/.env.local`. Without `RESEND_API_KEY`, sign-in
 links are printed in the terminal instead of emailed.
 
+## API
+
+`apps/web` hosts the API other apps use: a Hono app
+(`src/server/api.server.ts`) mounted at `/api/*` by one catch-all route, with
+GraphQL Yoga at `/api/graphql` (`src/server/graphql.server.ts`). Auth, cron,
+version and calendar keep their own routes. Features move into the API one at
+a time; today it reads `me`, `myCompetitions`, `openCompetitions`,
+`competition(slug)` and `player(username)` with the same access rules as the
+pages. It uses the session cookie and refuses cross-site requests; GraphiQL
+opens at `/api/graphql` in development. Other apps get a typed client with
+`hc<AppType>(origin)` from `hono/client`.
+
 ## Environment
 
 | Variable | Purpose |
