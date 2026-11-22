@@ -9,7 +9,7 @@ if (production && !process.env.DIRECT_DATABASE_URL) {
 
 export default defineConfig({
   dialect: 'postgresql',
-  schema: './src/db/schema.ts',
+  schema: '../../packages/db/src/schema.ts',
   out: './src/db/migrations',
   dbCredentials: {
     // Migrations go through the session-mode pooler (port 5432), not the

@@ -1,4 +1,4 @@
-import type { matches } from '#/db/schema'
+import type { MatchReport, matches } from '#/db/schema'
 
 // How a result or an organiser's decision turns into a match row. Pure, so
 // the rules are tested without a database.
@@ -107,12 +107,7 @@ export function concedeTo(
 /** The note a player's own walkover leaves on the match (not the organiser's word). */
 export const CONCEDED = 'Conceded by the player'
 
-/** A player's word on a result, waiting for their opponent to confirm it. */
-export type MatchReport = {
-  byUserId: string
-  result: 'white' | 'black' | 'draw'
-  homeWhite: boolean
-}
+export type { MatchReport }
 
 /**
  * "I won / drew / lost, with white / black" from one of the two players, as
