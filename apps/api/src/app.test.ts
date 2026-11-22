@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import app from './index.ts'
+import app from './app.ts'
 
 const gql = (query: string, headers: Record<string, string> = {}) =>
   app.request('/graphql', {

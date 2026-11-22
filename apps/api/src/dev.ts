@@ -1,5 +1,5 @@
 import { createServer } from 'node:http'
-import app from './index.ts'
+import app from './app.ts'
 
 // Local only: Node's http server in front of the Hono app (Vercel runs it itself).
 const port = Number(process.env.PORT ?? 8787)

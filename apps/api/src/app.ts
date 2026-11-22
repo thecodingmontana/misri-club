@@ -3,7 +3,7 @@ import { cors } from 'hono/cors'
 import { yoga } from './graphql.ts'
 
 /**
- * The Misri API (Vercel's Hono preset picks up this default export).
+ * The Misri API (bundled to index.js for Vercel's Hono preset).
  * `GET /health`, and GraphQL at `/graphql`; sign in with a Bearer token.
  */
 const app = new Hono()
