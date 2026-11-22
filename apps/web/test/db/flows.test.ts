@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 import { eq, inArray } from 'drizzle-orm'
+import { graphql } from 'graphql'
 import { db } from '#/db/client.server'
 import {
   chessAccounts,
@@ -10,16 +11,24 @@ import {
   notifications,
   user,
 } from '#/db/schema'
+import {
+  calendarFeed,
+  calendarToken,
+  userOfToken,
+} from '#/server/calendar.server'
 import { getCompetition } from '#/server/competition-view.server'
+import { schema } from '#/server/graphql.server'
 import {
   createCompetition,
   joinCompetition,
   reconcileAllFixtures,
+  rematch,
   seedCompetition,
   startCompetition,
   startScheduled,
   updateCompetitionSettings,
 } from '#/server/competitions.server'
+import { getPlayer, recordOf } from '#/server/player.server'
 import {
   leaveCompetition,
   refuseIfOwner,
@@ -29,7 +38,9 @@ import { remindDeadlines } from '#/server/notifications.server'
 import {
   concedeMatch,
   decideMatch,
+  answerReport,
   openEarlyRound,
+  reportResult,
   syncResults,
 } from '#/server/results.server'
 
@@ -49,6 +60,14 @@ after(async () => {
   process.exit(0)
 })
 
+/** Test players play on chess.com, like real players of a chess.com competition. */
+async function linkChess(ids: string[]) {
+  await db
+    .insert(chessAccounts)
+    .values(ids.map((userId) => ({ userId, username: userId.toLowerCase(), verifiedAt: new Date() })))
+    .onConflictDoNothing()
+}
+
 /** Players named by letter; the organiser is `owner` (default the first). */
 async function competition(
   format: 'league' | 'knockout',
@@ -62,6 +81,7 @@ async function competition(
   await db
     .insert(user)
     .values(ids.map((id) => ({ id, name: id, email: `${id}@test.local` })))
+  await linkChess(ids)
   const slug = `t-${tag}`
   const [row] = await db
     .insert(competitions)
@@ -264,6 +284,7 @@ async function challenge(bestOf: number) {
   const [me, them] = [`t${tag}m`, `t${tag}t`]
   made.push(me, them)
   await db.insert(user).values([me, them].map((id) => ({ id, name: id, email: `${id}@test.local` })))
+  await linkChess([me, them])
   const slug = await createCompetition(me, {
     name: `Duel ${tag}`,
     format: 'challenge',
@@ -408,6 +429,7 @@ test('league: late joiners share one round; the recheck refills a missing game',
   const [x, y] = ['x', 'y'].map((n) => `${c.ids[0].slice(0, -1)}${n}`)
   made.push(x, y)
   await db.insert(user).values([x, y].map((id) => ({ id, name: id, email: `${id}@test.local` })))
+  await linkChess([x, y])
   await joinCompetition(x, { code: c.row.inviteCode })
   await joinCompetition(y, { code: c.row.inviteCode })
 
@@ -429,7 +451,7 @@ test('sync: chess.com failing never finishes a league; the late result then coun
   const c = await competition('league', ['o', 'a'], { legs: 1, unplayedRule: 'both_forfeit' })
   await startCompetition(c.slug, c.organiser)
   const names = c.ids.map((id) => id.toLowerCase())
-  await db.insert(chessAccounts).values(c.ids.map((userId, i) => ({ userId, username: names[i], verifiedAt: new Date() })))
+  await db.insert(chessAccounts).values(c.ids.map((userId, i) => ({ userId, username: names[i], verifiedAt: new Date() }))).onConflictDoNothing()
   const now = Date.now()
   // the only game: due an hour ago, played just before the deadline
   await db.update(matches).set({ opensAt: new Date(now - 3 * 86_400_000), dueAt: new Date(now - 3_600_000) }).where(eq(matches.competitionId, c.row.id))
@@ -488,7 +510,7 @@ test('knockout: the next round opens when the last game ended, not at the sync',
   await startCompetition(c.slug, c.organiser)
   const names = c.ids.map((id) => id.toLowerCase())
   const nameOf = new Map(c.ids.map((id, i) => [id, names[i]]))
-  await db.insert(chessAccounts).values(c.ids.map((userId, i) => ({ userId, username: names[i], verifiedAt: new Date() })))
+  await db.insert(chessAccounts).values(c.ids.map((userId, i) => ({ userId, username: names[i], verifiedAt: new Date() }))).onConflictDoNothing()
   const now = Date.now()
   await db.update(matches).set({ opensAt: new Date(now - 86_400_000) }).where(eq(matches.competitionId, c.row.id))
   const ties = await c.rows()
@@ -522,7 +544,7 @@ test('challenge: a game the organiser already recorded never counts again', asyn
   await db.insert(chessAccounts).values([
     { userId: c.me, username: me, verifiedAt: new Date() },
     { userId: c.them, username: them, verifiedAt: new Date() },
-  ])
+  ]).onConflictDoNothing()
   const now = Date.now()
   await db.update(matches).set({ opensAt: new Date(now - 86_400_000) }).where(eq(matches.competitionId, c.row.id))
   const games = (await db.select().from(matches).where(eq(matches.competitionId, c.row.id))).sort((x, y) => x.round - y.round)
@@ -557,4 +579,191 @@ test('removal before the start: the player can’t walk back in with the link', 
   // leaving on your own before the start stays reversible
   await leaveCompetition(c.slug, v(c.ids[2]))
   await joinCompetition(c.ids[2], { slug: c.slug })
+})
+
+test('rematch: a finished challenge, again, with the opponent invited', async () => {
+  const c = await challenge(1)
+  await assert.rejects(rematch(c.slug, c.me), /Finish this one first/)
+  await joinCompetition(c.them, { code: c.row.inviteCode })
+  const [game] = await db.select().from(matches).where(eq(matches.competitionId, c.row.id))
+  await decideMatch(c.slug, v(c.me), game.id, { kind: 'result', result: 'draw', homeWhite: true }, null)
+  await assert.rejects(rematch(c.slug, 'nobody'), /two players/)
+
+  const again = await rematch(c.slug, c.them)
+  const [row] = await db.select().from(competitions).where(eq(competitions.slug, again))
+  assert.equal(row.format, 'challenge')
+  assert.equal(row.ownerId, c.them)
+  assert.equal(row.status, 'open')
+  assert.equal(row.name, `${c.row.name} rematch`)
+  const told = await db.select().from(notifications).where(eq(notifications.userId, c.me))
+  assert.ok(told.some((n) => n.title.includes('wants a rematch') && n.url === `/join/${row.inviteCode}`))
+
+  // they join from the invite and it starts, as any challenge does
+  await joinCompetition(c.me, { code: row.inviteCode })
+  const [started] = await db.select().from(competitions).where(eq(competitions.id, row.id))
+  assert.equal(started.status, 'running')
+  // a second rematch of the first gets the next free name
+  const third = await rematch(c.slug, c.me)
+  const [named] = await db.select().from(competitions).where(eq(competitions.slug, third))
+  assert.equal(named.name, `${c.row.name} rematch 2`)
+})
+
+test('calendar: a signed link opens your open match deadlines, nobody else\'s', async () => {
+  process.env.BETTER_AUTH_SECRET ??= 'test-secret'
+  const c = await competition('league', ['o', 'a', 'b'], { legs: 1 })
+  await startCompetition(c.slug, c.organiser)
+  const token = calendarToken(c.ids[0])
+  assert.equal(userOfToken(token), c.ids[0])
+  assert.equal(userOfToken(`${token}.ics`), c.ids[0])
+  assert.equal(userOfToken(`${c.ids[1]}.${token.split('.')[1]}`), null, 'a signature only fits its user')
+  assert.equal(userOfToken('junk'), null)
+
+  const feed = await calendarFeed(c.ids[0], 'https://misri.test')
+  assert.ok(feed)
+  const theirs = (await c.rows()).filter(
+    (m) => m.homeUserId === c.ids[0] || m.awayUserId === c.ids[0],
+  )
+  assert.equal(feed.match(/BEGIN:VEVENT/g)?.length, theirs.length)
+  assert.ok(feed.includes(`URL:https://misri.test/c/${c.slug}`))
+  assert.equal(await calendarFeed('nobody', 'https://misri.test'), null)
+})
+
+test('player page: record, head-to-head, and private competitions stay private', async () => {
+  assert.deepEqual(recordOf(['win', 'draw', 'loss', 'forfeit']), { wins: 1, draws: 1, losses: 2 })
+  const c = await competition('league', ['o', 'a'], { legs: 1 })
+  const [o, a] = c.ids
+  await db.insert(chessAccounts).values(c.ids.map((userId) => ({ userId, username: userId.toLowerCase(), verifiedAt: new Date() }))).onConflictDoNothing()
+  await startCompetition(c.slug, c.organiser)
+  const [m] = await c.rows()
+  // o wins with white
+  await decideMatch(c.slug, c.organiser, m.id, { kind: 'result', result: 'white', homeWhite: m.homeUserId === o }, null)
+
+  const seenByA = await getPlayer(o, v(a))
+  assert.ok(seenByA)
+  assert.deepEqual(seenByA.record, { wins: 1, draws: 0, losses: 0 })
+  assert.deepEqual(seenByA.headToHead, { wins: 1, draws: 0, losses: 0 }, 'o beat a')
+  assert.equal(seenByA.titles, 1, 'o won the two-player league')
+  assert.equal(seenByA.recent[0].opponentId, a)
+
+  const outsider = `${o.slice(0, -1)}z`
+  made.push(outsider)
+  await db.insert(user).values({ id: outsider, name: outsider, email: `${outsider}@test.local` })
+  const seenByOutsider = await getPlayer(o, v(outsider))
+  assert.equal(seenByOutsider?.competitions.length, 0, 'a private league is hidden')
+  assert.equal(seenByOutsider?.recent.length, 0)
+  await db.update(competitions).set({ visibility: 'public' }).where(eq(competitions.id, c.row.id))
+  assert.equal((await getPlayer(o, v(outsider)))?.competitions.length, 1, 'a public one shows')
+  assert.equal(await getPlayer('no-such-player', v(a)), null)
+})
+
+test('reported results: the opponent confirms (it counts) or disputes (the organiser hears)', async () => {
+  const c = await competition('league', ['o', 'a', 'b'], { legs: 1 }, 0)
+  const [o, a, b] = c.ids
+  await startCompetition(c.slug, c.organiser)
+  const rows = await c.rows()
+  const ab = rows.find((m) => [m.homeUserId, m.awayUserId].sort().join() === [a, b].sort().join())
+  assert.ok(ab)
+  await db.update(matches).set({ opensAt: new Date(Date.now() - 60_000) }).where(eq(matches.id, ab.id))
+
+  await assert.rejects(reportResult(c.slug, v(o), ab.id, 'win', true), /two players/)
+  // a says they beat b with white
+  await reportResult(c.slug, v(a), ab.id, 'win', true)
+  await assert.rejects(answerReport(c.slug, v(a), ab.id, true), /Only the opponent/)
+  const toldB = await db.select().from(notifications).where(eq(notifications.userId, b))
+  assert.ok(toldB.some((n) => n.title.includes('reported your result')))
+
+  // b disputes: report cleared, the organiser (not in this match) hears
+  await answerReport(c.slug, v(b), ab.id, false)
+  let [row] = await db.select().from(matches).where(eq(matches.id, ab.id))
+  assert.equal(row.report, null)
+  assert.equal(row.result, null)
+  const toldO = await db.select().from(notifications).where(eq(notifications.userId, o))
+  assert.ok(toldO.some((n) => n.title.includes('disagree')))
+
+  // reported again, and this time confirmed: a won with white
+  await reportResult(c.slug, v(a), ab.id, 'win', true)
+  await answerReport(c.slug, v(b), ab.id, true)
+  ;[row] = await db.select().from(matches).where(eq(matches.id, ab.id))
+  assert.equal(row.report, null)
+  assert.equal(row.result, 'white')
+  assert.equal(row.whiteUserId, a)
+  await assert.rejects(reportResult(c.slug, v(b), ab.id, 'win', true), /already decided/)
+})
+
+test('graphql: the same reads and the same access rules as the app', async () => {
+  const c = await competition('league', ['o', 'a'])
+  const [o, a] = c.ids
+  await db.insert(chessAccounts).values(c.ids.map((userId) => ({ userId, username: userId.toLowerCase(), verifiedAt: new Date() }))).onConflictDoNothing()
+  const ask = (source: string, viewer: { id: string; isAdmin: boolean } | null) =>
+    graphql({ schema, source, contextValue: { viewer } })
+
+  const mine = await ask('{ me { id chessUsername } myCompetitions { slug members format } }', v(a))
+  assert.equal(mine.errors, undefined)
+  const data = mine.data as { me: { id: string; chessUsername: string }; myCompetitions: Array<{ slug: string; members: number }> }
+  assert.equal(data.me.id, a)
+  assert.equal(data.me.chessUsername, a.toLowerCase())
+  assert.ok(data.myCompetitions.some((m) => m.slug === c.slug && m.members === 2))
+
+  // signed out: no "me", no private lists, and a private competition shows no players
+  const out = await ask(`{ me { id } competition(slug: "${c.slug}") }`, null)
+  assert.equal((out.data as { me: null }).me, null)
+  const page = (out.data as { competition: { members: unknown[] } }).competition
+  assert.equal(page.members.length, 0, 'invite-only details stay hidden')
+  const refused = await ask('{ myCompetitions { slug } }', null)
+  assert.match(String(refused.errors?.[0]?.message), /Sign in first/)
+
+  const player = await ask(`{ player(username: "${o.toLowerCase()}") }`, v(a))
+  assert.equal((player.data as { player: { player: { name: string } } }).player.player.name, o.toLowerCase())
+  // read-only: there is no mutation type at all
+  assert.ok((await ask('mutation { x }', v(a))).errors)
+})
+
+test('tracked here: no chess.com needed, no chess.com calls, players report and it finishes', async () => {
+  const tag = Math.random().toString(36).slice(2, 10)
+  const [o, a] = [`m${tag}o`, `m${tag}a`]
+  made.push(o, a)
+  await db.insert(user).values([o, a].map((id) => ({ id, name: `Player ${id}`, email: `${id}@test.local` })))
+  const slug = await createCompetition(o, {
+    name: `Club ${tag}`,
+    format: 'league',
+    resultSource: 'manual',
+    timeControl: '180',
+    legs: 1,
+    matchdayDays: 3,
+    visibility: 'private',
+    allowLateEntry: false,
+    unplayedRule: 'organiser',
+    leaveRule: 'award',
+    maxPlayers: null,
+    requireApproval: false,
+    points: { win: 3, draw: 1, loss: 0, forfeit: -1 },
+  })
+  const [row] = await db.select().from(competitions).where(eq(competitions.slug, slug))
+  assert.equal(row.resultSource, 'manual')
+  assert.equal(row.timeControl, 'any', 'no time control to filter chess.com games by')
+  await joinCompetition(a, { code: row.inviteCode })
+  await startCompetition(slug, v(o))
+  const [m] = await db.select().from(matches).where(eq(matches.competitionId, row.id))
+  await db.update(matches).set({ opensAt: new Date(Date.now() - 60_000) }).where(eq(matches.id, m.id))
+
+  const realFetch = globalThis.fetch
+  try {
+    globalThis.fetch = (async () => {
+      throw new Error('chess.com must not be called')
+    }) as typeof fetch
+    assert.equal(await syncResults(row.id, new Date(Date.now() + 6 * 60_000)), 0)
+    await reportResult(slug, v(a), m.id, 'win', false)
+    await answerReport(slug, v(o), m.id, true)
+  } finally {
+    globalThis.fetch = realFetch
+  }
+  const [end] = await db.select().from(competitions).where(eq(competitions.id, row.id))
+  assert.equal(end.status, 'finished')
+  assert.equal(end.championUserId, a)
+  // their player page works without a chess.com name
+  assert.equal((await getPlayer(a, v(o)))?.record.wins, 1)
+
+  // but a chess.com competition still needs a linked account
+  const c = await competition('league', ['x', 'y'])
+  await assert.rejects(joinCompetition(a, { code: c.row.inviteCode }), /Link your chess.com account/)
 })

@@ -162,6 +162,27 @@
       "when": 1795275719866,
       "tag": "0022_late_round",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795325957847,
+      "tag": "0023_match_reports",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795327317095,
+      "tag": "0024_result_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795327386329,
+      "tag": "0025_onboarded_at",
+      "breakpoints": true
     }
   ]
 }

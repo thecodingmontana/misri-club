@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { concedeTo, decisionFields, winnerOf } from './decisions.ts'
+import { concedeTo, decisionFields, reportFor, winnerOf } from './decisions.ts'
 
 const DAY = 24 * 60 * 60 * 1000
 const match = { homeUserId: 'h', awayUserId: 'a', dueAt: new Date(10 * DAY) }
@@ -106,4 +106,34 @@ test('a player concedes to their opponent, only on an undecided match of theirs'
     () => concedeTo({ ...open, awayUserId: null }, 'h'),
     /no opponent/,
   )
+})
+
+test('a report means the result the player described', () => {
+  const match = { homeUserId: 'h', awayUserId: 'a' }
+  // home won with white
+  assert.deepEqual(reportFor(match, 'h', 'win', true), {
+    byUserId: 'h',
+    result: 'white',
+    homeWhite: true,
+  })
+  // away lost with white: black (home) won, home had black
+  assert.deepEqual(reportFor(match, 'a', 'loss', true), {
+    byUserId: 'a',
+    result: 'black',
+    homeWhite: false,
+  })
+  assert.equal(reportFor(match, 'a', 'draw', false).result, 'draw')
+  assert.throws(() => reportFor(match, 'x', 'win', true), /two players/)
+})
+
+test('any decision settles a pending report', () => {
+  const match = { homeUserId: 'h', awayUserId: 'a', dueAt: new Date() }
+  for (const decision of [
+    { kind: 'result', result: 'white', homeWhite: true },
+    { kind: 'walkover', winnerUserId: 'h' },
+    { kind: 'void' },
+    { kind: 'reopen' },
+  ] as const) {
+    assert.equal(decisionFields(decision, match, false).report, null)
+  }
 })

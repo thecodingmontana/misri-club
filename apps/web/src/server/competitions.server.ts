@@ -29,6 +29,7 @@ import { auth, isAdminEmail } from './auth.server'
 import { fetchPlayerRating } from './chesscom.server'
 import {
   notifyJoined,
+  notifyRematch,
   notifyRequested,
   notifyScheduledStart,
   notifyStarted,
@@ -84,6 +85,7 @@ export interface CompetitionSettings {
   timeControl?: string
   tieBreaks?: TieBreak[]
   startsAt?: Date | null
+  resultSource?: Competition['resultSource']
 }
 
 /** Create and join need a verified chess.com account: results come from there. */
@@ -167,7 +169,12 @@ function challengeGames([a, b]: string[], bestOf: number) {
 }
 
 /** A challenge is always two players, invite only, straight in. */
-function shapeSettings(settings: CompetitionSettings): CompetitionSettings {
+function shapeSettings(requested: CompetitionSettings): CompetitionSettings {
+  // a time control filters chess.com games; tracked results have none to filter
+  const settings =
+    requested.resultSource === 'manual'
+      ? { ...requested, timeControl: 'any' }
+      : requested
   if (settings.format !== 'challenge') return settings
   return {
     ...settings,
@@ -352,6 +359,10 @@ export async function admit(tx: Tx, competition: Competition, userId: string) {
 
   const decision = canJoin(competition)
   if (!decision.ok) throw new Error(decision.reason)
+  // results come from each player's chess.com games there
+  if (competition.resultSource === 'chesscom') {
+    await requireChessAccount(userId)
+  }
   // checked under the row lock, so two joiners can't both take the last place
   if (competition.maxPlayers && members.length >= competition.maxPlayers) {
     throw new Error("It's full.")
@@ -837,4 +848,65 @@ export async function startScheduled(now = new Date()) {
     }
   }
   return started
+}
+
+/**
+ * A finished 1v1 challenge, again: a new challenge with the same settings,
+ * owned by whoever asked, and the opponent is invited (it starts when they
+ * join, as any challenge does). Returns the new slug.
+ */
+export async function rematch(slug: string, viewerId: string) {
+  const [old] = await db
+    .select()
+    .from(competitions)
+    .where(eq(competitions.slug, slug))
+    .limit(1)
+  if (old?.format !== 'challenge') throw new Error('Not found.')
+  if (old.status !== 'finished') throw new Error('Finish this one first.')
+  const [first] = await db
+    .select({ home: matches.homeUserId, away: matches.awayUserId })
+    .from(matches)
+    .where(eq(matches.competitionId, old.id))
+    .orderBy(asc(matches.round))
+    .limit(1)
+  const players = [first?.home, first?.away]
+  if (!players.includes(viewerId)) {
+    throw new Error('Only the two players can ask for a rematch.')
+  }
+  const opponentId = players.find((id) => id && id !== viewerId)
+  if (!opponentId) throw new Error('Your opponent has left Misri.')
+
+  const base = old.name
+    .replace(/ rematch( \d+)?$/i, '')
+    .slice(0, 60 - ' rematch 10'.length)
+  const names = [`${base} rematch`]
+  for (let n = 2; n <= 10; n++) names.push(`${base} rematch ${n}`)
+  const taken = await takenKeys(names.map(normalizeName))
+  const name = names.find((candidate) => !taken.has(normalizeName(candidate)))
+  if (!name) throw new Error('Too many rematches under this name. Create one.')
+
+  if (old.resultSource === 'chesscom') await requireChessAccount(viewerId)
+  const newSlug = await createCompetition(viewerId, {
+    name,
+    resultSource: old.resultSource,
+    format: 'challenge',
+    legs: 1,
+    bestOf: old.bestOf,
+    matchdayDays: old.matchdayDays,
+    visibility: 'private',
+    allowLateEntry: false,
+    unplayedRule: 'organiser',
+    leaveRule: old.leaveRule,
+    maxPlayers: 2,
+    requireApproval: false,
+    points: old.points,
+    timeControl: old.timeControl,
+  })
+  const [created] = await db
+    .select({ id: competitions.id, inviteCode: competitions.inviteCode })
+    .from(competitions)
+    .where(eq(competitions.slug, newSlug))
+    .limit(1)
+  await notifyRematch(created.id, viewerId, opponentId, created.inviteCode)
+  return newSlug
 }

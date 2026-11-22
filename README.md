@@ -1,8 +1,10 @@
 # Misri Chess Club League II
 
-Season standings, fixtures and all-time records for the Misri chess.com club.
-Games are pulled from the chess.com public API and matched to a two-leg
-round-robin schedule; player pages run Stockfish in the visitor's browser.
+Chess leagues, knockouts, groups and 1v1 challenges for clubs and friends.
+Each competition takes its results either from chess.com (games are read
+from the public API and matched to the fixtures) or from the players (one
+reports, the opponent confirms), so clubs that play over the board or
+elsewhere can use it too. Train runs Stockfish in the visitor's browser.
 
 Stack: TanStack Start (React), Drizzle ORM on Supabase Postgres, Better Auth,
 deployed to Vercel (`dub1`, next to the database).
@@ -23,6 +25,18 @@ pnpm dev              # http://localhost:3005
 
 Put local settings in `apps/web/.env.local`. Without `RESEND_API_KEY`, sign-in
 links are printed in the terminal instead of emailed.
+
+## API
+
+`apps/web` hosts the API other apps use: a Hono app
+(`src/server/api.server.ts`) mounted at `/api/*` by one catch-all route, with
+GraphQL Yoga at `/api/graphql` (`src/server/graphql.server.ts`). Auth, cron,
+version and calendar keep their own routes. Features move into the API one at
+a time; today it reads `me`, `myCompetitions`, `openCompetitions`,
+`competition(slug)` and `player(username)` with the same access rules as the
+pages. It uses the session cookie and refuses cross-site requests; GraphiQL
+opens at `/api/graphql` in development. Other apps get a typed client with
+`hc<AppType>(origin)` from `hono/client`.
 
 ## Environment
 
@@ -57,14 +71,19 @@ links are printed in the terminal instead of emailed.
 - **Competitions** (`src/server/competitions.server.ts`,
   `membership.server.ts`): anyone creates a league (round robin, one or two
   legs) or a knockout, shares the invite link, and starts it. The organiser
-  picks the scoring, what an unplayed game counts as, what happens when a
-  player leaves, a player cap and join approvals.
-- **Results** (`src/server/results.server.ts`): each running competition reads
-  its players' chess.com monthly archives at most once per five minutes (on a
+  picks where results come from (chess.com, or reported by the players), the
+  scoring, what an unplayed game counts as, what happens when a player
+  leaves, a player cap and join approvals.
+- **Results** (`src/server/results.server.ts`): a running chess.com
+  competition reads its players' chess.com monthly archives at most once per
+  five minutes (on a
   page view, the app's background refresh, or the cron), finds the game
   between the two players inside the match window, then advances: the next
-  knockout round, or the finish and the champion. The organiser can enter a
-  result, award a walkover, call a match off, extend it or reopen it.
+  knockout round, or the finish and the champion. In any competition a player
+  can report a result and their opponent confirms or disputes it (a dispute
+  goes to the organiser); competitions tracked this way are never synced. The
+  organiser can enter a result, award a walkover, call a match off, extend it
+  or reopen it.
 - **Scoring** (`src/server/standings.ts`): the organiser's points per win,
   draw and loss (3/1/0 by default) and their unplayed-game rule.
 - **Notifications** (`src/server/notifications.server.ts`): web push plus an
@@ -73,6 +92,9 @@ links are printed in the terminal instead of emailed.
 - **Accounts** (`src/server/auth.server.ts`, Better Auth): sign in with
   Google, an emailed link or a passkey, with optional two-step verification
   (authenticator app or passkey, plus backup codes). Manage it at `/account`.
+  Onboarding asks for a name, then a chess.com account (verified with a code
+  in its profile) or a skip; chess.com is required only to create or join a
+  chess.com competition and for Train's game analysis.
 - **Access** (`src/lib/access.ts`): guest, player, member and organiser roles
   decide who may see and change what; accounts in `ADMIN_EMAILS` are site
   admins. Every server function checks it.

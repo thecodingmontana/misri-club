@@ -28,6 +28,7 @@ import {
   concedeTo,
   type Decision,
   decisionFields,
+  reportFor,
   winnerOf,
 } from '#/lib/decisions'
 import { earlyRound } from '#/lib/early-rounds'
@@ -37,6 +38,8 @@ import { fetchMonthGames } from './chesscom.server'
 import {
   notifyConceded,
   notifyFinished,
+  notifyReportAnswered,
+  notifyReported,
   notifyRoundOpened,
 } from './notifications.server'
 import { rankStandings } from './standings'
@@ -62,6 +65,8 @@ export async function syncResults(competitionId: string, now = new Date()) {
       and(
         eq(competitions.id, competitionId),
         eq(competitions.status, 'running'),
+        // tracked competitions take results from players, not chess.com
+        eq(competitions.resultSource, 'chesscom'),
         or(
           isNull(competitions.syncedAt),
           lt(competitions.syncedAt, new Date(now.getTime() - SYNC_EVERY_MS)),
@@ -184,6 +189,7 @@ export async function syncResults(competitionId: string, now = new Date()) {
         whiteUserId,
         gameUrl: found.gameUrl,
         endedAt: found.endedAt,
+        report: null,
         // a one-game knockout tie is decided by who won; elsewhere the result is enough
         winnerUserId:
           (claimed.format === 'knockout' && claimed.legs === 1) ||
@@ -668,7 +674,7 @@ export async function concedeMatch(
     // only if still open: a result or decision in the meantime wins
     const written = await tx
       .update(matches)
-      .set({ winnerUserId: opponent, note: CONCEDED })
+      .set({ winnerUserId: opponent, note: CONCEDED, report: null })
       .where(
         and(
           eq(matches.id, match.id),
@@ -682,4 +688,125 @@ export async function concedeMatch(
   })
   await advance(done.competitionId)
   await notifyConceded(done.competitionId, viewer.id, done.opponent)
+}
+
+/**
+ * One of the two players says how their game went (for a game chess.com
+ * won't show us: over the board, elsewhere online). It stands once the
+ * opponent confirms it; until then the match stays open.
+ */
+export async function reportResult(
+  slug: string,
+  viewer: Viewer,
+  matchId: string,
+  outcome: 'win' | 'draw' | 'loss',
+  reporterWhite: boolean,
+) {
+  const reported = await db.transaction(async (tx) => {
+    const { competition, match, singleGame } = await openMatch(
+      tx,
+      slug,
+      matchId,
+    )
+    const report = reportFor(match, viewer.id, outcome, reporterWhite)
+    // fail now on what confirming couldn't record (a drawn knockout tie)
+    decisionFields(
+      { kind: 'result', result: report.result, homeWhite: report.homeWhite },
+      match,
+      singleGame,
+    )
+    if (match.opensAt > new Date()) {
+      throw new Error("This match hasn't opened yet.")
+    }
+    await tx.update(matches).set({ report }).where(eq(matches.id, match.id))
+    const opponent =
+      match.homeUserId === viewer.id ? match.awayUserId : match.homeUserId
+    return { competitionId: competition.id, opponent }
+  })
+  await notifyReported(reported.competitionId, viewer.id, reported.opponent)
+}
+
+/** The opponent confirms a reported result (it stands) or disputes it. */
+export async function answerReport(
+  slug: string,
+  viewer: Viewer,
+  matchId: string,
+  accept: boolean,
+) {
+  const answered = await db.transaction(async (tx) => {
+    const { competition, match, singleGame } = await openMatch(
+      tx,
+      slug,
+      matchId,
+    )
+    const report = match.report
+    if (!report) throw new Error('There is no reported result to answer.')
+    const opponent =
+      report.byUserId === match.homeUserId ? match.awayUserId : match.homeUserId
+    if (viewer.id !== opponent) {
+      throw new Error('Only the opponent can confirm or dispute this result.')
+    }
+    await tx
+      .update(matches)
+      .set(
+        accept
+          ? decisionFields(
+              {
+                kind: 'result',
+                result: report.result,
+                homeWhite: report.homeWhite,
+              },
+              match,
+              singleGame,
+            )
+          : { report: null },
+      )
+      .where(eq(matches.id, match.id))
+    return { competitionId: competition.id, reporter: report.byUserId }
+  })
+  if (accept) await advance(answered.competitionId)
+  await notifyReportAnswered(
+    answered.competitionId,
+    viewer.id,
+    answered.reporter,
+    accept,
+  )
+}
+
+/** A running competition's undecided match with two players, locked. */
+async function openMatch(tx: Tx, slug: string, matchId: string) {
+  const [competition] = await tx
+    .select()
+    .from(competitions)
+    .where(eq(competitions.slug, slug))
+    .for('update')
+  if (!competition) throw new Error('Not found.')
+  if (competition.status !== 'running') {
+    throw new Error('Only a running competition takes results.')
+  }
+  const [row] = await tx
+    .select()
+    .from(matches)
+    .where(
+      and(eq(matches.id, matchId), eq(matches.competitionId, competition.id)),
+    )
+    .limit(1)
+  if (!row?.homeUserId || !row.awayUserId) throw new Error('Not found.')
+  if (row.result || row.winnerUserId || row.voided) {
+    throw new Error('That match is already decided.')
+  }
+  if (await groupStageClosed(tx, competition, row)) {
+    throw new Error('The group stage is over; its results are final.')
+  }
+  const knockout =
+    competition.format === 'knockout' ||
+    (competition.format === 'groups' && row.groupNo === null)
+  const singleGame =
+    knockout && (competition.format === 'groups' || competition.legs === 1)
+  const match = {
+    ...row,
+    homeUserId: row.homeUserId,
+    awayUserId: row.awayUserId,
+  }
+  return { competition, match, singleGame }
 }

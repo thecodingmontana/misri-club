@@ -22,11 +22,13 @@ export type Decision =
   | { kind: 'extend'; days: number }
   | { kind: 'reopen' }
 
+// any decision also settles a player's pending report
 const CLEARED = {
   result: null,
   winnerUserId: null,
   voided: false,
   whiteUserId: null,
+  report: null,
 }
 
 /** What a decision writes to the match row (throws when it isn't allowed). */
@@ -104,3 +106,36 @@ export function concedeTo(
 
 /** The note a player's own walkover leaves on the match (not the organiser's word). */
 export const CONCEDED = 'Conceded by the player'
+
+/** A player's word on a result, waiting for their opponent to confirm it. */
+export type MatchReport = {
+  byUserId: string
+  result: 'white' | 'black' | 'draw'
+  homeWhite: boolean
+}
+
+/**
+ * "I won / drew / lost, with white / black" from one of the two players, as
+ * the result it means. Throws for anyone else.
+ */
+export function reportFor(
+  match: { homeUserId: string; awayUserId: string },
+  reporterId: string,
+  outcome: 'win' | 'draw' | 'loss',
+  reporterWhite: boolean,
+): MatchReport {
+  if (![match.homeUserId, match.awayUserId].includes(reporterId)) {
+    throw new Error('Only the two players can report this result.')
+  }
+  const reporterHome = match.homeUserId === reporterId
+  return {
+    byUserId: reporterId,
+    result:
+      outcome === 'draw'
+        ? 'draw'
+        : (outcome === 'win') === reporterWhite
+          ? 'white'
+          : 'black',
+    homeWhite: reporterHome === reporterWhite,
+  }
+}

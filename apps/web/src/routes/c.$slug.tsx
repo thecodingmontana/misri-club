@@ -2,10 +2,11 @@ import {
   createFileRoute,
   Link,
   notFound,
+  useNavigate,
   useRouter,
 } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
-import { useRef, useState } from 'react'
+import { type ReactNode, useRef, useState } from 'react'
 import { Spinner } from '#/components/auth'
 import { BracketView } from '#/components/bracket-view'
 import { ChampionBanner } from '#/components/champion-banner'
@@ -32,6 +33,7 @@ import {
 import { CopyIcon } from '#/components/copy-icon'
 import { displayName, FixtureCard } from '#/components/match-card'
 import { DecideMatch } from '#/components/match-decision'
+import { MatchReport } from '#/components/match-report'
 import { PlayerChip } from '#/components/player-chip'
 import { ScoringRules, scoringSummary } from '#/components/scoring-rules'
 import { Seeding } from '#/components/seeding'
@@ -59,6 +61,7 @@ import type {
 import {
   getCompetitionFn,
   openEarlyRoundFn,
+  rematchFn,
   startCompetitionFn,
   updateCompetitionSettingsFn,
 } from '#/server/competitions.functions'
@@ -108,8 +111,10 @@ function CompetitionPage() {
       <header className="text-center">
         <p className="kicker">
           {FORMAT_LABEL[competition.format]} ·{' '}
-          {timeControlLabel(competition.timeControl)} ·{' '}
-          {STATUS_LABEL[competition.status]}
+          {competition.resultSource === 'manual'
+            ? 'Results reported by players'
+            : timeControlLabel(competition.timeControl)}{' '}
+          · {STATUS_LABEL[competition.status]}
         </p>
         <h1 className="display mt-1 text-3xl">{competition.name}</h1>
         {competition.status === 'open' && competition.startsAt && (
@@ -148,9 +153,11 @@ function CompetitionPage() {
 
       {data.challengeScore && (
         <ChallengeScore
+          slug={competition.slug}
           matches={data.matches}
           score={data.challengeScore}
           finished={competition.status === 'finished'}
+          viewerId={user?.id ?? null}
         />
       )}
 
@@ -251,10 +258,12 @@ function CompetitionPage() {
                 key={member.id}
                 className="flex items-center justify-between gap-2 rounded-2xl bg-card px-3 py-2.5 shadow-card"
               >
-                <PlayerChip
-                  username={displayName(member)}
-                  image={member.image}
-                />
+                <PlayerLink player={member}>
+                  <PlayerChip
+                    username={displayName(member)}
+                    image={member.image}
+                  />
+                </PlayerLink>
                 {member.id === competition.ownerId ? (
                   <span className="kicker">Organiser</span>
                 ) : (
@@ -483,12 +492,13 @@ function OwnerPanel({ data }: { data: Data }) {
         />
       )}
 
-      {competition.status === 'open' && (
-        <TimeControlChoice
-          value={competition.timeControl}
-          onChange={(timeControl) => save({ timeControl })}
-        />
-      )}
+      {competition.status === 'open' &&
+        competition.resultSource === 'chesscom' && (
+          <TimeControlChoice
+            value={competition.timeControl}
+            onChange={(timeControl) => save({ timeControl })}
+          />
+        )}
 
       {competition.status !== 'finished' && (
         <ScoringRules
@@ -650,11 +660,13 @@ function StandingsTable({
                 {index + 1}
               </td>
               <td className="max-w-0 py-2">
-                <PlayerChip
-                  username={displayName(row.player)}
-                  image={row.player.image}
-                  size="sm"
-                />
+                <PlayerLink player={row.player}>
+                  <PlayerChip
+                    username={displayName(row.player)}
+                    image={row.player.image}
+                    size="sm"
+                  />
+                </PlayerLink>
               </td>
               <td className="py-2 text-center">{row.wins}</td>
               <td className="py-2 text-center">{row.draws}</td>
@@ -773,6 +785,24 @@ function Fixtures({ data }: { data: Data }) {
                   twoLegs={data.competition.legs === 2}
                 />
               )}
+              {match.status === 'played' &&
+                match.gameUrl &&
+                (match.home?.id === viewerId ||
+                  match.away?.id === viewerId) && (
+                  <Link
+                    to="/analysis/game"
+                    search={{ game: match.gameUrl }}
+                    className="mt-1.5 block text-center text-xs font-semibold text-primary hover:underline"
+                  >
+                    Review your game with Stockfish
+                  </Link>
+                )}
+              <MatchReport
+                slug={data.competition.slug}
+                match={match}
+                viewerId={viewerId}
+                primary={data.competition.resultSource === 'manual'}
+              />
               {concedable(data, match, viewerId) && (
                 <ConcedeButton
                   slug={data.competition.slug}
@@ -804,14 +834,21 @@ function decidable(data: Data, match: MatchView) {
 
 /** A challenge's running score: a win a point, a draw half, a walkover a point. */
 function ChallengeScore({
+  slug,
   matches,
   score,
   finished,
+  viewerId,
 }: {
+  slug: string
   matches: MatchView[]
   score: { a: number; b: number }
   finished: boolean
+  viewerId: string | null
 }) {
+  const ask = useServerFn(rematchFn)
+  const navigate = useNavigate()
+  const [busy, setBusy] = useState(false)
   const [first] = matches
   if (!first?.home || !first.away) return null
   const [a, b] = [first.home, first.away]
@@ -836,7 +873,48 @@ function ChallengeScore({
           Drawn match: neither could be caught.
         </p>
       )}
+      {finished && (viewerId === a.id || viewerId === b.id) && (
+        <Button
+          variant="secondary"
+          className="mt-3 w-full rounded-xl"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              const created = await ask({ data: { slug } })
+              toast.success('Rematch sent. It starts when they join.')
+              await navigate({ to: '/c/$slug', params: { slug: created.slug } })
+            } catch (error) {
+              toast.error((error as Error).message)
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          {busy && <Spinner />}
+          Rematch
+        </Button>
+      )}
     </section>
+  )
+}
+
+/** A player's name, linked to their page (by chess.com name, else by id). */
+function PlayerLink({
+  player,
+  children,
+}: {
+  player: PlayerView
+  children: ReactNode
+}) {
+  return (
+    <Link
+      to="/p/$username"
+      params={{ username: player.chessUsername ?? player.id }}
+      className="min-w-0 rounded-md hover:underline"
+    >
+      {children}
+    </Link>
   )
 }
 

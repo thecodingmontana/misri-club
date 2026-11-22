@@ -104,7 +104,8 @@ export function GroupChat() {
         </div>
         <p className="text-pretty text-muted-foreground">
           Arguing over who won, screenshots as proof, a spreadsheet nobody
-          trusts. Misri reads the result from chess.com instead.
+          trusts. Misri reads the result from chess.com, or asks your opponent
+          to confirm it, instead.
         </p>
       </div>
       <div className="grid gap-8 md:grid-cols-[1.25fr_1fr] md:items-center">

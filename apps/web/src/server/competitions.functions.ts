@@ -13,6 +13,7 @@ import {
   createCompetition,
   currentViewer,
   joinCompetition,
+  rematch,
   requireChessAccount,
   seedCompetition,
   startCompetition,
@@ -29,11 +30,14 @@ import {
   removePlayer,
   renameCompetition,
 } from './membership.server'
+import { getPlayer } from './player.server'
 import { takeAllowance } from './rate-limit.server'
 import {
+  answerReport,
   concedeMatch,
   decideMatch,
   openEarlyRound,
+  reportResult,
   syncForPlayer,
 } from './results.server'
 import {
@@ -100,11 +104,15 @@ export const createCompetitionFn = createServerFn({ method: 'POST' })
       visibility: z.enum(['public', 'private']).default('private'),
       allowLateEntry: z.boolean().default(false),
       timeControl: timeControl.default('any'),
+      resultSource: z.enum(['chesscom', 'manual']).default('chesscom'),
       ...scoring,
     }),
   )
   .handler(async ({ context, data }) => {
-    await requireChessAccount(context.user.id)
+    // results come from chess.com only there; a tracked competition needs no account
+    if (data.resultSource === 'chesscom') {
+      await requireChessAccount(context.user.id)
+    }
     await allow('competition-create', context.user.id)
     return { slug: await createCompetition(context.user.id, data) }
   })
@@ -137,7 +145,6 @@ export const joinCompetitionFn = createServerFn({ method: 'POST' })
   .middleware([userMiddleware])
   .validator(z.union([z.object({ code }), z.object({ slug })]))
   .handler(async ({ context, data }) => {
-    await requireChessAccount(context.user.id)
     await allow('competition-join', context.user.id)
     return joinCompetition(context.user.id, data)
   })
@@ -170,6 +177,15 @@ export const startCompetitionFn = createServerFn({ method: 'POST' })
   .handler(async ({ context, data }) => {
     await startCompetition(data.slug, context.viewer)
     return { ok: true }
+  })
+
+/** A finished challenge, again: same settings, the opponent is invited. */
+export const rematchFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(z.object({ slug }))
+  .handler(async ({ context, data }) => {
+    await allow('competition-create', context.user.id)
+    return { slug: await rematch(data.slug, context.user.id) }
   })
 
 /** The organiser orders a knockout's players before the start. */
@@ -358,3 +374,47 @@ export const syncMineFn = createServerFn({ method: 'POST' })
   .handler(async ({ context }) => ({
     changed: await syncForPlayer(context.user.id),
   }))
+
+/** A player's page, by chess.com username; signed-in players only. */
+export const getPlayerFn = createServerFn({ method: 'GET' })
+  .middleware([userMiddleware])
+  .validator(z.object({ username: z.string().trim().min(1).max(40) }))
+  .handler(({ context, data }) => getPlayer(data.username, context.viewer))
+
+/** A player reports how their game went; the opponent confirms it. */
+export const reportResultFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(
+    z.object({
+      slug,
+      matchId: z.string().min(1).max(16),
+      outcome: z.enum(['win', 'draw', 'loss']),
+      white: z.boolean(),
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    await allow('result-report', context.user.id)
+    await reportResult(
+      data.slug,
+      context.viewer,
+      data.matchId,
+      data.outcome,
+      data.white,
+    )
+    return { ok: true }
+  })
+
+/** The opponent confirms (it counts) or disputes (the organiser settles) a report. */
+export const answerReportFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(
+    z.object({
+      slug,
+      matchId: z.string().min(1).max(16),
+      accept: z.boolean(),
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    await answerReport(data.slug, context.viewer, data.matchId, data.accept)
+    return { ok: true }
+  })

@@ -24,7 +24,7 @@ import { buildLesson } from '#/lib/lesson'
 import { seo } from '#/lib/seo'
 import { useEngineAnalysis, useStoredScores } from '#/lib/use-engine-analysis'
 import { cn } from '#/lib/utils'
-import { getMyGamesFn } from '#/server/my-games.functions'
+import { getMatchGameFn, getMyGamesFn } from '#/server/my-games.functions'
 
 export const Route = createFileRoute('/_authed/analysis_/game')({
   validateSearch: z.object({ game: z.string().url() }),
@@ -51,7 +51,19 @@ function LessonScreen() {
     queryFn: () => getMyGames(),
     staleTime: 5 * 60_000,
   })
-  const game = query.data?.games.find((g) => g.chessComUrl === url)
+  const listed = query.data?.games.find((g) => g.chessComUrl === url)
+  // an older competition game: fetched on its own, by its match
+  const getMatchGame = useServerFn(getMatchGameFn)
+  const older = useQuery({
+    queryKey: ['match-game', url],
+    queryFn: () => getMatchGame({ data: { url } }),
+    enabled: query.isSuccess && !listed,
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+  const game = listed ?? older.data ?? undefined
+  const loading =
+    query.isPending || (query.isSuccess && !listed && older.isPending)
+  const failure = query.error ?? older.error
   const scores = useStoredScores(game ? [game.chessComUrl] : []).get(url)
   const engine = useEngineAnalysis()
 
@@ -79,16 +91,16 @@ function LessonScreen() {
         Your games
       </Link>
 
-      {query.isPending ? (
+      {loading ? (
         <Card className="items-center gap-2 p-8 text-xs text-muted-foreground">
           <Spinner />
           Fetching your games from chess.com
         </Card>
       ) : !game ? (
         <Card className="p-8 text-center text-xs text-muted-foreground">
-          {query.isError
-            ? query.error.message
-            : 'This game isn’t among your latest 50 games.'}
+          {failure
+            ? failure.message
+            : 'This game isn’t one of yours: it’s not among your latest 50 games or your competition games.'}
         </Card>
       ) : !lesson ? (
         <Card className="gap-3 px-4 py-6 text-center">
