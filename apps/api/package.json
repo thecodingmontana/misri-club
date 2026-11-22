@@ -1,0 +1,23 @@
+{
+  "name": "@misri/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --experimental-strip-types src/dev.ts",
+    "test": "DATABASE_URL=${DATABASE_URL:-postgres://test:test@127.0.0.1:1/test} node --test --experimental-strip-types 'src/**/*.test.ts'",
+    "typecheck": "tsc --noEmit",
+    "check": "biome check"
+  },
+  "dependencies": {
+    "@misri/db": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "graphql": "^17.1.0",
+    "graphql-yoga": "^6.1.0",
+    "hono": "^4.13.19"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "^24.19.2",
+    "typescript": "^6.0.3"
+  }
+}
