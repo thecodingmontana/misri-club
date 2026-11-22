@@ -16,7 +16,7 @@ export const SITE_URL = (import.meta.env.VITE_SITE_URL ?? '').replace(/\/$/, '')
 export const CLUB_URL = 'https://www.chess.com/club/misri'
 
 export const HOME_DESCRIPTION =
-  'Run chess leagues and knockout tournaments with your friends on chess.com, plus puzzles, master games and practice against Stockfish.'
+  'Run chess leagues and knockout tournaments with your friends, on chess.com or over the board, plus puzzles, master games and practice against Stockfish.'
 
 interface Page {
   /** Short page name; the site name is appended. */

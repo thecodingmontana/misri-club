@@ -87,7 +87,8 @@ export function FormatCards() {
         </div>
         <p className="text-pretty text-muted-foreground">
           Run a season with your club, a quick knockout with friends, or just
-          train. Every format reads its results from chess.com.
+          train. Every format reads results from chess.com, or takes them from
+          the players.
         </p>
       </div>
       <div className="grid gap-5 md:grid-cols-3 md:items-start">

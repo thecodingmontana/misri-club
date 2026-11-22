@@ -20,7 +20,7 @@ export function Hero({ signedIn }: { signedIn: boolean }) {
           className="l-enter kicker text-primary"
           style={{ '--i': 0 } as CSSProperties}
         >
-          Chess leagues on chess.com
+          Chess leagues for your club
         </p>
         <h1 className="mt-3 text-[3.4rem] sm:text-7xl lg:text-[6.5rem]">
           {[
@@ -40,7 +40,7 @@ export function Hero({ signedIn }: { signedIn: boolean }) {
         <div className="mt-6 grid gap-6 md:grid-cols-[1.3fr_1fr] md:items-end">
           <Lede
             className="max-w-prose text-lg text-pretty text-muted-foreground"
-            text="Create a league or a knockout, invite your club with a code, and play on chess.com. Misri **reads every result** and **keeps the table**, so the group chat can talk about chess again."
+            text="Create a league or a knockout, invite your club with a code, and play on chess.com or over the board. Misri **reads chess.com results by itself**, players confirm the rest, and it **keeps the table**, so the group chat can talk about chess again."
           />
           <div
             className="l-enter space-y-3 md:justify-self-end"
@@ -67,14 +67,16 @@ export function Hero({ signedIn }: { signedIn: boolean }) {
               </Link>
             </div>
             <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              {['Free', 'Results from chess.com', 'Leagues and knockouts'].map(
-                (point) => (
-                  <li key={point} className="flex items-center gap-1">
-                    <Check className="size-3.5 text-primary" aria-hidden />
-                    {point}
-                  </li>
-                ),
-              )}
+              {[
+                'Free',
+                'chess.com or over the board',
+                'Leagues and knockouts',
+              ].map((point) => (
+                <li key={point} className="flex items-center gap-1">
+                  <Check className="size-3.5 text-primary" aria-hidden />
+                  {point}
+                </li>
+              ))}
             </ul>
           </div>
         </div>

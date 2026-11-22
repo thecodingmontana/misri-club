@@ -41,7 +41,7 @@ export const FORMAT_INFO = {
     summary: 'You against one player, best of 1, 3, 5 or 7.',
     points: [
       'Send your opponent the link; it starts when they join.',
-      'Play every game on chess.com before the deadline.',
+      'Play every game before the deadline.',
       'A win is a point, a draw half. First out of reach wins.',
       'Level after every game is a drawn match.',
     ],

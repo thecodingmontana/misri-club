@@ -70,9 +70,9 @@ const STEPS: Array<{
     ),
   },
   {
-    title: 'Play on chess.com',
+    title: 'Play your game',
     photo: 'step-play',
-    body: 'Challenge your opponent whenever suits you both, before the deadline.',
+    body: 'On chess.com, over the board or anywhere else: whenever suits you both, before the deadline.',
     frame: (
       <MatchCard
         label={<span className="kicker">Round 1 · Example</span>}

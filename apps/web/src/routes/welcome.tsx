@@ -13,7 +13,7 @@ import { useAdmin } from '#/lib/use-admin'
 export const Route = createFileRoute('/welcome')({
   head: () =>
     seo({
-      title: 'Chess leagues and tournaments on chess.com',
+      title: 'Chess leagues and tournaments for your club',
       description: HOME_DESCRIPTION,
       path: '/welcome',
     }),

@@ -13,7 +13,7 @@ import type { PHOTOS } from './photos'
 const FAQ = [
   {
     q: 'Do I need a chess.com account?',
-    a: "Yes. You link yours and prove it's yours by putting a code in your profile. That's how Misri reads your results.",
+    a: "Only for chess.com competitions. You link yours and prove it's yours by putting a code in your profile; Misri then reads your results. A competition where players report results needs no account.",
   },
   { q: 'Does it cost anything?', a: 'No. Misri is free.' },
   {
@@ -22,7 +22,7 @@ const FAQ = [
   },
   {
     q: 'Can we play over the board?',
-    a: 'Yes. The organiser enters the result for games chess.com can’t see.',
+    a: 'Yes. Pick “Players report” when you create it: a player reports each result and their opponent confirms it. In a chess.com competition the organiser can still enter a result chess.com can’t see.',
   },
   {
     q: 'Who can see a private competition?',
@@ -75,7 +75,8 @@ export function FinalCta({ signedIn }: { signedIn: boolean }) {
             </span>
           </h2>
           <p className="mt-4 max-w-md opacity-80">
-            Create it in a minute, share the code, and play on chess.com.
+            Create it in a minute, share the code, and play on chess.com or over
+            the board.
           </p>
           <Button
             asChild
@@ -168,7 +169,7 @@ export function Footer({ signedIn }: { signedIn: boolean }) {
           <p className="l-condensed text-4xl">Misri</p>
           <p className="max-w-xs text-sm text-pretty text-muted-foreground">
             Chess leagues and knockouts for your club, with results read from
-            chess.com.
+            chess.com or reported by the players.
           </p>
           <p className="text-xs text-muted-foreground">
             Misri isn't made by or connected to chess.com.

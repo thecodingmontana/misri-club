@@ -16,19 +16,19 @@ const CONTACT = 'thecodingmontana@gmail.com'
 
 function Terms() {
   return (
-    <DocPage title="Terms" updated="15 November 2026">
+    <DocPage title="Terms" updated="22 November 2026">
       <p>By using Misri you agree to these terms. They're short on purpose.</p>
 
       <h2>The service</h2>
       <p>
-        Misri lets you create and join chess leagues and tournaments played on
-        chess.com, and train with puzzles and practice games. It's free. Misri
-        is not made by or connected to chess.com.
+        Misri lets you create and join chess leagues and tournaments, played on
+        chess.com or anywhere else, and train with puzzles and practice games.
+        It's free. Misri is not made by or connected to chess.com.
       </p>
 
       <h2>Your account</h2>
       <ul>
-        <li>Link only a chess.com account that is yours.</li>
+        <li>If you link a chess.com account, link only one that is yours.</li>
         <li>Keep your sign-in details to yourself.</li>
         <li>You can delete your account at any time from Account.</li>
       </ul>
@@ -40,7 +40,9 @@ function Terms() {
           decisions on unplayed or disputed matches.
         </li>
         <li>
-          Results are read from chess.com where possible. If something looks
+          Results are read from chess.com, or reported by a player and confirmed
+          by their opponent, depending on how the organiser set the competition
+          up. Report only results that really happened. If something looks
           wrong, talk to your organiser; they can correct it.
         </li>
         <li>
@@ -59,7 +61,7 @@ function Terms() {
       <p>
         Misri is provided as it is. We work to keep it running and correct, but
         we can't promise it's always available or error free, including results
-        read from chess.com.
+        read from chess.com or reported by players.
       </p>
 
       <p>
