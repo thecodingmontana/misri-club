@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
+import { useServerFn } from '@tanstack/react-start'
 import { Chess } from 'chess.js'
 import { play } from 'cuelume'
-import { useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { z } from 'zod'
 import {
   CheckCircle,
@@ -26,6 +27,7 @@ import {
 } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
 import { confetti } from '#/lib/confetti'
+import { mistakePuzzles } from '#/lib/lesson'
 import { recordPuzzle } from '#/lib/progress'
 import type { Difficulty, Theme } from '#/lib/puzzle'
 import {
@@ -37,6 +39,10 @@ import {
   THEMES,
 } from '#/lib/puzzle'
 import { seo } from '#/lib/seo'
+import { useAdmin } from '#/lib/use-admin'
+import { useStoredScores } from '#/lib/use-engine-analysis'
+import { cn } from '#/lib/utils'
+import { getMyGamesFn } from '#/server/my-games.functions'
 
 export const Route = createFileRoute('/train/puzzles')({
   // Unknown values fall back to any theme and normal difficulty.
@@ -46,6 +52,8 @@ export const Route = createFileRoute('/train/puzzles')({
       .optional()
       .catch(undefined),
     difficulty: z.enum(DIFFICULTIES).optional().catch(undefined),
+    /** puzzles from your own analysed games instead of Lichess */
+    source: z.enum(['mine']).optional().catch(undefined),
   }),
   head: ({ match }) => {
     const theme = match.search.theme
@@ -62,11 +70,161 @@ export const Route = createFileRoute('/train/puzzles')({
 
 /** Endless puzzles from Lichess, one at a time, solved on the board. */
 function PuzzlesScreen() {
+  const { source } = Route.useSearch()
   return (
     <div className="space-y-4 pt-2">
       <TrainHeader title="Puzzles" />
-      <Pickers />
-      <PuzzleLoader />
+      <SourcePicker />
+      {source === 'mine' ? (
+        <MyPuzzles />
+      ) : (
+        <>
+          <Pickers />
+          <PuzzleLoader />
+        </>
+      )}
+    </div>
+  )
+}
+
+function SourcePicker() {
+  const { source } = Route.useSearch()
+  const options = [
+    { value: undefined, label: 'Lichess puzzles' },
+    { value: 'mine' as const, label: 'Your mistakes' },
+  ]
+  return (
+    <nav aria-label="Puzzle source" className="flex justify-center gap-2">
+      {options.map((option) => (
+        <Link
+          key={option.label}
+          to="/train/puzzles"
+          search={(prev) => ({ ...prev, source: option.value })}
+          replace
+          aria-current={source === option.value ? 'page' : undefined}
+          className={cn(
+            'rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors duration-150',
+            source === option.value
+              ? 'border-primary bg-primary/12 text-primary'
+              : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground',
+          )}
+        >
+          {option.label}
+        </Link>
+      ))}
+    </nav>
+  )
+}
+
+/**
+ * Every blunder and mistake from your analysed games, one at a time: find the
+ * move Stockfish would have played. Engine results live in this browser.
+ */
+function MyPuzzles() {
+  const { user } = useAdmin()
+  if (!user) {
+    return (
+      <Card className="gap-3 px-4 py-8 text-center text-sm">
+        <p>
+          Sign in to practise the positions you got wrong in your own games.
+        </p>
+        <Button asChild className="mx-auto">
+          <Link
+            to="/auth/signin"
+            search={{ redirect: '/train/puzzles?source=mine' }}
+          >
+            Sign in
+          </Link>
+        </Button>
+      </Card>
+    )
+  }
+  return <MyPuzzleRun />
+}
+
+function MyPuzzleRun() {
+  const getMyGames = useServerFn(getMyGamesFn)
+  const query = useQuery({
+    queryKey: ['my-games'],
+    queryFn: () => getMyGames(),
+    staleTime: 5 * 60_000,
+  })
+  const games = useMemo(() => query.data?.games ?? [], [query.data])
+  const urls = useMemo(() => games.map((g) => g.chessComUrl), [games])
+  const stored = useStoredScores(urls)
+  const puzzles = useMemo(
+    () =>
+      games.flatMap((game) => {
+        const scores = stored.get(game.chessComUrl)
+        if (!scores) return []
+        try {
+          return mistakePuzzles(game, scores)
+        } catch {
+          return [] // an unreadable game simply gives no puzzles
+        }
+      }),
+    [games, stored],
+  )
+  const [index, setIndex] = useState(0)
+  const [solved, setSolved] = useState(0)
+
+  if (query.isPending) {
+    return <Skeleton className="aspect-square w-full rounded-xl" />
+  }
+  if (query.isError) {
+    return (
+      <Card className="px-4 py-8 text-center text-sm text-destructive">
+        {query.error.message}
+      </Card>
+    )
+  }
+  if (puzzles.length === 0) {
+    return (
+      <Card className="gap-3 px-4 py-8 text-center">
+        <p className="text-sm font-semibold">No mistakes to practise yet</p>
+        <p className="text-xs text-muted-foreground">
+          Run Stockfish on your games first. Every blunder and mistake it finds
+          becomes a puzzle here.
+        </p>
+        <Button asChild className="mx-auto">
+          <Link to="/analysis">Analyse your games</Link>
+        </Button>
+      </Card>
+    )
+  }
+
+  const at = index % puzzles.length
+  const puzzle = puzzles[at]
+  return (
+    <div className="space-y-2">
+      <p className="text-center text-xs text-muted-foreground">
+        Position {at + 1} of {puzzles.length}
+      </p>
+      <Puzzle
+        key={puzzle.id}
+        data={{
+          puzzle: { id: `mine-${at}`, solution: [puzzle.solution], themes: [] },
+          start: {
+            fen: puzzle.fen,
+            colour: puzzle.colour,
+            lastMove: puzzle.lastMove,
+          },
+        }}
+        solvedCount={solved}
+        onSolved={() => setSolved((n) => n + 1)}
+        onNext={() => setIndex((n) => n + 1)}
+        footer={
+          <a
+            href={puzzle.gameUrl}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center gap-0.5 hover:text-primary"
+          >
+            Your game vs {puzzle.opponent}, move {puzzle.moveNumber}{' '}
+            <ExternalLink className="size-3" />
+          </a>
+        }
+      />
     </div>
   )
 }
@@ -160,23 +318,47 @@ function PuzzleLoader() {
       solvedCount={solved}
       onSolved={() => setSolved((n) => n + 1)}
       onNext={() => setRound((n) => n + 1)}
+      footer={
+        <>
+          {data.puzzle.themes.slice(0, 3).map(themeName).join(' · ')}
+          {' · '}
+          <a
+            href={`https://lichess.org/training/${data.puzzle.id}`}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center gap-0.5 hover:text-primary"
+          >
+            Lichess puzzle <ExternalLink className="size-3" />
+          </a>
+        </>
+      }
     />
   )
 }
 
 type Status = 'solving' | 'wrong' | 'solved' | 'revealed'
-type Puzzle = Awaited<ReturnType<typeof fetchPuzzle>>
+/** What the board needs: Lichess puzzles and your own mistakes alike. */
+type PuzzleData = {
+  puzzle: { id: string; rating?: number; solution: string[]; themes: string[] }
+  start: {
+    fen: string
+    colour: 'white' | 'black'
+    lastMove: { from: string; to: string } | null
+  }
+}
 
 function Puzzle({
   data,
   solvedCount,
   onSolved,
   onNext,
+  footer,
 }: {
-  data: Puzzle
+  data: PuzzleData
   solvedCount: number
   onSolved: () => void
   onNext: () => void
+  footer: ReactNode
 }) {
   const { solution } = data.puzzle
   const { start } = data
@@ -274,10 +456,14 @@ function Puzzle({
     <div className="space-y-3">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
-          Rating{' '}
-          <span className="numeric font-semibold text-foreground">
-            {data.puzzle.rating}
-          </span>
+          {data.puzzle.rating !== undefined && (
+            <>
+              Rating{' '}
+              <span className="numeric font-semibold text-foreground">
+                {data.puzzle.rating}
+              </span>
+            </>
+          )}
         </span>
         <span>
           Solved this visit{' '}
@@ -328,18 +514,7 @@ function Puzzle({
         <Button onClick={onNext}>Next puzzle</Button>
       </div>
 
-      <p className="text-center text-xs text-muted-foreground">
-        {data.puzzle.themes.slice(0, 3).map(themeName).join(' · ')}
-        {' · '}
-        <a
-          href={`https://lichess.org/training/${data.puzzle.id}`}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="inline-flex items-center gap-0.5 hover:text-primary"
-        >
-          Lichess puzzle <ExternalLink className="size-3" />
-        </a>
-      </p>
+      <p className="text-center text-xs text-muted-foreground">{footer}</p>
     </div>
   )
 }

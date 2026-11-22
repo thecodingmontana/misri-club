@@ -369,3 +369,54 @@ export function buildLesson(input: {
     accuracy,
   }
 }
+
+/** One position from your own game where you went wrong: find Stockfish's move. */
+export interface MistakePuzzle {
+  id: string
+  fen: string
+  /** Stockfish's move, UCI */
+  solution: string
+  colour: 'white' | 'black'
+  /** the opponent's move that led here, to show on the board */
+  lastMove: { from: string; to: string } | null
+  gameUrl: string
+  opponent: string
+  moveNumber: number
+}
+
+/** Every blunder and mistake you made in an analysed game, as a one-move puzzle. */
+export function mistakePuzzles(
+  game: {
+    chessComUrl: string
+    pgn: string
+    colour: 'white' | 'black'
+    opponent: string
+  },
+  scores: Array<Score>,
+): Array<MistakePuzzle> {
+  const positions = positionsOf(game.pgn)
+  const { fens, sans } = positions
+  return reviewFor(game.colour, positions, scores)
+    .moves.filter((m) => m.kind === 'blunder' || m.kind === 'mistake')
+    .flatMap((move) => {
+      const best = scores[move.ply]?.best
+      const bestMove = playUci(fens[move.ply], best)
+      if (!best || !bestMove || bestMove.san === sans[move.ply]) return []
+      const previous =
+        move.ply > 0
+          ? new Chess(fens[move.ply - 1]).move(sans[move.ply - 1])
+          : null
+      return [
+        {
+          id: `${game.chessComUrl}#${move.ply}`,
+          fen: fens[move.ply],
+          solution: best,
+          colour: game.colour,
+          lastMove: previous ? { from: previous.from, to: previous.to } : null,
+          gameUrl: game.chessComUrl,
+          opponent: game.opponent,
+          moveNumber: Math.floor(move.ply / 2) + 1,
+        },
+      ]
+    })
+}
