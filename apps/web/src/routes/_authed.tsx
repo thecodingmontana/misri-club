@@ -28,9 +28,9 @@ export const Route = createFileRoute('/_authed')({
         search: { redirect: location.href },
       })
     }
-    // Like Zadaci: nothing else until onboarding is done (a verified chess.com
-    // account is what makes a player's results count).
-    if (!session.user.chessUsername && location.pathname !== '/onboarding') {
+    // Like Zadaci: nothing else until onboarding is done (name, then chess.com
+    // linked or skipped; tracked competitions need no chess.com account).
+    if (!session.user.onboarded && location.pathname !== '/onboarding') {
       throw redirect({
         to: '/onboarding',
         search: { redirect: location.href },

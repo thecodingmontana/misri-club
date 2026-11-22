@@ -54,9 +54,15 @@ export async function getPlayer(username: string, viewer: Viewer) {
       username: chessAccounts.username,
       avatar: chessAccounts.avatar,
     })
-    .from(chessAccounts)
-    .innerJoin(user, eq(user.id, chessAccounts.userId))
-    .where(eq(chessAccounts.username, username.toLowerCase()))
+    .from(user)
+    .leftJoin(chessAccounts, eq(chessAccounts.userId, user.id))
+    // by chess.com username, or by id for players without one
+    .where(
+      or(
+        eq(chessAccounts.username, username.toLowerCase()),
+        eq(user.id, username),
+      ),
+    )
     .limit(1)
   if (!player) return null
 
@@ -148,6 +154,7 @@ export async function getPlayer(username: string, viewer: Viewer) {
     player: {
       name: player.username ?? player.name,
       image: player.avatar || player.image,
+      chessUsername: player.username,
       isYou: player.id === viewer.id,
     },
     record: recordOf(results.map((r) => r.outcome)),

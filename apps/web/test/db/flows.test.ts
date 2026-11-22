@@ -60,6 +60,14 @@ after(async () => {
   process.exit(0)
 })
 
+/** Test players play on chess.com, like real players of a chess.com competition. */
+async function linkChess(ids: string[]) {
+  await db
+    .insert(chessAccounts)
+    .values(ids.map((userId) => ({ userId, username: userId.toLowerCase(), verifiedAt: new Date() })))
+    .onConflictDoNothing()
+}
+
 /** Players named by letter; the organiser is `owner` (default the first). */
 async function competition(
   format: 'league' | 'knockout',
@@ -73,6 +81,7 @@ async function competition(
   await db
     .insert(user)
     .values(ids.map((id) => ({ id, name: id, email: `${id}@test.local` })))
+  await linkChess(ids)
   const slug = `t-${tag}`
   const [row] = await db
     .insert(competitions)
@@ -275,6 +284,7 @@ async function challenge(bestOf: number) {
   const [me, them] = [`t${tag}m`, `t${tag}t`]
   made.push(me, them)
   await db.insert(user).values([me, them].map((id) => ({ id, name: id, email: `${id}@test.local` })))
+  await linkChess([me, them])
   const slug = await createCompetition(me, {
     name: `Duel ${tag}`,
     format: 'challenge',
@@ -419,6 +429,7 @@ test('league: late joiners share one round; the recheck refills a missing game',
   const [x, y] = ['x', 'y'].map((n) => `${c.ids[0].slice(0, -1)}${n}`)
   made.push(x, y)
   await db.insert(user).values([x, y].map((id) => ({ id, name: id, email: `${id}@test.local` })))
+  await linkChess([x, y])
   await joinCompetition(x, { code: c.row.inviteCode })
   await joinCompetition(y, { code: c.row.inviteCode })
 
@@ -440,7 +451,7 @@ test('sync: chess.com failing never finishes a league; the late result then coun
   const c = await competition('league', ['o', 'a'], { legs: 1, unplayedRule: 'both_forfeit' })
   await startCompetition(c.slug, c.organiser)
   const names = c.ids.map((id) => id.toLowerCase())
-  await db.insert(chessAccounts).values(c.ids.map((userId, i) => ({ userId, username: names[i], verifiedAt: new Date() })))
+  await db.insert(chessAccounts).values(c.ids.map((userId, i) => ({ userId, username: names[i], verifiedAt: new Date() }))).onConflictDoNothing()
   const now = Date.now()
   // the only game: due an hour ago, played just before the deadline
   await db.update(matches).set({ opensAt: new Date(now - 3 * 86_400_000), dueAt: new Date(now - 3_600_000) }).where(eq(matches.competitionId, c.row.id))
@@ -499,7 +510,7 @@ test('knockout: the next round opens when the last game ended, not at the sync',
   await startCompetition(c.slug, c.organiser)
   const names = c.ids.map((id) => id.toLowerCase())
   const nameOf = new Map(c.ids.map((id, i) => [id, names[i]]))
-  await db.insert(chessAccounts).values(c.ids.map((userId, i) => ({ userId, username: names[i], verifiedAt: new Date() })))
+  await db.insert(chessAccounts).values(c.ids.map((userId, i) => ({ userId, username: names[i], verifiedAt: new Date() }))).onConflictDoNothing()
   const now = Date.now()
   await db.update(matches).set({ opensAt: new Date(now - 86_400_000) }).where(eq(matches.competitionId, c.row.id))
   const ties = await c.rows()
@@ -533,7 +544,7 @@ test('challenge: a game the organiser already recorded never counts again', asyn
   await db.insert(chessAccounts).values([
     { userId: c.me, username: me, verifiedAt: new Date() },
     { userId: c.them, username: them, verifiedAt: new Date() },
-  ])
+  ]).onConflictDoNothing()
   const now = Date.now()
   await db.update(matches).set({ opensAt: new Date(now - 86_400_000) }).where(eq(matches.competitionId, c.row.id))
   const games = (await db.select().from(matches).where(eq(matches.competitionId, c.row.id))).sort((x, y) => x.round - y.round)
@@ -621,7 +632,7 @@ test('player page: record, head-to-head, and private competitions stay private',
   assert.deepEqual(recordOf(['win', 'draw', 'loss', 'forfeit']), { wins: 1, draws: 1, losses: 2 })
   const c = await competition('league', ['o', 'a'], { legs: 1 })
   const [o, a] = c.ids
-  await db.insert(chessAccounts).values(c.ids.map((userId) => ({ userId, username: userId.toLowerCase(), verifiedAt: new Date() })))
+  await db.insert(chessAccounts).values(c.ids.map((userId) => ({ userId, username: userId.toLowerCase(), verifiedAt: new Date() }))).onConflictDoNothing()
   await startCompetition(c.slug, c.organiser)
   const [m] = await c.rows()
   // o wins with white
@@ -682,7 +693,7 @@ test('reported results: the opponent confirms (it counts) or disputes (the organ
 test('graphql: the same reads and the same access rules as the app', async () => {
   const c = await competition('league', ['o', 'a'])
   const [o, a] = c.ids
-  await db.insert(chessAccounts).values(c.ids.map((userId) => ({ userId, username: userId.toLowerCase(), verifiedAt: new Date() })))
+  await db.insert(chessAccounts).values(c.ids.map((userId) => ({ userId, username: userId.toLowerCase(), verifiedAt: new Date() }))).onConflictDoNothing()
   const ask = (source: string, viewer: { id: string; isAdmin: boolean } | null) =>
     graphql({ schema, source, contextValue: { viewer } })
 
@@ -705,4 +716,54 @@ test('graphql: the same reads and the same access rules as the app', async () =>
   assert.equal((player.data as { player: { player: { name: string } } }).player.player.name, o.toLowerCase())
   // read-only: there is no mutation type at all
   assert.ok((await ask('mutation { x }', v(a))).errors)
+})
+
+test('tracked here: no chess.com needed, no chess.com calls, players report and it finishes', async () => {
+  const tag = Math.random().toString(36).slice(2, 10)
+  const [o, a] = [`m${tag}o`, `m${tag}a`]
+  made.push(o, a)
+  await db.insert(user).values([o, a].map((id) => ({ id, name: `Player ${id}`, email: `${id}@test.local` })))
+  const slug = await createCompetition(o, {
+    name: `Club ${tag}`,
+    format: 'league',
+    resultSource: 'manual',
+    timeControl: '180',
+    legs: 1,
+    matchdayDays: 3,
+    visibility: 'private',
+    allowLateEntry: false,
+    unplayedRule: 'organiser',
+    leaveRule: 'award',
+    maxPlayers: null,
+    requireApproval: false,
+    points: { win: 3, draw: 1, loss: 0, forfeit: -1 },
+  })
+  const [row] = await db.select().from(competitions).where(eq(competitions.slug, slug))
+  assert.equal(row.resultSource, 'manual')
+  assert.equal(row.timeControl, 'any', 'no time control to filter chess.com games by')
+  await joinCompetition(a, { code: row.inviteCode })
+  await startCompetition(slug, v(o))
+  const [m] = await db.select().from(matches).where(eq(matches.competitionId, row.id))
+  await db.update(matches).set({ opensAt: new Date(Date.now() - 60_000) }).where(eq(matches.id, m.id))
+
+  const realFetch = globalThis.fetch
+  try {
+    globalThis.fetch = (async () => {
+      throw new Error('chess.com must not be called')
+    }) as typeof fetch
+    assert.equal(await syncResults(row.id, new Date(Date.now() + 6 * 60_000)), 0)
+    await reportResult(slug, v(a), m.id, 'win', false)
+    await answerReport(slug, v(o), m.id, true)
+  } finally {
+    globalThis.fetch = realFetch
+  }
+  const [end] = await db.select().from(competitions).where(eq(competitions.id, row.id))
+  assert.equal(end.status, 'finished')
+  assert.equal(end.championUserId, a)
+  // their player page works without a chess.com name
+  assert.equal((await getPlayer(a, v(o)))?.record.wins, 1)
+
+  // but a chess.com competition still needs a linked account
+  const c = await competition('league', ['x', 'y'])
+  await assert.rejects(joinCompetition(a, { code: c.row.inviteCode }), /Link your chess.com account/)
 })

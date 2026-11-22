@@ -445,6 +445,7 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       leaveRule: competition.leaveRule,
       earlyRounds: competition.earlyRounds,
       timeControl: competition.timeControl,
+      resultSource: competition.resultSource,
       tieBreaks: competition.tieBreaks,
       startsAt: competition.startsAt?.getTime() ?? null,
       maxPlayers: competition.maxPlayers,

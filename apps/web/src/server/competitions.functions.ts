@@ -104,11 +104,15 @@ export const createCompetitionFn = createServerFn({ method: 'POST' })
       visibility: z.enum(['public', 'private']).default('private'),
       allowLateEntry: z.boolean().default(false),
       timeControl: timeControl.default('any'),
+      resultSource: z.enum(['chesscom', 'manual']).default('chesscom'),
       ...scoring,
     }),
   )
   .handler(async ({ context, data }) => {
-    await requireChessAccount(context.user.id)
+    // results come from chess.com only there; a tracked competition needs no account
+    if (data.resultSource === 'chesscom') {
+      await requireChessAccount(context.user.id)
+    }
     await allow('competition-create', context.user.id)
     return { slug: await createCompetition(context.user.id, data) }
   })
@@ -141,7 +145,6 @@ export const joinCompetitionFn = createServerFn({ method: 'POST' })
   .middleware([userMiddleware])
   .validator(z.union([z.object({ code }), z.object({ slug })]))
   .handler(async ({ context, data }) => {
-    await requireChessAccount(context.user.id)
     await allow('competition-join', context.user.id)
     return joinCompetition(context.user.id, data)
   })
@@ -181,7 +184,6 @@ export const rematchFn = createServerFn({ method: 'POST' })
   .middleware([userMiddleware])
   .validator(z.object({ slug }))
   .handler(async ({ context, data }) => {
-    await requireChessAccount(context.user.id)
     await allow('competition-create', context.user.id)
     return { slug: await rematch(data.slug, context.user.id) }
   })

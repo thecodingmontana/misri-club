@@ -8,6 +8,7 @@ import { Plus, UserPlus } from '#/components/icons'
 import { InstallCard } from '#/components/install-card'
 import { Button } from '#/components/ui/button'
 import { seo } from '#/lib/seo'
+import { useAdmin } from '#/lib/use-admin'
 import {
   getMyCompetitionsFn,
   getOpenCompetitionsFn,
@@ -33,9 +34,22 @@ export const Route = createFileRoute('/_authed/')({
 
 function Home() {
   const { mine, open } = Route.useLoaderData()
+  const { user } = useAdmin()
   return (
     <div className="space-y-6 pt-2">
       <InstallCard />
+      {user && !user.chessUsername && (
+        <Link
+          to="/account"
+          className="block rounded-2xl bg-card px-4 py-3 text-sm shadow-card transition-colors duration-150 hover:bg-secondary"
+        >
+          <span className="font-semibold">Play on chess.com?</span>{' '}
+          <span className="text-muted-foreground">
+            Link your account to join chess.com competitions and analyse your
+            games.
+          </span>
+        </Link>
+      )}
       <header className="text-center">
         <h1 className="display text-3xl">Your competitions</h1>
       </header>

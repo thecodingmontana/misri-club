@@ -85,6 +85,7 @@ export interface CompetitionSettings {
   timeControl?: string
   tieBreaks?: TieBreak[]
   startsAt?: Date | null
+  resultSource?: Competition['resultSource']
 }
 
 /** Create and join need a verified chess.com account: results come from there. */
@@ -168,7 +169,12 @@ function challengeGames([a, b]: string[], bestOf: number) {
 }
 
 /** A challenge is always two players, invite only, straight in. */
-function shapeSettings(settings: CompetitionSettings): CompetitionSettings {
+function shapeSettings(requested: CompetitionSettings): CompetitionSettings {
+  // a time control filters chess.com games; tracked results have none to filter
+  const settings =
+    requested.resultSource === 'manual'
+      ? { ...requested, timeControl: 'any' }
+      : requested
   if (settings.format !== 'challenge') return settings
   return {
     ...settings,
@@ -353,6 +359,10 @@ export async function admit(tx: Tx, competition: Competition, userId: string) {
 
   const decision = canJoin(competition)
   if (!decision.ok) throw new Error(decision.reason)
+  // results come from each player's chess.com games there
+  if (competition.resultSource === 'chesscom') {
+    await requireChessAccount(userId)
+  }
   // checked under the row lock, so two joiners can't both take the last place
   if (competition.maxPlayers && members.length >= competition.maxPlayers) {
     throw new Error("It's full.")
@@ -875,8 +885,10 @@ export async function rematch(slug: string, viewerId: string) {
   const name = names.find((candidate) => !taken.has(normalizeName(candidate)))
   if (!name) throw new Error('Too many rematches under this name. Create one.')
 
+  if (old.resultSource === 'chesscom') await requireChessAccount(viewerId)
   const newSlug = await createCompetition(viewerId, {
     name,
+    resultSource: old.resultSource,
     format: 'challenge',
     legs: 1,
     bestOf: old.bestOf,

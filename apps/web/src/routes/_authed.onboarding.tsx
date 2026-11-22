@@ -4,6 +4,7 @@ import {
   useNavigate,
   useRouter,
 } from '@tanstack/react-router'
+import { useServerFn } from '@tanstack/react-start'
 import { type FormEvent, useState } from 'react'
 import { z } from 'zod'
 import { AuthShell, Spinner } from '#/components/auth'
@@ -12,18 +13,20 @@ import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { authClient, safePath, takeNext } from '#/lib/auth-client'
 import { seo } from '#/lib/seo'
+import { forgetSession } from '#/lib/session-cache'
 import { toast } from '#/lib/toast'
+import { skipChessFn } from '#/server/auth.functions'
 
 /**
  * First sign-in, like Zadaci's onboarding: your name, then your chess.com
- * account (it must exist, and you prove it's yours). Signed-in pages send you
- * here until it's done.
+ * account (it must exist, and you prove it's yours) or skip it. Signed-in
+ * pages send you here until it's done.
  */
 export const Route = createFileRoute('/_authed/onboarding')({
   validateSearch: z.object({ redirect: z.string().optional() }),
   // Already onboarded: nothing to do here.
   beforeLoad: ({ context, search }) => {
-    if (context.user.chessUsername) {
+    if (context.user.onboarded) {
       throw redirect({ href: safePath(search.redirect) ?? '/start' })
     }
   },
@@ -44,6 +47,8 @@ function Onboarding() {
   const [step, setStep] = useState<1 | 2>(1)
   const [name, setName] = useState(user.name)
   const [saving, setSaving] = useState(false)
+  const [skipping, setSkipping] = useState(false)
+  const skipChess = useServerFn(skipChessFn)
 
   async function saveName(event: FormEvent) {
     event.preventDefault()
@@ -74,7 +79,7 @@ function Onboarding() {
           </span>
           {step === 1
             ? 'What should other players call you?'
-            : 'Your games and results come from chess.com, so link the account you play on.'}
+            : 'Link the chess.com account you play on, so competitions can read your results from your games. Playing over the board or elsewhere? Skip it.'}
         </>
       }
     >
@@ -103,6 +108,26 @@ function Onboarding() {
       ) : (
         <div className="flex flex-col gap-3">
           <ChessAccount onLinked={finish} />
+          <Button
+            variant="outline"
+            className="w-full"
+            disabled={skipping}
+            onClick={async () => {
+              setSkipping(true)
+              try {
+                await skipChess()
+                // the guard reuses the last session check; this one is stale
+                forgetSession()
+                await finish()
+              } catch (error) {
+                toast.error((error as Error).message)
+                setSkipping(false)
+              }
+            }}
+          >
+            {skipping && <Spinner />}
+            Skip: I don't play on chess.com
+          </Button>
           <button
             type="button"
             className="text-sm text-muted-foreground hover:text-foreground"

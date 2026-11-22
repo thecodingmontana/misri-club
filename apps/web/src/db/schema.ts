@@ -61,6 +61,8 @@ export const user = pgTable('user', {
   emailVerified: boolean('email_verified').default(false).notNull(),
   image: text('image'),
   twoFactorEnabled: boolean('two_factor_enabled').default(false),
+  /** Finished onboarding without linking chess.com (they skipped that step). */
+  onboardedAt: ts('onboarded_at'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }).enableRLS()
@@ -194,6 +196,9 @@ export const chessAccounts = pgTable('chess_accounts', {
 // Competitions: leagues (round-robin) and knockouts, each owned by one player.
 // ---------------------------------------------------------------------------
 
+/** Where results come from: chess.com games, or the players and organiser. */
+export const resultSource = pgEnum('result_source', ['chesscom', 'manual'])
+
 export const competitionFormat = pgEnum('competition_format', [
   'league',
   'knockout',
@@ -239,6 +244,8 @@ export const competitions = pgTable('competitions', {
   bestOf: integer('best_of').notNull().default(1),
   /** How long each round stays open for its games. */
   matchdayDays: integer('matchday_days').notNull().default(2),
+  /** chesscom = results sync from chess.com; manual = players report them */
+  resultSource: resultSource('result_source').notNull().default('chesscom'),
   status: competitionStatus('status').notNull().default('open'),
   /** public = listed for anyone to join; private = invite code only */
   visibility: competitionVisibility('visibility').notNull().default('private'),

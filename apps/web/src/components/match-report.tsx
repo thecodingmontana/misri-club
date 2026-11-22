@@ -18,10 +18,13 @@ export function MatchReport({
   slug,
   match,
   viewerId,
+  primary = false,
 }: {
   slug: string
   match: MatchView
   viewerId: string | null
+  /** results come only from reports here, so reporting is the main action */
+  primary?: boolean
 }) {
   const { home, away, report } = match
   if (!home || !away) return null
@@ -57,7 +60,9 @@ export function MatchReport({
     )
   }
 
-  return isPlayer ? <ReportForm slug={slug} matchId={match.id} /> : null
+  return isPlayer ? (
+    <ReportForm slug={slug} matchId={match.id} primary={primary} />
+  ) : null
 }
 
 function Answer({ slug, matchId }: { slug: string; matchId: string }) {
@@ -105,7 +110,15 @@ function Answer({ slug, matchId }: { slug: string; matchId: string }) {
   )
 }
 
-function ReportForm({ slug, matchId }: { slug: string; matchId: string }) {
+function ReportForm({
+  slug,
+  matchId,
+  primary,
+}: {
+  slug: string
+  matchId: string
+  primary: boolean
+}) {
   const report = useServerFn(reportResultFn)
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -116,12 +129,14 @@ function ReportForm({ slug, matchId }: { slug: string; matchId: string }) {
   if (!open) {
     return (
       <Button
-        variant="ghost"
+        variant={primary ? 'secondary' : 'ghost'}
         size="sm"
-        className="w-full text-muted-foreground"
+        className={primary ? 'mt-2 w-full' : 'w-full text-muted-foreground'}
         onClick={() => setOpen(true)}
       >
-        Played somewhere else? Report the result
+        {primary
+          ? 'Report the result'
+          : 'Played somewhere else? Report the result'}
       </Button>
     )
   }

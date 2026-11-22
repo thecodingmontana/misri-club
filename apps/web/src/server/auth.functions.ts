@@ -2,7 +2,7 @@ import { createMiddleware, createServerFn } from '@tanstack/react-start'
 import { getCookie, getRequestHeaders } from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm'
 import { db } from '#/db/client.server'
-import { chessAccounts } from '#/db/schema'
+import { chessAccounts, user as userTable } from '#/db/schema'
 import { auth, googleEnabled, isAdminEmail } from './auth.server'
 import { fetchPlayerProfile } from './chesscom.server'
 
@@ -33,16 +33,21 @@ export const userMiddleware = createMiddleware({ type: 'function' }).server(
 export const getSessionFn = createServerFn({ method: 'GET' }).handler(
   async () => {
     const user = await currentUser()
-    const [chess] = user
+    const [row] = user
       ? await db
           .select({
             username: chessAccounts.username,
             avatar: chessAccounts.avatar,
+            onboardedAt: userTable.onboardedAt,
           })
-          .from(chessAccounts)
-          .where(eq(chessAccounts.userId, user.id))
+          .from(userTable)
+          .leftJoin(chessAccounts, eq(chessAccounts.userId, userTable.id))
+          .where(eq(userTable.id, user.id))
           .limit(1)
       : []
+    const chess = row?.username
+      ? { username: row.username, avatar: row.avatar }
+      : undefined
     // Linked before chess.com pictures were stored: look it up once, then keep it.
     if (user && chess && chess.avatar === null) {
       const profile = await fetchPlayerProfile(chess.username).catch(() => null)
@@ -65,6 +70,8 @@ export const getSessionFn = createServerFn({ method: 'GET' }).handler(
         chessUsername: chess?.username ?? null,
         /** chess.com picture when they have one */
         chessAvatar: chess?.avatar || null,
+        /** done with onboarding: linked chess.com, or chose to skip it */
+        onboarded: Boolean(chess || row?.onboardedAt),
       },
       isAdmin: user ? isAdminEmail(user) : false,
       googleEnabled,
@@ -103,4 +110,15 @@ export const getSignInLinkEmailFn = createServerFn({ method: 'GET' })
     } catch {
       return null
     }
+  })
+
+/** Onboarding without chess.com: they can link it later from their account. */
+export const skipChessFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .handler(async ({ context }) => {
+    await db
+      .update(userTable)
+      .set({ onboardedAt: new Date() })
+      .where(eq(userTable.id, context.user.id))
+    return { ok: true }
   })

@@ -111,8 +111,10 @@ function CompetitionPage() {
       <header className="text-center">
         <p className="kicker">
           {FORMAT_LABEL[competition.format]} ·{' '}
-          {timeControlLabel(competition.timeControl)} ·{' '}
-          {STATUS_LABEL[competition.status]}
+          {competition.resultSource === 'manual'
+            ? 'Results reported by players'
+            : timeControlLabel(competition.timeControl)}{' '}
+          · {STATUS_LABEL[competition.status]}
         </p>
         <h1 className="display mt-1 text-3xl">{competition.name}</h1>
         {competition.status === 'open' && competition.startsAt && (
@@ -490,12 +492,13 @@ function OwnerPanel({ data }: { data: Data }) {
         />
       )}
 
-      {competition.status === 'open' && (
-        <TimeControlChoice
-          value={competition.timeControl}
-          onChange={(timeControl) => save({ timeControl })}
-        />
-      )}
+      {competition.status === 'open' &&
+        competition.resultSource === 'chesscom' && (
+          <TimeControlChoice
+            value={competition.timeControl}
+            onChange={(timeControl) => save({ timeControl })}
+          />
+        )}
 
       {competition.status !== 'finished' && (
         <ScoringRules
@@ -798,6 +801,7 @@ function Fixtures({ data }: { data: Data }) {
                 slug={data.competition.slug}
                 match={match}
                 viewerId={viewerId}
+                primary={data.competition.resultSource === 'manual'}
               />
               {concedable(data, match, viewerId) && (
                 <ConcedeButton
@@ -895,7 +899,7 @@ function ChallengeScore({
   )
 }
 
-/** A player's name, linked to their page when they have a chess.com account. */
+/** A player's name, linked to their page (by chess.com name, else by id). */
 function PlayerLink({
   player,
   children,
@@ -903,11 +907,10 @@ function PlayerLink({
   player: PlayerView
   children: ReactNode
 }) {
-  if (!player.chessUsername) return children
   return (
     <Link
       to="/p/$username"
-      params={{ username: player.chessUsername }}
+      params={{ username: player.chessUsername ?? player.id }}
       className="min-w-0 rounded-md hover:underline"
     >
       {children}

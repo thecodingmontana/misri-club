@@ -12,12 +12,8 @@ type Page = NonNullable<Awaited<ReturnType<typeof getPlayer>>>
 
 /** A player: their record, their results, and how you do against them. */
 export const Route = createFileRoute('/_authed/p/$username')({
-  head: ({ params }) =>
-    seo({
-      title: params.username,
-      description: `${params.username} on Misri.`,
-      noindex: true,
-    }),
+  head: () =>
+    seo({ title: 'Player', description: 'A player on Misri.', noindex: true }),
   loader: async ({ params }) => {
     const page = await getPlayerFn({ data: { username: params.username } })
     if (!page) throw notFound()
@@ -36,7 +32,6 @@ const OUTCOME = {
 function PlayerPage() {
   const page: Page = Route.useLoaderData()
   const { player, record, headToHead, titles, competitions, recent } = page
-  const { username } = Route.useParams()
 
   return (
     <div className="space-y-6 pt-2">
@@ -47,15 +42,17 @@ function PlayerPage() {
           className="size-20"
         />
         <h1 className="display text-3xl">{player.name}</h1>
-        <a
-          href={`https://www.chess.com/member/${encodeURIComponent(username)}`}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary"
-        >
-          chess.com profile
-          <ExternalLink className="size-3" />
-        </a>
+        {player.chessUsername && (
+          <a
+            href={`https://www.chess.com/member/${encodeURIComponent(player.chessUsername)}`}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary"
+          >
+            chess.com profile
+            <ExternalLink className="size-3" />
+          </a>
+        )}
       </header>
 
       <div className="grid grid-cols-3 gap-2">

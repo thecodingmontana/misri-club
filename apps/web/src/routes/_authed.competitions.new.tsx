@@ -108,6 +108,9 @@ function NewCompetition() {
   const [advancing, setAdvancing] = useState<(typeof ADVANCING)[number]>(2)
   const [matchdayDays, setMatchdayDays] = useState(2)
   const [timeControl, setTimeControl] = useState('any')
+  const [resultSource, setResultSource] = useState<'chesscom' | 'manual'>(
+    'chesscom',
+  )
   const [visibility, setVisibility] = useState<'private' | 'public'>('private')
   const [leaveRule, setLeaveRule] = useState<LeaveRule>('award')
   const [maxPlayers, setMaxPlayers] = useState<number | null>(null)
@@ -136,7 +139,8 @@ function NewCompetition() {
           groupCount,
           advancing,
           matchdayDays,
-          timeControl,
+          timeControl: resultSource === 'chesscom' ? timeControl : 'any',
+          resultSource,
           visibility,
           allowLateEntry: league && allowLateEntry,
           maxPlayers,
@@ -307,7 +311,26 @@ function NewCompetition() {
           </p>
         </Field>
 
-        <TimeControlChoice value={timeControl} onChange={setTimeControl} />
+        <div className="space-y-1.5">
+          <Choice
+            label="Results"
+            value={resultSource}
+            onChange={setResultSource}
+            options={[
+              { value: 'chesscom', label: 'From chess.com' },
+              { value: 'manual', label: 'Players report' },
+            ]}
+          />
+          <p className="text-xs text-muted-foreground">
+            {resultSource === 'chesscom'
+              ? 'Games played on chess.com count by themselves. Everyone needs a linked chess.com account.'
+              : 'For over the board, lichess or anywhere else: a player reports each result and their opponent confirms it. No chess.com account needed.'}
+          </p>
+        </div>
+
+        {resultSource === 'chesscom' && (
+          <TimeControlChoice value={timeControl} onChange={setTimeControl} />
+        )}
 
         {!challenge && (
           <MaxPlayersField value={maxPlayers} onSave={setMaxPlayers} />

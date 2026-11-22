@@ -65,6 +65,8 @@ export async function syncResults(competitionId: string, now = new Date()) {
       and(
         eq(competitions.id, competitionId),
         eq(competitions.status, 'running'),
+        // tracked competitions take results from players, not chess.com
+        eq(competitions.resultSource, 'chesscom'),
         or(
           isNull(competitions.syncedAt),
           lt(competitions.syncedAt, new Date(now.getTime() - SYNC_EVERY_MS)),
