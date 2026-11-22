@@ -33,6 +33,7 @@ import {
 import { CopyIcon } from '#/components/copy-icon'
 import { displayName, FixtureCard } from '#/components/match-card'
 import { DecideMatch } from '#/components/match-decision'
+import { MatchReport } from '#/components/match-report'
 import { PlayerChip } from '#/components/player-chip'
 import { ScoringRules, scoringSummary } from '#/components/scoring-rules'
 import { Seeding } from '#/components/seeding'
@@ -793,6 +794,11 @@ function Fixtures({ data }: { data: Data }) {
                     Review your game with Stockfish
                   </Link>
                 )}
+              <MatchReport
+                slug={data.competition.slug}
+                match={match}
+                viewerId={viewerId}
+              />
               {concedable(data, match, viewerId) && (
                 <ConcedeButton
                   slug={data.competition.slug}

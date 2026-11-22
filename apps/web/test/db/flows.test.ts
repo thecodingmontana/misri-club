@@ -36,7 +36,9 @@ import { remindDeadlines } from '#/server/notifications.server'
 import {
   concedeMatch,
   decideMatch,
+  answerReport,
   openEarlyRound,
+  reportResult,
   syncResults,
 } from '#/server/results.server'
 
@@ -639,4 +641,38 @@ test('player page: record, head-to-head, and private competitions stay private',
   await db.update(competitions).set({ visibility: 'public' }).where(eq(competitions.id, c.row.id))
   assert.equal((await getPlayer(o, v(outsider)))?.competitions.length, 1, 'a public one shows')
   assert.equal(await getPlayer('no-such-player', v(a)), null)
+})
+
+test('reported results: the opponent confirms (it counts) or disputes (the organiser hears)', async () => {
+  const c = await competition('league', ['o', 'a', 'b'], { legs: 1 }, 0)
+  const [o, a, b] = c.ids
+  await startCompetition(c.slug, c.organiser)
+  const rows = await c.rows()
+  const ab = rows.find((m) => [m.homeUserId, m.awayUserId].sort().join() === [a, b].sort().join())
+  assert.ok(ab)
+  await db.update(matches).set({ opensAt: new Date(Date.now() - 60_000) }).where(eq(matches.id, ab.id))
+
+  await assert.rejects(reportResult(c.slug, v(o), ab.id, 'win', true), /two players/)
+  // a says they beat b with white
+  await reportResult(c.slug, v(a), ab.id, 'win', true)
+  await assert.rejects(answerReport(c.slug, v(a), ab.id, true), /Only the opponent/)
+  const toldB = await db.select().from(notifications).where(eq(notifications.userId, b))
+  assert.ok(toldB.some((n) => n.title.includes('reported your result')))
+
+  // b disputes: report cleared, the organiser (not in this match) hears
+  await answerReport(c.slug, v(b), ab.id, false)
+  let [row] = await db.select().from(matches).where(eq(matches.id, ab.id))
+  assert.equal(row.report, null)
+  assert.equal(row.result, null)
+  const toldO = await db.select().from(notifications).where(eq(notifications.userId, o))
+  assert.ok(toldO.some((n) => n.title.includes('disagree')))
+
+  // reported again, and this time confirmed: a won with white
+  await reportResult(c.slug, v(a), ab.id, 'win', true)
+  await answerReport(c.slug, v(b), ab.id, true)
+  ;[row] = await db.select().from(matches).where(eq(matches.id, ab.id))
+  assert.equal(row.report, null)
+  assert.equal(row.result, 'white')
+  assert.equal(row.whiteUserId, a)
+  await assert.rejects(reportResult(c.slug, v(b), ab.id, 'win', true), /already decided/)
 })

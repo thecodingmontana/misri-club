@@ -304,6 +304,63 @@ export async function notifyRematch(
   ])
 }
 
+/** A player reported a result: their opponent is asked to confirm it. */
+export async function notifyReported(
+  competitionId: string,
+  byUserId: string,
+  opponentId: string,
+) {
+  const competition = await competitionPush(competitionId)
+  if (!competition) return
+  const by = await playerName(byUserId)
+  await bestEffort([
+    {
+      userId: opponentId,
+      title: `${by} reported your result`,
+      body: `In ${competition.name}. Confirm it, or dispute it if it's wrong.`,
+      url: `/c/${competition.slug}`,
+    },
+  ])
+}
+
+/** The opponent confirmed or disputed a report; a dispute goes to the organiser. */
+export async function notifyReportAnswered(
+  competitionId: string,
+  byUserId: string,
+  reporterId: string,
+  accepted: boolean,
+) {
+  const competition = await competitionPush(competitionId)
+  if (!competition) return
+  const by = await playerName(byUserId)
+  const reporter = await playerName(reporterId)
+  const url = `/c/${competition.slug}`
+  await bestEffort([
+    {
+      userId: reporterId,
+      title: accepted
+        ? `${by} confirmed your result`
+        : `${by} disputed your result`,
+      body: accepted
+        ? `It counts in ${competition.name}.`
+        : `In ${competition.name}. The organiser will settle it.`,
+      url,
+    },
+    ...(!accepted &&
+    competition.ownerId !== byUserId &&
+    competition.ownerId !== reporterId
+      ? [
+          {
+            userId: competition.ownerId,
+            title: `${reporter} and ${by} disagree on a result`,
+            body: `In ${competition.name}. Enter the result yourself.`,
+            url,
+          },
+        ]
+      : []),
+  ])
+}
+
 /** A player conceded: their opponent gets the win, and the organiser hears of it. */
 export async function notifyConceded(
   competitionId: string,

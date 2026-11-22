@@ -1,0 +1,178 @@
+import { useRouter } from '@tanstack/react-router'
+import { useServerFn } from '@tanstack/react-start'
+import { useState } from 'react'
+import { Spinner } from '#/components/auth'
+import { Choice } from '#/components/competitions'
+import { displayName } from '#/components/match-card'
+import { Button } from '#/components/ui/button'
+import { toast } from '#/lib/toast'
+import type { MatchView } from '#/server/competition-view.server'
+import { answerReportFn, reportResultFn } from '#/server/competitions.functions'
+
+/**
+ * For a game chess.com won't show us (over the board, another site): one
+ * player reports it, the other confirms it, and it counts. A dispute goes to
+ * the organiser, who can always enter the result themselves.
+ */
+export function MatchReport({
+  slug,
+  match,
+  viewerId,
+}: {
+  slug: string
+  match: MatchView
+  viewerId: string | null
+}) {
+  const { home, away, report } = match
+  if (!home || !away) return null
+  if (match.status !== 'live' && match.status !== 'expired') return null
+  const isPlayer = viewerId === home.id || viewerId === away.id
+
+  if (report) {
+    const winner =
+      report.result === 'draw'
+        ? null
+        : (report.result === 'white') === report.homeWhite
+          ? home
+          : away
+    const by = report.byUserId === home.id ? home : away
+    const other = by === home ? away : home
+    const said = `${displayName(by)} reported ${
+      winner ? `a win for ${displayName(winner)}` : 'a draw'
+    }.`
+    return (
+      <div className="mt-2 space-y-2 rounded-xl bg-secondary/60 px-3 py-2 text-center text-xs">
+        <p>
+          {said}{' '}
+          {viewerId === other.id
+            ? 'Is that right?'
+            : `Waiting for ${displayName(other)} to confirm.`}
+        </p>
+        {viewerId === other.id && <Answer slug={slug} matchId={match.id} />}
+      </div>
+    )
+  }
+
+  return isPlayer ? <ReportForm slug={slug} matchId={match.id} /> : null
+}
+
+function Answer({ slug, matchId }: { slug: string; matchId: string }) {
+  const answer = useServerFn(answerReportFn)
+  const router = useRouter()
+  const [busy, setBusy] = useState<boolean | null>(null)
+  const send = async (accept: boolean) => {
+    setBusy(accept)
+    try {
+      await answer({ data: { slug, matchId, accept } })
+      await router.invalidate()
+      toast.success(
+        accept
+          ? 'Confirmed. The result counts.'
+          : 'Disputed. The organiser will settle it.',
+      )
+    } catch (error) {
+      toast.error((error as Error).message)
+    } finally {
+      setBusy(null)
+    }
+  }
+  return (
+    <div className="flex gap-2">
+      <Button
+        size="sm"
+        className="flex-1"
+        disabled={busy !== null}
+        onClick={() => send(true)}
+      >
+        {busy === true && <Spinner />}
+        Confirm
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className="flex-1"
+        disabled={busy !== null}
+        onClick={() => send(false)}
+      >
+        {busy === false && <Spinner />}
+        Dispute
+      </Button>
+    </div>
+  )
+}
+
+function ReportForm({ slug, matchId }: { slug: string; matchId: string }) {
+  const report = useServerFn(reportResultFn)
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [outcome, setOutcome] = useState<'win' | 'draw' | 'loss'>('win')
+  const [white, setWhite] = useState(true)
+  const [busy, setBusy] = useState(false)
+
+  if (!open) {
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="w-full text-muted-foreground"
+        onClick={() => setOpen(true)}
+      >
+        Played somewhere else? Report the result
+      </Button>
+    )
+  }
+
+  return (
+    <form
+      className="mt-2 space-y-3 rounded-xl bg-secondary/60 p-3"
+      onSubmit={async (event) => {
+        event.preventDefault()
+        setBusy(true)
+        try {
+          await report({ data: { slug, matchId, outcome, white } })
+          await router.invalidate()
+          toast.success('Reported. It counts once your opponent confirms.')
+        } catch (error) {
+          toast.error((error as Error).message)
+        } finally {
+          setBusy(false)
+        }
+      }}
+    >
+      <Choice
+        label="How did it go?"
+        value={outcome}
+        onChange={setOutcome}
+        options={[
+          { value: 'win', label: 'I won' },
+          { value: 'draw', label: 'Draw' },
+          { value: 'loss', label: 'I lost' },
+        ]}
+      />
+      <Choice
+        label="You played"
+        value={white ? 'white' : 'black'}
+        onChange={(value) => setWhite(value === 'white')}
+        options={[
+          { value: 'white', label: 'White' },
+          { value: 'black', label: 'Black' },
+        ]}
+      />
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" className="flex-1" disabled={busy}>
+          {busy && <Spinner />}
+          Report
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="flex-1"
+          onClick={() => setOpen(false)}
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  )
+}

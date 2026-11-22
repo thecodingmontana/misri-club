@@ -33,9 +33,11 @@ import {
 import { getPlayer } from './player.server'
 import { takeAllowance } from './rate-limit.server'
 import {
+  answerReport,
   concedeMatch,
   decideMatch,
   openEarlyRound,
+  reportResult,
   syncForPlayer,
 } from './results.server'
 import {
@@ -376,3 +378,41 @@ export const getPlayerFn = createServerFn({ method: 'GET' })
   .middleware([userMiddleware])
   .validator(z.object({ username: z.string().trim().min(1).max(40) }))
   .handler(({ context, data }) => getPlayer(data.username, context.viewer))
+
+/** A player reports how their game went; the opponent confirms it. */
+export const reportResultFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(
+    z.object({
+      slug,
+      matchId: z.string().min(1).max(16),
+      outcome: z.enum(['win', 'draw', 'loss']),
+      white: z.boolean(),
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    await allow('result-report', context.user.id)
+    await reportResult(
+      data.slug,
+      context.viewer,
+      data.matchId,
+      data.outcome,
+      data.white,
+    )
+    return { ok: true }
+  })
+
+/** The opponent confirms (it counts) or disputes (the organiser settles) a report. */
+export const answerReportFn = createServerFn({ method: 'POST' })
+  .middleware([userMiddleware])
+  .validator(
+    z.object({
+      slug,
+      matchId: z.string().min(1).max(16),
+      accept: z.boolean(),
+    }),
+  )
+  .handler(async ({ context, data }) => {
+    await answerReport(data.slug, context.viewer, data.matchId, data.accept)
+    return { ok: true }
+  })

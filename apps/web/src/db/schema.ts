@@ -11,6 +11,7 @@ import {
   timestamp,
   varchar,
 } from 'drizzle-orm/pg-core'
+import type { MatchReport } from '../lib/decisions'
 import { generateNanoId } from './utils'
 
 /**
@@ -378,6 +379,8 @@ export const matches = pgTable(
     endedAt: ts('ended_at'),
     /** Called off by the organiser (or the "no result" rule): counts for nobody. */
     voided: boolean('voided').notNull().default(false),
+    /** A player's reported result, waiting for the opponent to confirm. */
+    report: jsonb('report').$type<MatchReport>(),
     /** A late joiner's game: late games share one round while it's open. */
     late: boolean('late').notNull().default(false),
     /** The organiser's word on a decision, shown on the match card. */

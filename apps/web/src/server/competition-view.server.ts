@@ -11,6 +11,7 @@ import {
 } from '#/db/schema'
 import { can, roleOf, type Viewer } from '#/lib/access'
 import { challengeScore } from '#/lib/challenge'
+import type { MatchReport } from '#/lib/decisions'
 import { earlyRound } from '#/lib/early-rounds'
 import { groupName } from '#/lib/groups'
 import { canJoin } from '#/lib/join-policy'
@@ -193,6 +194,8 @@ export interface MatchView {
   winnerId: string | null
   /** the organiser's word on a decision */
   note: string | null
+  /** a player's reported result, waiting for the opponent */
+  report: MatchReport | null
 }
 
 function matchStatus(m: typeof matches.$inferSelect, now: number): MatchStatus {
@@ -334,6 +337,7 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
     gameUrl: m.gameUrl,
     winnerId: m.winnerUserId,
     note: m.note,
+    report: m.report,
   }))
 
   // Matches waiting on the organiser: expired under "I decide" (any expired
