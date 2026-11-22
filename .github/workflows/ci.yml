@@ -19,3 +19,21 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm check
       - run: pnpm test
+      - run: pnpm build
+      # the built server, not the dev one: a bundling slip (a module left out
+      # of the server bundle) only shows up here, and takes every page down
+      - name: Smoke test the built server
+        working-directory: apps/web
+        env:
+          DATABASE_URL: postgres://ci:ci@127.0.0.1:1/ci
+          BETTER_AUTH_SECRET: ci-only-secret-ci-only-secret-0000
+          BETTER_AUTH_URL: http://localhost:3000
+          PORT: 3000
+        run: |
+          node .output/server/index.mjs &
+          for i in $(seq 1 30); do curl -s -o /dev/null http://localhost:3000/api/version && break; sleep 1; done
+          for path in /welcome /terms /api/version; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:3000$path")
+            echo "$path $code"
+            [ "$code" = 200 ] || exit 1
+          done
