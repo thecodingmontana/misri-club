@@ -20,6 +20,7 @@ import { matchOutcome, type Outcome } from './standings'
 const RECENT = 10
 
 export type PlayerResult = {
+  matchId: string
   outcome: Outcome
   opponent: string
   opponentImage: string | null
@@ -88,6 +89,7 @@ export async function getPlayer(username: string, viewer: Viewer) {
   const opponentId = sql<string>`case when ${matches.homeUserId} = ${player.id} then ${matches.awayUserId} else ${matches.homeUserId} end`
   const decided = await db
     .select({
+      id: matches.id,
       homeUserId: matches.homeUserId,
       awayUserId: matches.awayUserId,
       dueAt: matches.dueAt,
@@ -129,6 +131,7 @@ export async function getPlayer(username: string, viewer: Viewer) {
     return outcome
       ? [
           {
+            matchId: m.id,
             outcome,
             opponent: m.opponentName,
             opponentImage: m.opponentImage,

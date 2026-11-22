@@ -20,7 +20,7 @@ const stamp = (date: Date) =>
     .replace(/[-:]/g, '')
     .replace(/\.\d{3}/, '')
 
-const escape = (text: string) =>
+const escapeText = (text: string) =>
   text
     .replace(/\\/g, '\\\\')
     .replace(/;/g, '\\;')
@@ -60,7 +60,7 @@ export function icsCalendar(
     'PRODID:-//Misri//Match deadlines//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    `X-WR-CALNAME:${escape(name)}`,
+    `X-WR-CALNAME:${escapeText(name)}`,
   ]
   for (const event of events) {
     lines.push(
@@ -69,17 +69,17 @@ export function icsCalendar(
       `DTSTAMP:${stamp(now)}`,
       `DTSTART:${stamp(event.start)}`,
       `DTEND:${stamp(event.end)}`,
-      `SUMMARY:${escape(event.summary)}`,
+      `SUMMARY:${escapeText(event.summary)}`,
     )
     if (event.description) {
-      lines.push(`DESCRIPTION:${escape(event.description)}`)
+      lines.push(`DESCRIPTION:${escapeText(event.description)}`)
     }
     if (event.url) lines.push(`URL:${event.url}`)
     if (event.alarmMinutes) {
       lines.push(
         'BEGIN:VALARM',
         'ACTION:DISPLAY',
-        `DESCRIPTION:${escape(event.summary)}`,
+        `DESCRIPTION:${escapeText(event.summary)}`,
         `TRIGGER:-PT${event.alarmMinutes}M`,
         'END:VALARM',
       )

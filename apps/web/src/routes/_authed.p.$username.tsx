@@ -84,8 +84,8 @@ function PlayerPage() {
           </p>
         ) : (
           <ul className="space-y-2">
-            {recent.map((r, i) => (
-              <ResultRow key={`${r.slug}-${i}`} result={r} />
+            {recent.map((r) => (
+              <ResultRow key={r.matchId} result={r} />
             ))}
           </ul>
         )}
