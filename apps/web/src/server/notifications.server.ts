@@ -313,6 +313,60 @@ export async function notifyGamesMoved(
   await bestEffort(messages)
 }
 
+/**
+ * Games added for a late joiner: one note per player, so nobody misses a new
+ * fixture. Several new games (the joiner's) make one summary note.
+ */
+export async function notifyNewGames(
+  competitionId: string,
+  games: Array<{
+    homeId: string
+    awayId: string
+    round: number
+    dueAt: Date
+    late: boolean
+  }>,
+) {
+  if (games.length === 0) return
+  const competition = await competitionPush(competitionId)
+  if (!competition) return
+  const byPlayer = new Map<string, typeof games>()
+  for (const game of games) {
+    for (const id of [game.homeId, game.awayId]) {
+      byPlayer.set(id, [...(byPlayer.get(id) ?? []), game])
+    }
+  }
+  const messages = []
+  for (const [me, mine] of byPlayer) {
+    const soonest = mine.reduce((a, b) => (b.dueAt < a.dueAt ? b : a))
+    const due = soonest.dueAt.toLocaleDateString('en', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'Africa/Nairobi',
+    })
+    if (mine.length > 1) {
+      messages.push({
+        userId: me,
+        title: `You have ${mine.length} new games in ${competition.name}`,
+        body: `Your fixtures are out. The first is due ${due}.`,
+        url: `/c/${competition.slug}`,
+      })
+      continue
+    }
+    const them = soonest.homeId === me ? soonest.awayId : soonest.homeId
+    const where = soonest.late
+      ? 'the late-entry round'
+      : `round ${soonest.round}`
+    messages.push({
+      userId: me,
+      title: `New game vs ${await playerName(them)}`,
+      body: `In ${competition.name}, ${where}, due ${due}.`,
+      url: `/c/${competition.slug}`,
+    })
+  }
+  await bestEffort(messages)
+}
+
 /** A rematch was asked for: the opponent gets the invite. */
 export async function notifyRematch(
   competitionId: string,

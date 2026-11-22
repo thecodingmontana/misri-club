@@ -456,6 +456,12 @@ test('league: a late joiner takes the byes still to come; the rest catch up in o
   const xInScheduled = rows.filter((m) => m.round <= scheduled && (m.homeUserId === x || m.awayUserId === x))
   assert.ok(xInScheduled.length >= 2, 'x took the byes of the rounds still to come')
   assert.ok(rows.filter((m) => m.byeUserId).length <= byesBefore - 2, 'those byes became games')
+  // every player with a new game hears about it; the joiner gets one summary
+  const told = await db.select().from(notifications).where(inArray(notifications.userId, [...c.ids, x]))
+  assert.equal(told.filter((n) => n.userId === x && /new games in/.test(n.title)).length, 1, 'x: one summary')
+  for (const id of new Set(xInScheduled.flatMap((m) => [m.homeUserId, m.awayUserId]).filter((id) => id !== x))) {
+    assert.ok(told.some((n) => n.userId === id && n.title.startsWith('New game vs')), `${id} told of the game vs x`)
+  }
 
   await joinCompetition(y, { code: c.row.inviteCode })
   rows = await checkFixtures([...c.ids, x, y])

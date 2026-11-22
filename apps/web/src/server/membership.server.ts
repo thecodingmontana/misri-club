@@ -18,6 +18,7 @@ import {
   authorizeManage,
   isNameClash,
   lockCompetition,
+  type NewGame,
   takenKeys,
 } from './competitions.server'
 import {
@@ -25,6 +26,7 @@ import {
   notifyDeleted,
   notifyHandedOver,
   notifyLeft,
+  notifyNewGames,
   notifyRemoved,
 } from './notifications.server'
 import { advance } from './results.server'
@@ -204,6 +206,7 @@ export async function answerRequest(
   userId: string,
   approve: boolean,
 ) {
+  let newGames: NewGame[] = []
   const competitionId = await db.transaction(async (tx) => {
     const competition = await lockCompetition(tx, eq(competitions.slug, slug))
     if (!competition) throw new Error('Not found.')
@@ -218,10 +221,11 @@ export async function answerRequest(
       )
       .returning({ userId: competitionRequests.userId })
     if (!request) throw new Error('That request is gone.')
-    if (approve) await admit(tx, competition, userId)
+    if (approve) newGames = (await admit(tx, competition, userId)) || []
     return competition.id
   })
   await notifyAnswered(competitionId, userId, approve)
+  await notifyNewGames(competitionId, newGames)
 }
 
 /** A new name; the link (slug) stays, so shared links keep working. */
