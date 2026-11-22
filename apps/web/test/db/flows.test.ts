@@ -10,6 +10,11 @@ import {
   notifications,
   user,
 } from '#/db/schema'
+import {
+  calendarFeed,
+  calendarToken,
+  userOfToken,
+} from '#/server/calendar.server'
 import { getCompetition } from '#/server/competition-view.server'
 import {
   createCompetition,
@@ -585,4 +590,24 @@ test('rematch: a finished challenge, again, with the opponent invited', async ()
   const third = await rematch(c.slug, c.me)
   const [named] = await db.select().from(competitions).where(eq(competitions.slug, third))
   assert.equal(named.name, `${c.row.name} rematch 2`)
+})
+
+test('calendar: a signed link opens your open match deadlines, nobody else\'s', async () => {
+  process.env.BETTER_AUTH_SECRET ??= 'test-secret'
+  const c = await competition('league', ['o', 'a', 'b'], { legs: 1 })
+  await startCompetition(c.slug, c.organiser)
+  const token = calendarToken(c.ids[0])
+  assert.equal(userOfToken(token), c.ids[0])
+  assert.equal(userOfToken(`${token}.ics`), c.ids[0])
+  assert.equal(userOfToken(`${c.ids[1]}.${token.split('.')[1]}`), null, 'a signature only fits its user')
+  assert.equal(userOfToken('junk'), null)
+
+  const feed = await calendarFeed(c.ids[0], 'https://misri.test')
+  assert.ok(feed)
+  const theirs = (await c.rows()).filter(
+    (m) => m.homeUserId === c.ids[0] || m.awayUserId === c.ids[0],
+  )
+  assert.equal(feed.match(/BEGIN:VEVENT/g)?.length, theirs.length)
+  assert.ok(feed.includes(`URL:https://misri.test/c/${c.slug}`))
+  assert.equal(await calendarFeed('nobody', 'https://misri.test'), null)
 })

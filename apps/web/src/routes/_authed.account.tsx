@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react'
 import { DeviceList, NameForm } from '#/components/account-settings'
 import { Spinner } from '#/components/auth'
+import { CalendarLink } from '#/components/calendar-link'
 import { ChessAccount } from '#/components/chess-account'
 import { KeyRound, LogOut, ShieldCheck, Trash } from '#/components/icons'
 import { PushDevice } from '#/components/push-device'
@@ -79,6 +80,13 @@ function AccountPage() {
         lead="Push notifications on this phone or computer. No emails."
       >
         <PushDevice />
+      </Section>
+
+      <Section
+        title="Calendar"
+        lead="Your match deadlines in your phone's calendar, with a reminder the day before. Keep the link to yourself."
+      >
+        <CalendarLink />
       </Section>
 
       <Section

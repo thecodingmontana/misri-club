@@ -37,6 +37,7 @@ import { Route as TrainPuzzlesRouteImport } from './routes/train.puzzles'
 import { Route as AuthedAnalysisGameRouteImport } from './routes/_authed.analysis_.game'
 import { Route as AuthedCompetitionsNewRouteImport } from './routes/_authed.competitions.new'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCalendarTokenRouteImport } from './routes/api/calendar/$token'
 import { Route as ApiCronDeadlinesRouteImport } from './routes/api/cron/deadlines'
 import { Route as TrainMastersIndexRouteImport } from './routes/train.masters.index'
 import { Route as TrainMastersSlugRouteImport } from './routes/train.masters.$slug'
@@ -182,6 +183,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCalendarTokenRoute = ApiCalendarTokenRouteImport.update({
+  id: '/api/calendar/$token',
+  path: '/api/calendar/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCronDeadlinesRoute = ApiCronDeadlinesRouteImport.update({
   id: '/api/cron/deadlines',
   path: '/api/cron/deadlines',
@@ -236,6 +242,7 @@ export interface FileRoutesByFullPath {
   '/analysis/game': typeof AuthedAnalysisGameRoute
   '/competitions/new': typeof AuthedCompetitionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/calendar/$token': typeof ApiCalendarTokenRoute
   '/api/cron/deadlines': typeof ApiCronDeadlinesRoute
   '/train/masters/$slug': typeof TrainMastersSlugRoute
   '/train/openings/$slug': typeof TrainOpeningsSlugRoute
@@ -270,6 +277,7 @@ export interface FileRoutesByTo {
   '/analysis/game': typeof AuthedAnalysisGameRoute
   '/competitions/new': typeof AuthedCompetitionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/calendar/$token': typeof ApiCalendarTokenRoute
   '/api/cron/deadlines': typeof ApiCronDeadlinesRoute
   '/train/masters/$slug': typeof TrainMastersSlugRoute
   '/train/openings/$slug': typeof TrainOpeningsSlugRoute
@@ -306,6 +314,7 @@ export interface FileRoutesById {
   '/_authed/analysis_/game': typeof AuthedAnalysisGameRoute
   '/_authed/competitions/new': typeof AuthedCompetitionsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/calendar/$token': typeof ApiCalendarTokenRoute
   '/api/cron/deadlines': typeof ApiCronDeadlinesRoute
   '/train/masters/$slug': typeof TrainMastersSlugRoute
   '/train/openings/$slug': typeof TrainOpeningsSlugRoute
@@ -342,6 +351,7 @@ export interface FileRouteTypes {
     | '/analysis/game'
     | '/competitions/new'
     | '/api/auth/$'
+    | '/api/calendar/$token'
     | '/api/cron/deadlines'
     | '/train/masters/$slug'
     | '/train/openings/$slug'
@@ -376,6 +386,7 @@ export interface FileRouteTypes {
     | '/analysis/game'
     | '/competitions/new'
     | '/api/auth/$'
+    | '/api/calendar/$token'
     | '/api/cron/deadlines'
     | '/train/masters/$slug'
     | '/train/openings/$slug'
@@ -411,6 +422,7 @@ export interface FileRouteTypes {
     | '/_authed/analysis_/game'
     | '/_authed/competitions/new'
     | '/api/auth/$'
+    | '/api/calendar/$token'
     | '/api/cron/deadlines'
     | '/train/masters/$slug'
     | '/train/openings/$slug'
@@ -438,6 +450,7 @@ export interface RootRouteChildren {
   TrainPuzzlesRoute: typeof TrainPuzzlesRoute
   TrainIndexRoute: typeof TrainIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCalendarTokenRoute: typeof ApiCalendarTokenRoute
   ApiCronDeadlinesRoute: typeof ApiCronDeadlinesRoute
   TrainMastersSlugRoute: typeof TrainMastersSlugRoute
   TrainOpeningsSlugRoute: typeof TrainOpeningsSlugRoute
@@ -643,6 +656,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/calendar/$token': {
+      id: '/api/calendar/$token'
+      path: '/api/calendar/$token'
+      fullPath: '/api/calendar/$token'
+      preLoaderRoute: typeof ApiCalendarTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/cron/deadlines': {
       id: '/api/cron/deadlines'
       path: '/api/cron/deadlines'
@@ -728,6 +748,7 @@ const rootRouteChildren: RootRouteChildren = {
   TrainPuzzlesRoute: TrainPuzzlesRoute,
   TrainIndexRoute: TrainIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCalendarTokenRoute: ApiCalendarTokenRoute,
   ApiCronDeadlinesRoute: ApiCronDeadlinesRoute,
   TrainMastersSlugRoute: TrainMastersSlugRoute,
   TrainOpeningsSlugRoute: TrainOpeningsSlugRoute,
@@ -737,13 +758,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
