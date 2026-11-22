@@ -728,6 +728,17 @@ function byRound(matches: Array<MatchView>) {
   return [...rounds.entries()]
 }
 
+/** A league's late-entry rounds go on top, so new games aren't missed below. */
+function lateFirst(data: Data) {
+  const rounds = byRound(data.matches)
+  if (data.competition.format !== 'league') return rounds
+  const late = rounds.filter(([round]) => round > data.scheduledRounds)
+  return [
+    ...late.reverse(),
+    ...rounds.filter(([r]) => r <= data.scheduledRounds),
+  ]
+}
+
 function knockoutRoundName(matchCount: number, round: number) {
   if (matchCount === 1) return 'Final'
   if (matchCount === 2) return 'Semi-finals'
@@ -759,7 +770,7 @@ function Fixtures({ data }: { data: Data }) {
   }
   return (
     <div className="space-y-5">
-      {byRound(data.matches).map(([round, matches]) => (
+      {lateFirst(data).map(([round, matches]) => (
         <section key={round} className="space-y-2">
           <h2 className="kicker">{roundLabel(data, round, matches.length)}</h2>
           {matches.map((match) => (

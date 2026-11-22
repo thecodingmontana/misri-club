@@ -36,6 +36,7 @@ import { fetchPlayerRating } from './chesscom.server'
 import {
   notifyGamesMoved,
   notifyJoined,
+  notifyNewGames,
   notifyRematch,
   notifyRequested,
   notifyScheduledStart,
@@ -347,7 +348,21 @@ export async function lockCompetition(tx: Tx, where: ReturnType<typeof eq>) {
  * closed competitions and full ones, and gives a late joiner their matches.
  * False when they were already in.
  */
-export async function admit(tx: Tx, competition: Competition, userId: string) {
+/** A game the fixture recheck added, for telling its players. */
+export type NewGame = {
+  homeId: string
+  awayId: string
+  round: number
+  dueAt: Date
+  late: boolean
+}
+
+/** Adds the player; returns their new games, or false if already a member. */
+export async function admit(
+  tx: Tx,
+  competition: Competition,
+  userId: string,
+): Promise<NewGame[] | false> {
   const members = await tx
     .select({ userId: competitionMembers.userId })
     .from(competitionMembers)
@@ -387,19 +402,21 @@ export async function admit(tx: Tx, competition: Competition, userId: string) {
     .insert(competitionMembers)
     .values({ competitionId: competition.id, userId })
 
-  await reconcileFixtures(tx, competition)
-  return true
+  return reconcileFixtures(tx, competition)
 }
 
 /**
  * Rechecks a running league's fixtures, under the row lock the caller holds:
  * every pair of current members must have their games. Anything missing (a
  * late joiner's games, or a pair that slipped through) goes into the shared
- * late round. Returns how many games it added.
+ * late round. Returns the games it added.
  */
-export async function reconcileFixtures(tx: Tx, competition: Competition) {
+export async function reconcileFixtures(
+  tx: Tx,
+  competition: Competition,
+): Promise<NewGame[]> {
   if (competition.format !== 'league' || competition.status !== 'running') {
-    return 0
+    return []
   }
   const members = await tx
     .select({ userId: competitionMembers.userId })
@@ -421,7 +438,7 @@ export async function reconcileFixtures(tx: Tx, competition: Competition) {
     .where(eq(matches.competitionId, competition.id))
   const memberIds = members.map((m) => m.userId)
   const missing = missingFixtures(memberIds, existing, competition.legs)
-  if (missing.length === 0) return 0
+  if (missing.length === 0) return []
 
   const now = new Date()
   // into the scheduled rounds still to come first, as a fresh draw would
@@ -455,7 +472,26 @@ export async function reconcileFixtures(tx: Tx, competition: Competition) {
       })),
     )
   }
-  if (plan.catchUp.length === 0) return missing.length
+  const added: NewGame[] = [
+    ...plan.fromByes.map(({ matchId, fixture }) => {
+      const match = existing.find((m) => m.id === matchId)
+      return {
+        homeId: fixture.homeId,
+        awayId: fixture.awayId,
+        round: match?.round ?? 0,
+        dueAt: match?.dueAt ?? now,
+        late: false,
+      }
+    }),
+    ...plan.inRounds.map((p) => ({
+      homeId: p.fixture.homeId,
+      awayId: p.fixture.awayId,
+      round: p.round,
+      dueAt: p.dueAt,
+      late: false,
+    })),
+  ]
+  if (plan.catchUp.length === 0) return added
 
   // what fits nowhere: the shared catch-up round
   const openLate = existing
@@ -494,7 +530,16 @@ export async function reconcileFixtures(tx: Tx, competition: Competition) {
       late: true,
     })),
   )
-  return missing.length
+  return [
+    ...added,
+    ...plan.catchUp.map((m) => ({
+      homeId: m.homeId,
+      awayId: m.awayId,
+      round: window.round,
+      dueAt: window.dueAt,
+      late: true,
+    })),
+  ]
 }
 
 /** A league's scheduled (not catch-up) rounds, for placing late games. */
@@ -671,10 +716,12 @@ export async function reconcileAllFixtures() {
   let added = 0
   for (const { id } of running) {
     try {
-      added += await db.transaction(async (tx) => {
+      const games = await db.transaction(async (tx) => {
         const competition = await lockCompetition(tx, eq(competitions.id, id))
-        return competition ? reconcileFixtures(tx, competition) : 0
+        return competition ? reconcileFixtures(tx, competition) : []
       })
+      added += games.length
+      await notifyNewGames(id, games)
       added += await tidyLateGames(id)
     } catch (error) {
       console.error('[fixtures] recheck failed', id, (error as Error).message)
@@ -692,6 +739,7 @@ export async function joinCompetition(
   where: { code: string } | { slug: string },
 ) {
   let outcome: { id: string; pending: boolean } | null = null
+  let newGames: NewGame[] = []
   let challengeReady: { slug: string; ownerId: string } | null = null
   const slug = await db.transaction(async (tx) => {
     const competition = await lockCompetition(
@@ -733,7 +781,9 @@ export async function joinCompetition(
       return competition.slug
     }
     try {
-      if (await admit(tx, competition, userId)) {
+      const admitted = await admit(tx, competition, userId)
+      if (admitted) {
+        newGames = admitted
         outcome = { id: competition.id, pending: false }
         // the opponent is in: the challenge starts by itself
         if (competition.format === 'challenge') {
@@ -759,6 +809,7 @@ export async function joinCompetition(
     await (done.pending
       ? notifyRequested(done.id, userId)
       : notifyJoined(done.id, userId))
+    await notifyNewGames(done.id, newGames)
   }
   const ready = challengeReady as { slug: string; ownerId: string } | null
   if (ready) {
