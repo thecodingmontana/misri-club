@@ -14,3 +14,6 @@ allowBuilds:
 # typed-array constructor one); TanStack allows ^1.6.7, so force the patch.
 overrides:
   seroval: ^1.6.11
+  # one tslib 2 for everything: with two versions the server bundle kept only
+  # half of one (no modules/), and @better-auth/passkey crashed every request
+  'tslib@^2': ^2.9.1
