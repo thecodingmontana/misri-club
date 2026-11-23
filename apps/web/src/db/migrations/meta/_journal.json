@@ -183,6 +183,13 @@
       "when": 1795327386329,
       "tag": "0025_onboarded_at",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1795417462998,
+      "tag": "0026_game_analyses",
+      "breakpoints": true
     }
   ]
 }

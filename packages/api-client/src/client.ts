@@ -5,6 +5,7 @@ import type {
   inbox,
   matchGame,
   myGames,
+  savedAnalyses,
 } from '@misri/core/account'
 import type { ActionInput, ActionName, ActionResult } from '@misri/core/actions'
 import type {
@@ -146,6 +147,13 @@ export function createApiClient(options: ApiClientOptions) {
           { url },
         )
       ).matchGame,
+    savedAnalyses: async (urls: string[]) =>
+      (
+        await query<{ savedAnalyses: Result<typeof savedAnalyses> }>(
+          'query ($urls: [String!]!) { savedAnalyses(urls: $urls) }',
+          { urls },
+        )
+      ).savedAnalyses,
     /** One write, as the signed-in player: `act('joinCompetition', { code })`. */
     act: async <N extends ActionName>(
       name: N,
