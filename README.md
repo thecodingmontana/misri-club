@@ -56,10 +56,14 @@ competition page in the web app also refreshes results from chess.com first,
 the API reads what's stored. The web app's `/api/graphql` goes once its
 callers have moved.
 
-Limits: 120 requests a minute per IP (429 with `Retry-After`), at most 5
-top-level fields per request (aliases and fragments count), no batching, 16 KB
-bodies, and security headers on every response. GraphiQL is on in development
-and previews, off in production. Run it locally with
+Limits: 120 requests a minute per IP (429 with `Retry-After`), 16 KB bodies,
+no batching, and security headers on every response. Both GraphQL endpoints
+(the API's and the web app's) run the same protections from
+**`packages/graphql`** (`@misri/graphql`): CSRF prevention (a GET or a
+form-encoded POST needs an `x-graphql-yoga-csrf` header; JSON POSTs pass),
+GraphQL Armor (depth 6, 5 aliases, 5 directives, 500 tokens, a cost limit, no
+"did you mean" hints), at most 5 top-level fields per request, and no
+introspection or GraphiQL in production. Run it locally with
 `pnpm --filter @misri/api dev` (port 8787).
 
 ## Environment

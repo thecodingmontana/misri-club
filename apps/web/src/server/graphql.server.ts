@@ -1,3 +1,4 @@
+import { securityPlugins } from '@misri/graphql'
 import { eq } from 'drizzle-orm'
 import { createSchema, createYoga } from 'graphql-yoga'
 import { db } from '#/db/client.server'
@@ -95,6 +96,10 @@ export const yoga = createYoga<{ request: Request }, GraphQLContext>({
   // the session cookie makes answers private: no cross-origin reads
   cors: false,
   graphiql: process.env.NODE_ENV !== 'production',
+  // the same limits as the API (CSRF, Armor, no introspection in production)
+  plugins: securityPlugins({
+    production: process.env.NODE_ENV === 'production',
+  }),
   context: async ({ request }) => {
     const session = await auth.api.getSession({ headers: request.headers })
     return {
