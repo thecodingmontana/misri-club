@@ -35,6 +35,8 @@ const typeDefs = /* GraphQL */ `
     status: String!
     members: Int!
     timeControl: String!
+    legs: Int!
+    allowLateEntry: Boolean!
   }
 
   "Any JSON value: the competition and player pages, as the app gets them."

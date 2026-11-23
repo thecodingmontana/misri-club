@@ -218,6 +218,9 @@ importers:
       '@biomejs/biome':
         specifier: 2.5.15
         version: 2.5.15
+      '@misri/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -236,6 +239,9 @@ importers:
       '@faker-js/faker':
         specifier: ^10.6.0
         version: 10.6.0
+      '@misri/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@misri/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -411,6 +417,21 @@ importers:
       vite:
         specifier: ^8.3.4
         version: 8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)
+
+  packages/api-client:
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 2.5.15
+        version: 2.5.15
+      '@misri/core':
+        specifier: workspace:*
+        version: link:../core
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/auth:
     dependencies:

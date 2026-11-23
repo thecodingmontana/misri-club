@@ -25,6 +25,7 @@
   "dependencies": {
     "@better-auth/passkey": "1.7.18",
     "@faker-js/faker": "^10.6.0",
+    "@misri/api-client": "workspace:*",
     "@misri/auth": "workspace:*",
     "@misri/core": "workspace:*",
     "@misri/db": "workspace:*",

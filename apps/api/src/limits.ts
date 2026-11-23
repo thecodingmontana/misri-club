@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto'
 import { takeAllowance } from '@misri/core/rate-limit'
 import type { MiddlewareHandler } from 'hono'
 
@@ -12,9 +13,27 @@ export const clientIp = (headers: Headers) =>
   headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
   'unknown'
 
+/**
+ * The web app calls the API from its server, so every visitor would arrive
+ * from Vercel's IPs and share one budget. With the shared secret it passes
+ * the visitor's own IP, which is then counted instead.
+ */
+export function trustedCaller(headers: Headers) {
+  const secret = process.env.INTERNAL_API_SECRET
+  const given = headers.get('x-misri-internal')
+  if (!secret || !given) return false
+  const a = Buffer.from(given)
+  const b = Buffer.from(secret)
+  return a.length === b.length && timingSafeEqual(a, b)
+}
+
 /** 429 once a client goes over its minute; counted in the database, so every instance agrees. */
 export const rateLimit: MiddlewareHandler = async (c, next) => {
-  const key = `api:${clientIp(c.req.raw.headers)}`
+  const headers = c.req.raw.headers
+  const ip = trustedCaller(headers)
+    ? (headers.get('x-misri-client-ip') ?? 'unknown')
+    : clientIp(headers)
+  const key = `api:${ip}`
   const allowed = await takeAllowance(
     key,
     1,

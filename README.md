@@ -53,8 +53,9 @@ app's), `BETTER_AUTH_URL` and `ADMIN_EMAILS`. It serves `me`,
 behind them (access, standings, brackets, round-robin) live in
 **`packages/core`** (`@misri/core`), so both apps run the same code; the
 competition page in the web app also refreshes results from chess.com first,
-the API reads what's stored. The web app's `/api/graphql` goes once its
-callers have moved.
+the API reads what's stored. The web app's own competition, player and list reads now go through the API
+when `MISRI_API_URL` is set, via the typed client in **`packages/api-client`**
+(`@misri/api-client`); its `/api/graphql` goes once nothing else uses it.
 
 Limits: 120 requests a minute per IP (429 with `Retry-After`), 16 KB bodies,
 no batching, and security headers on every response. Both GraphQL endpoints
@@ -79,6 +80,8 @@ introspection or GraphiQL in production. Run it locally with
 | `RESEND_API_KEY`, `EMAIL_FROM` | Sends sign-in links, from e.g. `Misri <noreply@your-domain>` (a domain verified in Resend). |
 | `CHESSCOM_USER_AGENT` | User-Agent sent to chess.com. Defaults to one with contact details. |
 | `VITE_SITE_URL` | The public site address, e.g. `https://misri-chess-club.vercel.app`. Used for canonical links and share images; set it at build time. |
+| `MISRI_API_URL` | The API (`https://misri-api.vercel.app`). When set, the web app's competition, player and competition-list reads go through it as the signed-in visitor; unset, it reads the database directly (local runs, tests, and a one-step rollback). |
+| `INTERNAL_API_SECRET` | Shared with the API project, so the API rate-limits each visitor rather than the web server. Any long random string. |
 
 ## Scripts
 
