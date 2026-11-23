@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { useRememberDevice } from '#/components/push-device'
 import { last } from '#/lib/session-cache'
 import { getSessionFn } from '#/server/auth.functions'
 
@@ -38,5 +39,10 @@ export const Route = createFileRoute('/_authed')({
     }
     return { user: session.user, isAdmin: session.isAdmin }
   },
-  component: Outlet,
+  component: Signed,
 })
+
+function Signed() {
+  useRememberDevice()
+  return <Outlet />
+}

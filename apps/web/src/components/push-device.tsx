@@ -30,6 +30,32 @@ async function currentSubscription() {
   return (await registration?.pushManager.getSubscription()) ?? null
 }
 
+let rememberedThisLoad = false
+
+/**
+ * Signing out drops this device's push on the server (it belongs to that
+ * sign-in); once signed in again, tell the server about the browser's
+ * subscription so notifications carry on. Once per page load.
+ */
+export function useRememberDevice() {
+  const save = useServerFn(savePushFn)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per page load
+  useEffect(() => {
+    if (rememberedThisLoad || !supported()) return
+    if (Notification.permission !== 'granted') return
+    rememberedThisLoad = true
+    currentSubscription()
+      .then((subscription) => {
+        const { endpoint, keys } = subscription?.toJSON() ?? {}
+        if (!endpoint || !keys?.p256dh || !keys.auth) return
+        return save({
+          data: { endpoint, p256dh: keys.p256dh, auth: keys.auth },
+        })
+      })
+      .catch(() => {}) // the Account page shows and fixes push problems
+  }, [])
+}
+
 const DESCRIPTION: Record<State, string> = {
   loading: 'Checking this device…',
   unsupported:

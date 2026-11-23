@@ -25,9 +25,9 @@ export const auth = createAuth({
     ),
   beforeDeleteUser: async (user) => {
     // lazy: membership.server imports this module
-    const { refuseIfOwner } = await import('./membership.server')
+    const { prepareAccountDeletion } = await import('./membership.server')
     // Better Auth shows its own errors' messages to the person deleting
-    await refuseIfOwner(user.id).catch((error: Error) => {
+    await prepareAccountDeletion(user.id).catch((error: Error) => {
       throw new APIError('BAD_REQUEST', { message: error.message })
     })
   },

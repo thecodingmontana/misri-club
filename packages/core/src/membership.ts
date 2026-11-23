@@ -62,6 +62,49 @@ export async function refuseIfOwner(userId: string) {
   }
 }
 
+/** Who a deleted account's played games belong to (migration 0029 adds the row). */
+export const FORMER_PLAYER_ID = 'former-player'
+
+/**
+ * Before an account is deleted: they leave every competition still going,
+ * under its own leave rule, and the games they played pass to "A former
+ * player", so nobody else's results change and finished ones stay final.
+ */
+export async function prepareAccountDeletion(userId: string) {
+  await refuseIfOwner(userId)
+  const going = await db
+    .select({ slug: competitions.slug })
+    .from(competitionMembers)
+    .innerJoin(
+      competitions,
+      eq(competitions.id, competitionMembers.competitionId),
+    )
+    .where(
+      and(
+        eq(competitionMembers.userId, userId),
+        ne(competitions.status, 'finished'),
+        // one they own alone goes with the account
+        ne(competitions.ownerId, userId),
+      ),
+    )
+  for (const { slug } of going) {
+    await leaveCompetition(slug, { id: userId, isAdmin: false })
+  }
+  await db.transaction(async (tx) => {
+    for (const column of [
+      'homeUserId',
+      'awayUserId',
+      'whiteUserId',
+      'winnerUserId',
+    ] as const) {
+      await tx
+        .update(matches)
+        .set({ [column]: FORMER_PLAYER_ID })
+        .where(eq(matches[column], userId))
+    }
+  })
+}
+
 /**
  * Takes a member out. Before the start that's all; after it, the organiser's
  * leave rule settles their games and they're recorded so they can't rejoin.

@@ -7,9 +7,12 @@ import { perform } from './api-client.server'
 import { auth, googleEnabled, isAdminEmail } from './auth.server'
 import { fetchPlayerProfile } from './chesscom.server'
 
+async function currentSession() {
+  return auth.api.getSession({ headers: getRequestHeaders() })
+}
+
 async function currentUser() {
-  const session = await auth.api.getSession({ headers: getRequestHeaders() })
-  return session?.user ?? null
+  return (await currentSession())?.user ?? null
 }
 
 /**
@@ -22,10 +25,18 @@ async function currentUser() {
 /** For server functions any signed-in player may call; hands them the user. */
 export const userMiddleware = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
-    const user = await currentUser()
-    if (!user) throw new Error('Sign in first.')
+    const session = await currentSession()
+    if (!session) throw new Error('Sign in first.')
+    const { user } = session
     return next({
-      context: { user, viewer: { id: user.id, isAdmin: isAdminEmail(user) } },
+      context: {
+        user,
+        viewer: {
+          id: user.id,
+          isAdmin: isAdminEmail(user),
+          sessionId: session.session.id,
+        },
+      },
     })
   },
 )

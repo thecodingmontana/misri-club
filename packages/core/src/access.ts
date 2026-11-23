@@ -39,6 +39,8 @@ const ADMIN_GRANTS: ReadonlyArray<Action> = [
 export interface Viewer {
   id: string
   isAdmin: boolean
+  /** the sign-in this request came with, where known */
+  sessionId?: string
 }
 
 export interface AccessContext {

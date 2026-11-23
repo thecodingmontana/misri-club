@@ -190,6 +190,34 @@
       "when": 1795417462998,
       "tag": "0026_game_analyses",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1795433051242,
+      "tag": "0027_allowance",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1795433146621,
+      "tag": "0028_push_session",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1795433222537,
+      "tag": "0029_former_player",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1795433297663,
+      "tag": "0030_read_through",
+      "breakpoints": true
     }
   ]
 }

@@ -212,7 +212,13 @@ export async function syncResults(competitionId: string, now = new Date()) {
     changed += written.length
   }
   // a game chess.com couldn't tell us about may be the one that settles it
-  if (!fetchFailed) await advance(competitionId, now)
+  if (!fetchFailed) {
+    await db
+      .update(competitions)
+      .set({ readThrough: now })
+      .where(eq(competitions.id, competitionId))
+    await advance(competitionId, now)
+  }
   return changed
 }
 
@@ -234,6 +240,23 @@ export async function advance(competitionId: string, now = new Date()) {
       .select()
       .from(matches)
       .where(eq(matches.competitionId, competitionId))
+
+    // a deadline passed since chess.com was last read in full: a game played
+    // in time may be waiting there, so the next sync settles it, not the clock
+    if (competition.resultSource === 'chesscom') {
+      const readThrough = competition.readThrough?.getTime() ?? 0
+      const unread = rows.some(
+        (m) =>
+          m.homeUserId &&
+          m.awayUserId &&
+          !m.result &&
+          !m.winnerUserId &&
+          !m.voided &&
+          m.dueAt <= now &&
+          m.dueAt.getTime() > readThrough,
+      )
+      if (unread) return null
+    }
 
     if (competition.format === 'challenge') {
       const [first] = rows

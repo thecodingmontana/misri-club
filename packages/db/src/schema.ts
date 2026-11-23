@@ -168,12 +168,20 @@ export const passkey = pgTable(
 ).enableRLS()
 
 /**
- * Request counters for Better Auth's rate limit and our own `takeAllowance`,
- * in Postgres so a limit holds across every Vercel instance.
+ * Request counters for Better Auth's rate limit, in Postgres so a limit holds
+ * across every Vercel instance. Better Auth prunes rows older than its longest
+ * window (a minute), so our own longer budgets live in `allowance` below.
  */
 export const rateLimit = pgTable('rate_limit', {
   id: text('id').primaryKey(),
   key: text('key').notNull().unique(),
+  count: integer('count').notNull(),
+  lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
+}).enableRLS()
+
+/** Our own budgets (`takeAllowance`): per hour, per day, keyed by purpose. */
+export const allowance = pgTable('allowance', {
+  key: text('key').primaryKey(),
   count: integer('count').notNull(),
   lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
 }).enableRLS()
@@ -295,6 +303,8 @@ export const competitions = pgTable('competitions', {
   ),
   /** Last chess.com results sync, so page views don't hammer the API. */
   syncedAt: ts('synced_at'),
+  /** chess.com read in full up to here: a deadline after it isn't settled yet */
+  readThrough: ts('read_through'),
 }).enableRLS()
 
 export const competitionMembers = pgTable(
@@ -438,6 +448,10 @@ export const pushSubscriptions = pgTable(
     userId: varchar('user_id', { length: 16 })
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
+    /** the sign-in that turned it on: signing out or ending it drops the device */
+    sessionId: text('session_id').references(() => session.id, {
+      onDelete: 'cascade',
+    }),
     endpoint: text('endpoint').notNull().unique(),
     p256dh: text('p256dh').notNull(),
     auth: text('auth').notNull(),
