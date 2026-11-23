@@ -562,13 +562,32 @@ test('sync: a concede after the deadline waits for chess.com before finishing', 
   const realFetch = globalThis.fetch
   try {
     globalThis.fetch = (async () => Response.json({ games: [game] })) as typeof fetch
+    // chess.com gets a few minutes to publish: right after the deadline it still waits
     await syncResults(c.row.id, new Date(now))
+    assert.equal((await c.state()).status, 'running', 'too soon after the deadline')
+    await syncResults(c.row.id, new Date(now + 11 * 60_000))
   } finally {
     globalThis.fetch = realFetch
   }
   const [after] = await db.select().from(matches).where(eq(matches.id, ab.id))
   assert.equal(after.gameUrl, game.url, 'the in-time game counts')
   assert.equal((await c.state()).status, 'finished')
+})
+
+test('reopening a game after its deadline sends it back to chess.com first', async () => {
+  const c = await competition('league', ['o', 'a', 'b'], { legs: 1, unplayedRule: 'both_forfeit' })
+  await startCompetition(c.slug, c.organiser)
+  const m = (await c.rows()).find((r) => r.homeUserId && r.awayUserId)
+  assert.ok(m)
+  const due = new Date(Date.now() - 60 * 60_000)
+  await db.update(matches).set({ opensAt: new Date(due.getTime() - 86_400_000), dueAt: due }).where(eq(matches.id, m.id))
+  await decideMatch(c.slug, c.organiser, m.id, { kind: 'void' }, null)
+  // a sync since then read past the deadline, but never looked for this game
+  await db.update(competitions).set({ readThrough: new Date() }).where(eq(competitions.id, c.row.id))
+  await decideMatch(c.slug, c.organiser, m.id, { kind: 'reopen' }, null)
+  const [row] = await db.select().from(competitions).where(eq(competitions.id, c.row.id))
+  assert.ok(row.readThrough && row.readThrough < due, 'the next sync reads its window again')
+  assert.equal(row.status, 'running')
 })
 
 test('account deletion: refused while you own a competition others are in', async () => {
