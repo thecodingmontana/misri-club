@@ -22,8 +22,23 @@ export function startPwa() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker
       .register('/sw.js', { updateViaCache: 'none' })
+      .then(() => navigator.serviceWorker.ready)
+      .then((registration) => {
+        // the files this page loaded before the worker took over: keep them
+        // too, so the very first visit already works offline next time
+        const urls = performance
+          .getEntriesByType('resource')
+          .map((entry) => entry.name)
+          .filter((name) => name.startsWith(location.origin))
+        registration.active?.postMessage({ type: 'keep-files', urls })
+      })
       .catch(() => {})
   }
+  addEventListener('offline', () =>
+    toast.info("You're offline", {
+      desc: 'Pages you opened still show their last copy; changes need a connection.',
+    }),
+  )
   addEventListener('beforeinstallprompt', (event) => {
     event.preventDefault()
     offer = event as InstallEvent

@@ -7,7 +7,13 @@ export const last: { checked: { at: number; session: Session } | null } = {
   checked: null,
 }
 
-/** After signing out or deleting the account: the next page checks again. */
+/**
+ * After signing out or deleting the account: the next page checks again, and
+ * the offline copies of this person's pages go (see public/sw.js).
+ */
 export function forgetSession() {
   last.checked = null
+  if (typeof caches !== 'undefined') {
+    void caches.delete('misri-pages-v1').catch(() => {})
+  }
 }
