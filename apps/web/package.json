@@ -23,9 +23,10 @@
     "check": "biome check"
   },
   "dependencies": {
-    "@misri/db": "workspace:*",
     "@better-auth/passkey": "1.7.18",
     "@faker-js/faker": "^10.6.0",
+    "@misri/core": "workspace:*",
+    "@misri/db": "workspace:*",
     "@react-email/components": "^1.0.12",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-devtools": "0.10.13",

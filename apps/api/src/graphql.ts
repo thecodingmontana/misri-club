@@ -1,11 +1,12 @@
-import { db } from '@misri/db/client'
 import {
-  chessAccounts,
-  competitionMembers,
-  competitions,
-  user,
-} from '@misri/db/schema'
-import { and, count, eq, inArray, or, sql } from 'drizzle-orm'
+  getCompetition,
+  listMyCompetitions,
+  listOpenCompetitions,
+} from '@misri/core/competition-view'
+import { getPlayer } from '@misri/core/player'
+import { db } from '@misri/db/client'
+import { chessAccounts, user } from '@misri/db/schema'
+import { eq } from 'drizzle-orm'
 import { GraphQLError } from 'graphql'
 import { createSchema, createYoga } from 'graphql-yoga'
 import { type Viewer, viewerFrom } from './viewer.ts'
@@ -35,6 +36,9 @@ const typeDefs = /* GraphQL */ `
     timeControl: String!
   }
 
+  "Any JSON value: the competition and player pages, as the app gets them."
+  scalar JSON
+
   type Query {
     "The signed-in player, or null."
     me: Me
@@ -42,26 +46,12 @@ const typeDefs = /* GraphQL */ `
     myCompetitions: [CompetitionSummary!]!
     "Public competitions taking players, minus ones you're in."
     openCompetitions: [CompetitionSummary!]!
+    "A competition page, with what you're allowed to see; null if unknown."
+    competition(slug: String!): JSON
+    "A player page by chess.com username or user id (signed in); null if unknown."
+    player(username: String!): JSON
   }
 `
-
-const memberCount = db
-  .select({
-    competitionId: competitionMembers.competitionId,
-    members: count().as('members'),
-  })
-  .from(competitionMembers)
-  .groupBy(competitionMembers.competitionId)
-  .as('member_count')
-
-const summary = {
-  slug: competitions.slug,
-  name: competitions.name,
-  format: competitions.format,
-  status: competitions.status,
-  timeControl: competitions.timeControl,
-  members: sql<number>`coalesce(${memberCount.members}, 0)`.mapWith(Number),
-}
 
 const signedIn = (context: Context) => {
   if (!context.viewer) throw new GraphQLError('Sign in first.')
@@ -86,47 +76,15 @@ export const schema = createSchema<Context>({
           .limit(1)
         return row ?? null
       },
-      myCompetitions: (_, __, context) => {
-        const { id } = signedIn(context)
-        const mine = db
-          .select({ id: competitionMembers.competitionId })
-          .from(competitionMembers)
-          .where(eq(competitionMembers.userId, id))
-        return db
-          .select(summary)
-          .from(competitions)
-          .leftJoin(memberCount, eq(memberCount.competitionId, competitions.id))
-          .where(
-            or(eq(competitions.ownerId, id), inArray(competitions.id, mine)),
-          )
-          .orderBy(sql`${competitions.createdAt} desc`)
-          .limit(100)
-      },
-      openCompetitions: (_, __, context) => {
-        const viewerId = context.viewer?.id
-        return db
-          .select(summary)
-          .from(competitions)
-          .leftJoin(memberCount, eq(memberCount.competitionId, competitions.id))
-          .where(
-            and(
-              eq(competitions.visibility, 'public'),
-              or(
-                eq(competitions.status, 'open'),
-                and(
-                  eq(competitions.status, 'running'),
-                  eq(competitions.format, 'league'),
-                  eq(competitions.allowLateEntry, true),
-                ),
-              ),
-              viewerId
-                ? sql`not exists (select 1 from ${competitionMembers} where ${competitionMembers.competitionId} = ${competitions.id} and ${competitionMembers.userId} = ${viewerId})`
-                : undefined,
-            ),
-          )
-          .orderBy(sql`${competitions.createdAt} desc`)
-          .limit(30)
-      },
+      myCompetitions: (_, __, context) =>
+        listMyCompetitions(signedIn(context).id),
+      openCompetitions: (_, __, context) =>
+        listOpenCompetitions(context.viewer?.id ?? null),
+      // results as stored: the web app and the nightly sync bring them in
+      competition: (_, { slug }: { slug: string }, context) =>
+        getCompetition(slug.slice(0, 80), context.viewer),
+      player: (_, { username }: { username: string }, context) =>
+        getPlayer(username.slice(0, 40), signedIn(context)),
     },
   },
 })
