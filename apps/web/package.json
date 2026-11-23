@@ -29,7 +29,7 @@
     "@misri/auth": "workspace:*",
     "@misri/core": "workspace:*",
     "@misri/db": "workspace:*",
-    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.3.1",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-devtools": "0.10.13",
     "@tanstack/react-query": "5.104.2",
