@@ -10,24 +10,46 @@ import { type CalendarEvent, icsCalendar } from '#/lib/calendar'
  * the user id and a signature, so it needs no table and can't be guessed.
  */
 
-// shortcut: a leaked link can't be revoked on its own (only by rotating BETTER_AUTH_SECRET, which signs everyone out); add a stored token if anyone needs that
-function signature(userId: string) {
+// Version 0 signs exactly as links always have, so existing subscriptions keep
+// working; "Reset link" bumps the version and every older link stops.
+function signature(userId: string, version: number) {
   const secret = process.env.BETTER_AUTH_SECRET
   if (!secret) throw new Error('BETTER_AUTH_SECRET is not set.')
   return createHmac('sha256', secret)
-    .update(`calendar:${userId}`)
+    .update(version ? `calendar:${userId}:${version}` : `calendar:${userId}`)
     .digest('base64url')
     .slice(0, 32)
 }
 
-export const calendarToken = (userId: string) =>
-  `${userId}.${signature(userId)}`
+async function versionOf(userId: string) {
+  const [row] = await db
+    .select({ version: user.calendarVersion })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1)
+  return row?.version ?? null
+}
 
-/** The user id a token belongs to, or null when it isn't one of ours. */
-export function userOfToken(token: string): string | null {
-  const [userId, given] = token.replace(/\.ics$/, '').split('.')
-  if (!userId || !given) return null
-  const wanted = Buffer.from(signature(userId))
+export async function calendarToken(userId: string) {
+  return `${userId}.${signature(userId, (await versionOf(userId)) ?? 0)}`
+}
+
+/** Makes a new link; the old one stops working. */
+export async function resetCalendarToken(userId: string) {
+  await db
+    .update(user)
+    .set({ calendarVersion: sql`${user.calendarVersion} + 1` })
+    .where(eq(user.id, userId))
+  return calendarToken(userId)
+}
+
+/** The user id a token belongs to, or null when it isn't one of ours (or was reset). */
+export async function userOfToken(token: string): Promise<string | null> {
+  const [userId, given, extra] = token.replace(/\.ics$/, '').split('.')
+  if (!userId || !given || extra !== undefined) return null
+  const version = await versionOf(userId)
+  if (version === null) return null
+  const wanted = Buffer.from(signature(userId, version))
   const got = Buffer.from(given)
   return got.length === wanted.length && timingSafeEqual(got, wanted)
     ? userId

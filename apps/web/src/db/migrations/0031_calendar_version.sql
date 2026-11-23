@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "calendar_version" integer DEFAULT 0 NOT NULL;

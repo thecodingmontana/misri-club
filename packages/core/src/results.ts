@@ -84,7 +84,12 @@ export async function syncResults(competitionId: string, now = new Date()) {
     })
   if (!claimed) return 0
 
-  // games already counted in this competition never count again
+  // one chess.com game counts once: a game already counted anywhere (here, or
+  // another competition between the same players) never counts again
+  const players = db
+    .select({ id: competitionMembers.userId })
+    .from(competitionMembers)
+    .where(eq(competitionMembers.competitionId, competitionId))
   const used = new Set(
     (
       await db
@@ -92,8 +97,12 @@ export async function syncResults(competitionId: string, now = new Date()) {
         .from(matches)
         .where(
           and(
-            eq(matches.competitionId, competitionId),
             sql`${matches.gameUrl} is not null`,
+            or(
+              eq(matches.competitionId, competitionId),
+              inArray(matches.homeUserId, players),
+              inArray(matches.awayUserId, players),
+            ),
           ),
         )
     ).map((r) => r.url as string),
