@@ -273,6 +273,10 @@ export const competitions = pgTable('competitions', {
   maxPlayers: integer('max_players'),
   /** The organiser's rule for matches that expire unplayed. */
   unplayedRule: unplayedRule('unplayed_rule').notNull().default('organiser'),
+  /** Older competitions count walkover wins in the "most wins" tie-break; new ones only board wins. */
+  walkoverWinsBreakTies: boolean('walkover_wins_break_ties')
+    .notNull()
+    .default(false),
   /** Leagues: award / void / keep a leaver's games (see lib/leave). */
   leaveRule: leaveRule('leave_rule').notNull().default('award'),
   /** Leagues: how a tie on points breaks, in order (server/standings TIE_BREAKS). */

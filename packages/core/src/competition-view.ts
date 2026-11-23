@@ -338,6 +338,7 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
   const rules = {
     unplayed: competition.unplayedRule,
     points: competition.points,
+    walkoverWinsBreakTies: competition.walkoverWinsBreakTies,
   }
   const sortName = (id: string) => {
     const p = player(id)
@@ -368,7 +369,11 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
             matchRows,
             [...players.keys()],
             new Date(now),
-            { unplayed: competition.unplayedRule, points: competition.points },
+            {
+              unplayed: competition.unplayedRule,
+              points: competition.points,
+              walkoverWinsBreakTies: competition.walkoverWinsBreakTies,
+            },
             competition.tieBreaks,
             (id) => {
               const p = player(id)

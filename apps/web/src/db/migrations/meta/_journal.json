@@ -225,6 +225,13 @@
       "when": 1795454473297,
       "tag": "0031_calendar_version",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1795454926788,
+      "tag": "0032_walkover_tie_break",
+      "breakpoints": true
     }
   ]
 }
