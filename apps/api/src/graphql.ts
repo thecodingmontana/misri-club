@@ -1,8 +1,10 @@
+import { type ActionName, actions, runAction } from '@misri/core/actions'
 import {
   getCompetition,
   listMyCompetitions,
   listOpenCompetitions,
 } from '@misri/core/competition-view'
+import { UserError } from '@misri/core/errors'
 import { getPlayer } from '@misri/core/player'
 import { db } from '@misri/db/client'
 import { chessAccounts, user } from '@misri/db/schema'
@@ -61,9 +63,36 @@ const signedIn = (context: Context) => {
   return context.viewer
 }
 
+// one mutation per shared action; each validates its own input
+const mutations = Object.keys(actions) as ActionName[]
+
 export const schema = createSchema<Context>({
-  typeDefs,
+  typeDefs: [
+    typeDefs,
+    /* GraphQL */ `
+      "Writes: each takes its input as JSON and needs a signed-in player."
+      type Mutation {
+        ${mutations.map((name) => `${name}(input: JSON): JSON`).join('\n')}
+      }
+    `,
+  ],
   resolvers: {
+    Mutation: Object.fromEntries(
+      mutations.map((name) => [
+        name,
+        async (_: unknown, args: { input?: unknown }, context: Context) => {
+          const viewer = signedIn(context)
+          try {
+            return await runAction(name, viewer, args.input)
+          } catch (error) {
+            // a message for the player passes; anything else stays masked
+            if (error instanceof UserError)
+              throw new GraphQLError(error.message)
+            throw error
+          }
+        },
+      ]),
+    ),
     Query: {
       me: async (_, __, context) => {
         if (!context.viewer) return null

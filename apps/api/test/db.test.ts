@@ -103,6 +103,37 @@ test('the same reads and the same access rules as the app', async () => {
       .name,
     o,
   )
-  // read-only: there is no mutation type at all
-  assert.ok((await ask('mutation { x }', v(a))).errors)
+})
+
+test('writes: signed in only, checked inputs, the same rules as the app', async () => {
+  const rename = (name: string) =>
+    `mutation { renameCompetition(input: { slug: "${slug}", name: "${name}" }) }`
+  const out = await ask(rename('Signed out'), null)
+  assert.match(String(out.errors?.[0]?.message), /Sign in first/)
+
+  const bad = await ask(rename(''), v(o))
+  assert.match(
+    String(bad.errors?.[0]?.message),
+    /Give it a name/,
+    'the input check speaks',
+  )
+
+  const notOwner = await ask(rename(`By ${tag} a`), v(a))
+  assert.ok(
+    notOwner.errors?.length,
+    'a player who is not the organiser is refused',
+  )
+  assert.doesNotMatch(String(notOwner.errors?.[0]?.message), /Unexpected error/)
+
+  const done = await ask(rename(`Renamed ${tag}`), v(o))
+  assert.equal(done.errors, undefined)
+  assert.deepEqual(
+    (done.data as { renameCompetition: unknown }).renameCompetition,
+    { ok: true },
+  )
+  const [row] = await db
+    .select({ name: competitions.name })
+    .from(competitions)
+    .where(inArray(competitions.slug, [slug]))
+  assert.equal(row.name, `Renamed ${tag}`)
 })

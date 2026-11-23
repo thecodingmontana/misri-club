@@ -1,4 +1,11 @@
 import { type ApiClient, createApiClient } from '@misri/api-client'
+import type { Viewer } from '@misri/core/access'
+import {
+  type ActionInput,
+  type ActionName,
+  type ActionResult,
+  runAction,
+} from '@misri/core/actions'
 import { getRequestHeaders } from '@tanstack/react-start/server'
 import { getSessionCookie } from 'better-auth/cookies'
 
@@ -25,4 +32,17 @@ export function apiClient(): ApiClient | null {
         }
       : {},
   })
+}
+
+/**
+ * One write: through the API as the signed-in visitor when it's configured,
+ * here otherwise. Either way the same shared action runs (packages/core).
+ */
+export function perform<N extends ActionName>(
+  name: N,
+  viewer: Viewer,
+  input: ActionInput<N>,
+): Promise<ActionResult<N>> {
+  const client = apiClient()
+  return client ? client.act(name, input) : runAction(name, viewer, input)
 }
