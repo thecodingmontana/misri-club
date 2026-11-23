@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { isTimeControl } from '#/lib/time-control'
+import { apiClient } from './api-client.server'
 import { userMiddleware } from './auth.functions'
 import {
   getCompetition,
@@ -151,12 +152,17 @@ export const joinCompetitionFn = createServerFn({ method: 'POST' })
 
 export const getMyCompetitionsFn = createServerFn({ method: 'GET' })
   .middleware([userMiddleware])
-  .handler(({ context }) => listMyCompetitions(context.user.id))
+  .handler(
+    ({ context }) =>
+      apiClient()?.myCompetitions() ?? listMyCompetitions(context.user.id),
+  )
 
 /** Public competitions you could join now (leaving out ones you're in). */
 export const getOpenCompetitionsFn = createServerFn({ method: 'GET' }).handler(
   async () => {
-    return listOpenCompetitions(await viewerId())
+    return (
+      apiClient()?.openCompetitions() ?? listOpenCompetitions(await viewerId())
+    )
   },
 )
 
@@ -379,7 +385,11 @@ export const syncMineFn = createServerFn({ method: 'POST' })
 export const getPlayerFn = createServerFn({ method: 'GET' })
   .middleware([userMiddleware])
   .validator(z.object({ username: z.string().trim().min(1).max(40) }))
-  .handler(({ context, data }) => getPlayer(data.username, context.viewer))
+  .handler(
+    ({ context, data }) =>
+      apiClient()?.player(data.username) ??
+      getPlayer(data.username, context.viewer),
+  )
 
 /** A player reports how their game went; the opponent confirms it. */
 export const reportResultFn = createServerFn({ method: 'POST' })

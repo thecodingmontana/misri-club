@@ -3,6 +3,7 @@ import { and, eq, isNotNull, isNull } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import { chessAccounts, competitionMembers, competitions } from '#/db/schema'
 import type { Viewer } from '#/lib/access'
+import { apiClient } from './api-client.server'
 import { fetchPlayerProfile } from './chesscom.server'
 import { syncResults } from './results.server'
 
@@ -33,7 +34,7 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
     ])
   }
   if (peek) await fillAvatars(peek.id)
-  return readCompetition(slug, viewer)
+  return apiClient()?.competition(slug) ?? readCompetition(slug, viewer)
 }
 
 /** Accounts linked before avatars were stored: look each up once, then keep it. */

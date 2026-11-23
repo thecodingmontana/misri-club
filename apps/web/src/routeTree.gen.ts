@@ -23,7 +23,6 @@ import { Route as AuthedInboxRouteImport } from './routes/_authed.inbox'
 import { Route as AuthedJoinRouteImport } from './routes/_authed.join'
 import { Route as AuthedOnboardingRouteImport } from './routes/_authed.onboarding'
 import { Route as AuthedStartRouteImport } from './routes/_authed.start'
-import { Route as ApiSplatRouteImport } from './routes/api/$'
 import { Route as ApiVersionRouteImport } from './routes/api/version'
 import { Route as AuthConfirmSignInRouteImport } from './routes/auth.confirm-sign-in'
 import { Route as AuthSigninRouteImport } from './routes/auth.signin'
@@ -114,11 +113,6 @@ const AuthedStartRoute = AuthedStartRouteImport.update({
   id: '/start',
   path: '/start',
   getParentRoute: () => AuthedRoute,
-} as any)
-const ApiSplatRoute = ApiSplatRouteImport.update({
-  id: '/api/$',
-  path: '/api/$',
-  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiVersionRoute = ApiVersionRouteImport.update({
   id: '/api/version',
@@ -240,7 +234,6 @@ export interface FileRoutesByFullPath {
   '/join': typeof AuthedJoinRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/start': typeof AuthedStartRoute
-  '/api/$': typeof ApiSplatRoute
   '/api/version': typeof ApiVersionRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
@@ -276,7 +269,6 @@ export interface FileRoutesByTo {
   '/join': typeof AuthedJoinRoute
   '/onboarding': typeof AuthedOnboardingRoute
   '/start': typeof AuthedStartRoute
-  '/api/$': typeof ApiSplatRoute
   '/api/version': typeof ApiVersionRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
@@ -315,7 +307,6 @@ export interface FileRoutesById {
   '/_authed/join': typeof AuthedJoinRoute
   '/_authed/onboarding': typeof AuthedOnboardingRoute
   '/_authed/start': typeof AuthedStartRoute
-  '/api/$': typeof ApiSplatRoute
   '/api/version': typeof ApiVersionRoute
   '/auth/confirm-sign-in': typeof AuthConfirmSignInRoute
   '/auth/signin': typeof AuthSigninRoute
@@ -355,7 +346,6 @@ export interface FileRouteTypes {
     | '/join'
     | '/onboarding'
     | '/start'
-    | '/api/$'
     | '/api/version'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
@@ -391,7 +381,6 @@ export interface FileRouteTypes {
     | '/join'
     | '/onboarding'
     | '/start'
-    | '/api/$'
     | '/api/version'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
@@ -429,7 +418,6 @@ export interface FileRouteTypes {
     | '/_authed/join'
     | '/_authed/onboarding'
     | '/_authed/start'
-    | '/api/$'
     | '/api/version'
     | '/auth/confirm-sign-in'
     | '/auth/signin'
@@ -462,7 +450,6 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   WelcomeRoute: typeof WelcomeRoute
-  ApiSplatRoute: typeof ApiSplatRoute
   ApiVersionRoute: typeof ApiVersionRoute
   AuthConfirmSignInRoute: typeof AuthConfirmSignInRoute
   AuthSigninRoute: typeof AuthSigninRoute
@@ -582,13 +569,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/start'
       preLoaderRoute: typeof AuthedStartRouteImport
       parentRoute: typeof AuthedRoute
-    }
-    '/api/$': {
-      id: '/api/$'
-      path: '/api/$'
-      fullPath: '/api/$'
-      preLoaderRoute: typeof ApiSplatRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/api/version': {
       id: '/api/version'
@@ -777,7 +757,6 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   WelcomeRoute: WelcomeRoute,
-  ApiSplatRoute: ApiSplatRoute,
   ApiVersionRoute: ApiVersionRoute,
   AuthConfirmSignInRoute: AuthConfirmSignInRoute,
   AuthSigninRoute: AuthSigninRoute,

@@ -218,6 +218,9 @@ importers:
       '@biomejs/biome':
         specifier: 2.5.15
         version: 2.5.15
+      '@misri/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@types/node':
         specifier: ^24.19.2
         version: 24.19.2
@@ -236,6 +239,9 @@ importers:
       '@faker-js/faker':
         specifier: ^10.6.0
         version: 10.6.0
+      '@misri/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@misri/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -245,9 +251,6 @@ importers:
       '@misri/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@misri/graphql':
-        specifier: workspace:*
-        version: link:../../packages/graphql
       '@react-email/components':
         specifier: ^1.0.12
         version: 1.0.12(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -296,15 +299,6 @@ importers:
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4(kysely@0.29.8)(postgres@3.4.9)
-      graphql:
-        specifier: ^17.1.0
-        version: 17.1.0
-      graphql-yoga:
-        specifier: ^6.1.0
-        version: 6.1.0(graphql@17.1.0)
-      hono:
-        specifier: ^4.13.19
-        version: 4.13.19
       motion:
         specifier: ^14.10.1
         version: 14.14.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -411,6 +405,21 @@ importers:
       vite:
         specifier: ^8.3.4
         version: 8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)
+
+  packages/api-client:
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 2.5.15
+        version: 2.5.15
+      '@misri/core':
+        specifier: workspace:*
+        version: link:../core
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
 
   packages/auth:
     dependencies:
