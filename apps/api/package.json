@@ -13,6 +13,7 @@
     "@misri/auth": "workspace:*",
     "@misri/core": "workspace:*",
     "@misri/db": "workspace:*",
+    "@misri/graphql": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "graphql": "^17.1.0",
     "graphql-yoga": "^6.1.0",

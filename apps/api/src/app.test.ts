@@ -45,14 +45,14 @@ test('too many top-level fields, aliases or fragments, is refused before any rea
     (_, i) => `c${i}: openCompetitions { slug }`,
   )
   const many = await (await gql(`{ ${aliases.join(' ')} }`)).json()
-  assert.match(many.errors[0].message, /At most 5 fields/)
+  assert.match(many.errors[0].message, /At most 5 fields|Aliases limit/)
   assert.equal(many.data, undefined)
   const viaFragment = await (
     await gql(
       `query { ...F ...F2 } fragment F on Query { a: me { id } b: me { id } c: me { id } } fragment F2 on Query { d: me { id } e: me { id } f: me { id } }`,
     )
   ).json()
-  assert.match(viaFragment.errors[0].message, /At most 5 fields/)
+  assert.match(viaFragment.errors[0].message, /At most 5 fields|Aliases limit/)
 })
 
 test('batched queries are refused', async () => {

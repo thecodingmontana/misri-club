@@ -165,6 +165,14 @@ settings:
 overrides:
   seroval: ^1.6.11
   tslib@^2: ^2.9.1
+  '@escape.tech/graphql-armor-block-field-suggestions>graphql': ^17.1.0
+  '@escape.tech/graphql-armor-cost-limit>graphql': ^17.1.0
+  '@escape.tech/graphql-armor-max-aliases>graphql': ^17.1.0
+  '@escape.tech/graphql-armor-max-depth>graphql': ^17.1.0
+  '@escape.tech/graphql-armor-max-directives>graphql': ^17.1.0
+  '@escape.tech/graphql-armor-max-tokens>graphql': ^17.1.0
+  '@escape.tech/graphql-armor-types>graphql': ^17.1.0
+  '@escape.tech/graphql-armor>graphql': ^17.1.0
 
 importers:
 
@@ -191,6 +199,9 @@ importers:
       '@misri/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@misri/graphql':
+        specifier: workspace:*
+        version: link:../../packages/graphql
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4(kysely@0.29.8)(postgres@3.4.9)
@@ -234,6 +245,9 @@ importers:
       '@misri/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@misri/graphql':
+        specifier: workspace:*
+        version: link:../../packages/graphql
       '@react-email/components':
         specifier: ^1.0.12
         version: 1.0.12(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -456,6 +470,34 @@ importers:
       postgres:
         specifier: ^3.4.9
         version: 3.4.9
+    devDependencies:
+      '@biomejs/biome':
+        specifier: 2.5.15
+        version: 2.5.15
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/graphql:
+    dependencies:
+      '@escape.tech/graphql-armor':
+        specifier: ^3.2.0
+        version: 3.2.0(@envelop/core@5.6.1)(@escape.tech/graphql-armor-types@0.7.0)
+      '@graphql-yoga/plugin-csrf-prevention':
+        specifier: ^4.1.0
+        version: 4.1.0(graphql-yoga@6.1.0(graphql@17.1.0))(graphql@17.1.0)
+      '@graphql-yoga/plugin-disable-introspection':
+        specifier: ^3.1.0
+        version: 3.1.0(graphql-yoga@6.1.0(graphql@17.1.0))(graphql@17.1.0)
+      graphql:
+        specifier: ^17.1.0
+        version: 17.1.0
+      graphql-yoga:
+        specifier: ^6.1.0
+        version: 6.1.0(graphql@17.1.0)
     devDependencies:
       '@biomejs/biome':
         specifier: 2.5.15
@@ -809,13 +851,25 @@ packages:
   '@emnapi/wasi-threads@1.2.3':
     resolution: {integrity: sha512-ELEBe8PsLvvJ6QMr0zLt8ffvOHW/dc1m3CEzNMg7aJUv3bMaoDtw2TXyDAwkYBuroxxuHEwhRTLJSe5sya547g==}
 
+  '@envelop/core@5.6.1':
+    resolution: {integrity: sha512-KEbJ7yrAA+W7IY9MZzpZJ77w/72ndaV/16+hhPapd+0Ohjqffl0mmF3QWy62/m3nRP4qidD+1eiEjJhS/O38Tg==}
+    engines: {node: '>=18.0.0'}
+
   '@envelop/core@6.0.1':
     resolution: {integrity: sha512-wFH1atHzCeK+iFOpWOdbpybDh9SIujMsLMDxH4WvVGa/SIMZ4ktLxH4/7Zqr9d4pT7O1r6eDQd3j981OfusZtQ==}
     engines: {node: '>=22.15.0'}
 
+  '@envelop/instrumentation@1.0.1':
+    resolution: {integrity: sha512-FuexE2qd3Yc1Kh1DjTliwGxb9kyyv4ySBNnfJOxnQasVmGdcqX6AkkO5sIMxLWFRftp8PErOcIn2dQW/1RwytQ==}
+    engines: {node: '>=18.0.0'}
+
   '@envelop/instrumentation@2.0.1':
     resolution: {integrity: sha512-BnHXPcYTGl6bskFwaeOwt7G2KwHhATOMfc2ojMno7QMFKBSxkmPs6o092LDJ+PTNHk7wv4pTIWhP4LsJkvHIew==}
     engines: {node: '>=22.15.0'}
+
+  '@envelop/types@5.2.2':
+    resolution: {integrity: sha512-nl9cmUh8F+2/NNzpcLjzNqtaVn0m8XSzzxrPU2ByHhlz4Hqlc5QBfRsemZkoJMKrMviJXyJYdKZiUP1o70F3Kw==}
+    engines: {node: '>=18.0.0'}
 
   '@envelop/types@6.0.1':
     resolution: {integrity: sha512-3XOc8X4FRZdKFMmSVDlHJSBIK4jKtzBpnnoKwI7Qoq1k8aqpYHJg2IXnNKpdOubB9xKsWZvIlqSCOWtAg4td+A==}
@@ -1273,6 +1327,48 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@escape.tech/graphql-armor-block-field-suggestions@3.0.1':
+    resolution: {integrity: sha512-pZ+5aFgGW/pUul7nDOZ3PoeWAd9kLDspQ0R+fpz2aTjdIT0yI+f+ZbAGeTVmr5RypRDwjwokG/HjWoxTYTcRwQ==}
+    engines: {node: '>=18.0.0'}
+
+  '@escape.tech/graphql-armor-cost-limit@2.4.3':
+    resolution: {integrity: sha512-fLZTlJjrjinpNhbv5VP6f8Ce4MiQzbcHtCNaCPVaHqArTEbN7vDnlVLiH+VcmZBmOwU6Si97lKdlOXWNgB5ytw==}
+    engines: {node: '>=18.0.0'}
+
+  '@escape.tech/graphql-armor-max-aliases@2.6.2':
+    resolution: {integrity: sha512-SDk7pAzY6gutsdZ3NlyY55RrytrCPxJJxSN/DBfIGKphTrfBvKQWTnioQ9OlLP9kPjCE6XM5UWwGt7uqbpKSYA==}
+    engines: {node: '>=18.0.0'}
+
+  '@escape.tech/graphql-armor-max-depth@2.4.2':
+    resolution: {integrity: sha512-J9fbW1+W4u3GAcf19wwS0zrNGICCbWn/glvopCoC11Ga0reXvGwgr8EcyuHjTFLL7+pPvWAeVhP4qo6hybcB9w==}
+    engines: {node: '>=18.0.0'}
+
+  '@escape.tech/graphql-armor-max-directives@2.3.1':
+    resolution: {integrity: sha512-YieT/NrTgZdLu3hzWfCgpmUKO1o/7Im9C4TI0e4O85Wa+zLit/DzHO4ZCIY//w8nkBf1KStkA1pD/v0daEfY5Q==}
+    engines: {node: '>=18.0.0'}
+
+  '@escape.tech/graphql-armor-max-tokens@2.5.1':
+    resolution: {integrity: sha512-XHui2npOz7Jn8shBZqfyeocWhdl0pUbKiaWmvbF+5rvNoRIGMgwMtaVhmf9ia8oGGbd+cx5EYo1v+oKHzIm79w==}
+    engines: {node: '>=18.0.0'}
+
+  '@escape.tech/graphql-armor-types@0.7.0':
+    resolution: {integrity: sha512-RHxyyp6PDgS6NAPnnmB6JdmUJ6oqhpSHFbsglGWeCcnNzceA5AkQFpir7VIDbVyS8LNC1xhipOtk7f9ycrIemQ==}
+
+  '@escape.tech/graphql-armor@3.2.0':
+    resolution: {integrity: sha512-0tG2YOIPiDg2Oe7uEqkYl808VK9OKRyXx4NBa3w+N9XV6NaQ4XxGkDJMtps0lx5DANe10d6nbf6Ml2Z6vekPwA==}
+    engines: {node: '>=18.0.0'}
+    peerDependencies:
+      '@apollo/server': ^4.0.0 || ^5.0.0
+      '@envelop/core': ^5.0.0
+      '@escape.tech/graphql-armor-types': 0.7.0
+    peerDependenciesMeta:
+      '@apollo/server':
+        optional: true
+      '@envelop/core':
+        optional: true
+      '@escape.tech/graphql-armor-types':
+        optional: true
+
   '@faker-js/faker@10.6.0':
     resolution: {integrity: sha512-3RQHgEtvL1Frl/d1cSreo7qhJ3Gk1OdNUai/CtZ8G+wYeRQnJih3s9xJ9/kgYekPQRdwgh0HXRPqMlzWGwivIQ==}
     engines: {node: ^20.19.0 || ^22.13.0 || ^23.5.0 || >=24.0.0, npm: '>=10'}
@@ -1338,6 +1434,20 @@ packages:
     resolution: {integrity: sha512-mB9oAsNCm9aM3/SOv4YtBMqZbYj10R7dkq8byBqxGY/ncFwhf2oQzMV+LCRlWoDSEBJ3COiR1yeDvMtsoOsuFQ==}
     peerDependencies:
       graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0
+
+  '@graphql-yoga/plugin-csrf-prevention@4.1.0':
+    resolution: {integrity: sha512-P/x98lq36x6PdhymjIkJ/CoOzaER/UXR1JneKnNylzKrBN6jj06thq3N18L/tDO3TlMuSHJ2H8su0i99bE7fdw==}
+    engines: {node: '>=22.15.0'}
+    peerDependencies:
+      graphql: ^16.0.0 || ^17.0.0
+      graphql-yoga: ^6.1.0
+
+  '@graphql-yoga/plugin-disable-introspection@3.1.0':
+    resolution: {integrity: sha512-dpCPs9YkDvByea5FdeIXpPDSSz6nSRoCWAxDRxITgi+XstID40J4W1a++DM8ZH63iz45YAMI7LPXafaat5matg==}
+    engines: {node: '>=22.15.0'}
+    peerDependencies:
+      graphql: ^16.0.0 || ^17.0.0
+      graphql-yoga: ^6.1.0
 
   '@graphql-yoga/subscription@6.0.0':
     resolution: {integrity: sha512-7itRaKCigZXL5gbgtKg8+/xCB2NI5T/1p1yIcAx8fht2nEMmu/2RlQ8xtpsa25xKy/u5h4Y9nDSQo7kV/nCcBg==}
@@ -3190,6 +3300,10 @@ packages:
   '@whatwg-node/node-fetch@0.9.4':
     resolution: {integrity: sha512-7jJAjA1HjBXxcIRU6TriphDFKl2X7JajiYTML85oDkKh7dD92H0eypFhzJaOwfERs0ZFjHIL7EeFHnr9TujMIQ==}
     engines: {node: '>=22.15.0'}
+
+  '@whatwg-node/promise-helpers@1.3.2':
+    resolution: {integrity: sha512-Nst5JdK47VIl9UcGwtv2Rcgyn5lWtZ0/mhRQ4G8NN2isxpq2TO30iqHzmwoJycjWuyUfg3GFXqP/gFHXeV57IA==}
+    engines: {node: '>=16.0.0'}
 
   '@whatwg-node/promise-helpers@2.0.2':
     resolution: {integrity: sha512-RKVGTBAuYfObHxUFjlTFmlDndmuXBxkN56yj3z6EQpNpT55R/xaMhTi4+9yXZ5UoDXbKLAsZHCP8ycoWHM/Vdg==}
@@ -5147,6 +5261,14 @@ snapshots:
       tslib: 2.9.1
     optional: true
 
+  '@envelop/core@5.6.1':
+    dependencies:
+      '@envelop/instrumentation': 1.0.1
+      '@envelop/types': 5.2.2
+      '@whatwg-node/promise-helpers': 1.3.2
+      tslib: 2.9.1
+    optional: true
+
   '@envelop/core@6.0.1':
     dependencies:
       '@envelop/instrumentation': 2.0.1
@@ -5154,10 +5276,22 @@ snapshots:
       '@whatwg-node/promise-helpers': 2.0.2
       tslib: 2.9.1
 
+  '@envelop/instrumentation@1.0.1':
+    dependencies:
+      '@whatwg-node/promise-helpers': 1.3.2
+      tslib: 2.9.1
+    optional: true
+
   '@envelop/instrumentation@2.0.1':
     dependencies:
       '@whatwg-node/promise-helpers': 2.0.2
       tslib: 2.9.1
+
+  '@envelop/types@5.2.2':
+    dependencies:
+      '@whatwg-node/promise-helpers': 1.3.2
+      tslib: 2.9.1
+    optional: true
 
   '@envelop/types@6.0.1':
     dependencies:
@@ -5396,6 +5530,65 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
+  '@escape.tech/graphql-armor-block-field-suggestions@3.0.1':
+    dependencies:
+      graphql: 17.1.0
+    optionalDependencies:
+      '@envelop/core': 5.6.1
+
+  '@escape.tech/graphql-armor-cost-limit@2.4.3':
+    dependencies:
+      graphql: 17.1.0
+    optionalDependencies:
+      '@envelop/core': 5.6.1
+      '@escape.tech/graphql-armor-types': 0.7.0
+
+  '@escape.tech/graphql-armor-max-aliases@2.6.2':
+    dependencies:
+      graphql: 17.1.0
+    optionalDependencies:
+      '@envelop/core': 5.6.1
+      '@escape.tech/graphql-armor-types': 0.7.0
+
+  '@escape.tech/graphql-armor-max-depth@2.4.2':
+    dependencies:
+      graphql: 17.1.0
+    optionalDependencies:
+      '@envelop/core': 5.6.1
+      '@escape.tech/graphql-armor-types': 0.7.0
+
+  '@escape.tech/graphql-armor-max-directives@2.3.1':
+    dependencies:
+      graphql: 17.1.0
+    optionalDependencies:
+      '@envelop/core': 5.6.1
+      '@escape.tech/graphql-armor-types': 0.7.0
+
+  '@escape.tech/graphql-armor-max-tokens@2.5.1':
+    dependencies:
+      graphql: 17.1.0
+    optionalDependencies:
+      '@envelop/core': 5.6.1
+      '@escape.tech/graphql-armor-types': 0.7.0
+
+  '@escape.tech/graphql-armor-types@0.7.0':
+    dependencies:
+      graphql: 17.1.0
+    optional: true
+
+  '@escape.tech/graphql-armor@3.2.0(@envelop/core@5.6.1)(@escape.tech/graphql-armor-types@0.7.0)':
+    dependencies:
+      '@escape.tech/graphql-armor-block-field-suggestions': 3.0.1
+      '@escape.tech/graphql-armor-cost-limit': 2.4.3
+      '@escape.tech/graphql-armor-max-aliases': 2.6.2
+      '@escape.tech/graphql-armor-max-depth': 2.4.2
+      '@escape.tech/graphql-armor-max-directives': 2.3.1
+      '@escape.tech/graphql-armor-max-tokens': 2.5.1
+      graphql: 17.1.0
+    optionalDependencies:
+      '@envelop/core': 5.6.1
+      '@escape.tech/graphql-armor-types': 0.7.0
+
   '@faker-js/faker@10.6.0': {}
 
   '@fastify/busboy@3.2.6': {}
@@ -5452,6 +5645,17 @@ snapshots:
   '@graphql-typed-document-node/core@3.2.0(graphql@17.1.0)':
     dependencies:
       graphql: 17.1.0
+
+  '@graphql-yoga/plugin-csrf-prevention@4.1.0(graphql-yoga@6.1.0(graphql@17.1.0))(graphql@17.1.0)':
+    dependencies:
+      graphql: 17.1.0
+      graphql-yoga: 6.1.0(graphql@17.1.0)
+
+  '@graphql-yoga/plugin-disable-introspection@3.1.0(graphql-yoga@6.1.0(graphql@17.1.0))(graphql@17.1.0)':
+    dependencies:
+      '@whatwg-node/promise-helpers': 2.0.2
+      graphql: 17.1.0
+      graphql-yoga: 6.1.0(graphql@17.1.0)
 
   '@graphql-yoga/subscription@6.0.0':
     dependencies:
@@ -7364,6 +7568,11 @@ snapshots:
       '@whatwg-node/disposablestack': 0.1.0
       '@whatwg-node/promise-helpers': 2.0.2
       tslib: 2.9.1
+
+  '@whatwg-node/promise-helpers@1.3.2':
+    dependencies:
+      tslib: 2.9.1
+    optional: true
 
   '@whatwg-node/promise-helpers@2.0.2':
     dependencies:

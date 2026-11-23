@@ -6,10 +6,10 @@ import {
 import { getPlayer } from '@misri/core/player'
 import { db } from '@misri/db/client'
 import { chessAccounts, user } from '@misri/db/schema'
+import { securityPlugins } from '@misri/graphql'
 import { eq } from 'drizzle-orm'
 import { GraphQLError } from 'graphql'
-import { createSchema, createYoga, type Plugin } from 'graphql-yoga'
-import { maxRootFields } from './limits.ts'
+import { createSchema, createYoga } from 'graphql-yoga'
 import { type Viewer, viewerFrom } from './viewer.ts'
 
 /**
@@ -90,19 +90,17 @@ export const schema = createSchema<Context>({
   },
 })
 
-const limitFields: Plugin = {
-  onValidate: ({ addValidationRule }) => addValidationRule(maxRootFields),
-}
+const production = process.env.VERCEL_ENV === 'production'
 
 export const yoga = createYoga<{ request: Request }, Context>({
   schema,
   graphqlEndpoint: '/graphql',
   // bearer tokens, no cookies: any origin may call it; Hono's cors() answers
   cors: false,
-  // the explorer stays off in production; the schema itself is public
-  graphiql: process.env.VERCEL_ENV !== 'production',
+  // the explorer and introspection stay off in production
+  graphiql: !production,
   landingPage: false,
-  plugins: [limitFields],
+  plugins: securityPlugins({ production }),
   context: async ({ request }) => ({
     viewer: await viewerFrom(request.headers),
   }),

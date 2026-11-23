@@ -17,3 +17,13 @@ overrides:
   # one tslib 2 for everything: with two versions the server bundle kept only
   # half of one (no modules/), and @better-auth/passkey crashed every request
   'tslib@^2': ^2.9.1
+  # one graphql for everything: GraphQL Armor's packages pin graphql 16, and
+  # with two copies Yoga can't tell their errors apart from crashes
+  '@escape.tech/graphql-armor-block-field-suggestions>graphql': ^17.1.0
+  '@escape.tech/graphql-armor-cost-limit>graphql': ^17.1.0
+  '@escape.tech/graphql-armor-max-aliases>graphql': ^17.1.0
+  '@escape.tech/graphql-armor-max-depth>graphql': ^17.1.0
+  '@escape.tech/graphql-armor-max-directives>graphql': ^17.1.0
+  '@escape.tech/graphql-armor-max-tokens>graphql': ^17.1.0
+  '@escape.tech/graphql-armor-types>graphql': ^17.1.0
+  '@escape.tech/graphql-armor>graphql': ^17.1.0
