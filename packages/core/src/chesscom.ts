@@ -48,6 +48,10 @@ const MAX_WAIT_MS = 5_000
  */
 async function apiGet<T>(path: string, retries = 3): Promise<T | null> {
   const url = path.startsWith('http') ? path : `${API_BASE}${path}`
+  // archive links come back from chess.com itself; never follow one elsewhere
+  if (!url.startsWith(`${API_BASE}/`)) {
+    throw new Error(`Not a chess.com API address: ${url}`)
+  }
 
   return withSlot(async () => {
     for (let attempt = 0; ; attempt++) {

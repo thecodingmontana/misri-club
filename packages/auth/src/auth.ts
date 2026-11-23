@@ -94,12 +94,27 @@ async function requireFreshSignIn(ctx: AuthContext) {
  * same-origin, which signs in.
  */
 function confirmLinkFirst(ctx: AuthContext) {
-  const site = (ctx.request?.headers ?? ctx.headers)?.get('sec-fetch-site')
-  if (!site || site === 'same-origin') return
+  const headers = ctx.request?.headers ?? ctx.headers
+  const site = headers?.get('sec-fetch-site')
+  if (site === 'same-origin') return
+  // older browsers send no Fetch Metadata: the Continue click still carries
+  // our own page as its referrer, a link from an email or another site doesn't
+  if (!site && sameSite(headers?.get('referer'), ctx.context.baseURL)) return
   const query = new URLSearchParams(
     Object.entries((ctx.query ?? {}) as Record<string, string>),
   )
   throw ctx.redirect(`/auth/confirm-sign-in?${query}`)
+}
+
+function sameSite(referer: string | null | undefined, base: string) {
+  try {
+    return (
+      Boolean(referer) &&
+      new URL(referer as string).origin === new URL(base).origin
+    )
+  } catch {
+    return false
+  }
 }
 
 /** A picture can only be Google's or none, so nobody points theirs at a tracker. */
