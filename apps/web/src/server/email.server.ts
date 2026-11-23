@@ -1,4 +1,4 @@
-import { render } from '@react-email/components'
+import { render } from '@react-email/render'
 import type { ReactElement } from 'react'
 import { Resend } from 'resend'
 
