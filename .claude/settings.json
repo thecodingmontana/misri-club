@@ -4,10 +4,18 @@
   },
   "extraKnownMarketplaces": {
     "ponytail": {
-      "source": { "source": "github", "repo": "DietrichGebert/ponytail" }
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail",
+        "ref": "ebd8654c2c627f721eb8f9c0d1bd4090a29f9e10"
+      }
     },
     "improve": {
-      "source": { "source": "github", "repo": "shadcn/improve" }
+      "source": {
+        "source": "github",
+        "repo": "shadcn/improve",
+        "ref": "cac56e1ebd3c279aa9153616cfeac7b174ab90f9"
+      }
     }
   },
   "enabledPlugins": {
