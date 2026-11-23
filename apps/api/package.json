@@ -6,10 +6,11 @@
     "build": "esbuild src/app.ts --bundle --platform=node --target=node24 --format=esm --outfile=index.js --banner:js=\"import{createRequire}from'node:module';const require=createRequire(import.meta.url);\"",
     "check": "biome check",
     "dev": "node --watch --experimental-strip-types src/dev.ts",
-    "test": "DATABASE_URL=${DATABASE_URL:-postgres://test:test@127.0.0.1:1/test} node --test --experimental-strip-types 'src/**/*.test.ts'",
+    "test": "DATABASE_URL=${DATABASE_URL:-postgres://test:test@127.0.0.1:1/test} BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-test-only-secret-test-only-secret-00} node --test --experimental-strip-types 'src/**/*.test.ts'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@misri/auth": "workspace:*",
     "@misri/core": "workspace:*",
     "@misri/db": "workspace:*",
     "drizzle-orm": "^0.45.4",
