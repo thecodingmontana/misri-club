@@ -58,6 +58,8 @@ export function createApiClient(options: ApiClientOptions) {
         ...options.headers,
       },
       body: JSON.stringify({ query: text, variables }),
+      // the token and internal secret go to this address only, never a redirect
+      redirect: 'error',
       signal: AbortSignal.timeout(options.timeoutMs ?? 8000),
     })
     const body = (await res.json().catch(() => null)) as {

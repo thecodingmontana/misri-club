@@ -14,6 +14,24 @@ export const clientIp = (headers: Headers) =>
   'unknown'
 
 /**
+ * One visitor's budget key. An IPv6 user usually holds a whole /64 and could
+ * rotate through it, so that block counts as one visitor.
+ */
+export function visitorKey(ip: string) {
+  if (!ip.includes(':') || ip.includes('.')) return ip
+  const [head, tail = ''] = ip.split('::')
+  const left = head ? head.split(':') : []
+  const right = ip.includes('::') && tail ? tail.split(':') : []
+  const groups = ip.includes('::')
+    ? [...left, ...Array(8 - left.length - right.length).fill('0'), ...right]
+    : left
+  return `${groups
+    .slice(0, 4)
+    .map((g) => (Number.parseInt(g, 16) || 0).toString(16))
+    .join(':')}::/64`
+}
+
+/**
  * The web app calls the API from its server, so every visitor would arrive
  * from Vercel's IPs and share one budget. With the shared secret it passes
  * the visitor's own IP, which is then counted instead.
@@ -33,7 +51,7 @@ export const rateLimit: MiddlewareHandler = async (c, next) => {
   const ip = trustedCaller(headers)
     ? (headers.get('x-misri-client-ip') ?? 'unknown')
     : clientIp(headers)
-  const key = `api:${ip}`
+  const key = `api:${visitorKey(ip)}`
   const allowed = await takeAllowance(
     key,
     1,

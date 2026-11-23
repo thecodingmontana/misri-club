@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { buildSchema, parse, validate } from 'graphql'
 import { createSchema, createYoga } from 'graphql-yoga'
-import { securityPlugins } from './security.ts'
+import { maxRootFields, securityPlugins } from './security.ts'
 
 const schema = createSchema({
   typeDefs: /* GraphQL */ `
@@ -90,4 +91,27 @@ test('top-level fields are capped at 5, fragments included', async () => {
   assert.ok(
     (await errors(await post(query))).some((m) => /At most 5 fields/.test(m)),
   )
+})
+
+test('root fields are counted through fragments, and doubling fragments stay cheap', () => {
+  const schema = buildSchema(
+    'type Query { hello: String, a: String, b: String }',
+  )
+  const rule = (doc: string) =>
+    validate(schema, parse(doc), [maxRootFields]).map((e) => e.message)
+  assert.ok(
+    rule('fragment F on Query { hello a b } query { ...F a b hello }').some(
+      (m) => /At most/.test(m),
+    ),
+  )
+  assert.deepEqual(rule('fragment F on Query { hello a } query { ...F b }'), [])
+  // f0 holds one field, each f(n) spreads f(n-1) twice: 2^25 if counted naively
+  const fragments = ['fragment f0 on Query { hello }']
+  for (let i = 1; i <= 25; i++) {
+    fragments.push(`fragment f${i} on Query { ...f${i - 1} ...f${i - 1} }`)
+  }
+  const started = performance.now()
+  const errors = rule(`${fragments.join(' ')} query { ...f25 }`)
+  assert.ok(performance.now() - started < 200, 'linear, not exponential')
+  assert.ok(errors.some((m) => /At most/.test(m)))
 })
