@@ -4,6 +4,7 @@ import {
   competitionLeavers,
   competitionMembers,
   competitions,
+  type MatchReport,
   matches,
   user,
 } from '@misri/db/schema'
@@ -742,6 +743,7 @@ export async function answerReport(
   viewer: Viewer,
   matchId: string,
   accept: boolean,
+  seen: Pick<MatchReport, 'result' | 'homeWhite'>,
 ) {
   const answered = await db.transaction(async (tx) => {
     const { competition, match, singleGame } = await openMatch(
@@ -757,6 +759,9 @@ export async function answerReport(
       throw new UserError(
         'Only the opponent can confirm or dispute this result.',
       )
+    }
+    if (report.result !== seen.result || report.homeWhite !== seen.homeWhite) {
+      throw new UserError('The report changed. Check it again.')
     }
     await tx
       .update(matches)

@@ -25,7 +25,10 @@ const escapeText = (text: string) =>
     .replace(/\\/g, '\\\\')
     .replace(/;/g, '\\;')
     .replace(/,/g, '\\,')
-    .replace(/\r?\n/g, '\\n')
+    .replace(/\r\n|\r|\n/g, '\\n')
+    // a lone CR or other control character could end the line in some clients
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping them is the point
+    .replace(/[\u0000-\u001f\u007f]/g, '')
 
 /** Lines longer than 75 bytes continue on the next line after a space. */
 export function fold(line: string): string {

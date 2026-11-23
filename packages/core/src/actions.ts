@@ -111,10 +111,19 @@ const define = <S extends z.ZodType, O>(
   run: (viewer: Viewer, data: z.output<S>) => Promise<O>,
 ) => ({ input, run })
 
+// names reach tables, notifications and calendar feeds: no control characters
+const competitionName = z
+  .string()
+  .trim()
+  .min(1, 'Give it a name.')
+  .max(60)
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: refusing them is the point
+  .refine((name) => !/[\u0000-\u001f\u007f]/.test(name), 'Use plain text.')
+
 export const actions = {
   createCompetition: define(
     z.object({
-      name: z.string().trim().min(1, 'Give it a name.').max(60),
+      name: competitionName,
       format: z.enum(['league', 'knockout', 'challenge', 'groups']),
       groupCount: z
         .union([z.literal(2), z.literal(4), z.literal(8)])
@@ -274,7 +283,7 @@ export const actions = {
   renameCompetition: define(
     z.object({
       slug,
-      name: z.string().trim().min(1, 'Give it a name.').max(60),
+      name: competitionName,
     }),
     async (viewer, data) => {
       await renameCompetition(data.slug, viewer, data.name)
@@ -322,9 +331,24 @@ export const actions = {
 
   /** The opponent confirms (it counts) or disputes (the organiser settles) a report. */
   answerReport: define(
-    z.object({ slug, matchId: id, accept: z.boolean() }),
+    z.object({
+      slug,
+      matchId: id,
+      accept: z.boolean(),
+      // the report the opponent saw: a changed report must be seen again
+      seen: z.object({
+        result: z.enum(['white', 'black', 'draw']),
+        homeWhite: z.boolean(),
+      }),
+    }),
     async (viewer, data) => {
-      await answerReport(data.slug, viewer, data.matchId, data.accept)
+      await answerReport(
+        data.slug,
+        viewer,
+        data.matchId,
+        data.accept,
+        data.seen,
+      )
       return { ok: true }
     },
   ),

@@ -55,7 +55,9 @@ export function MatchReport({
             ? 'Is that right?'
             : `Waiting for ${displayName(other)} to confirm.`}
         </p>
-        {viewerId === other.id && <Answer slug={slug} matchId={match.id} />}
+        {viewerId === other.id && (
+          <Answer slug={slug} matchId={match.id} seen={report} />
+        )}
       </div>
     )
   }
@@ -65,14 +67,29 @@ export function MatchReport({
   ) : null
 }
 
-function Answer({ slug, matchId }: { slug: string; matchId: string }) {
+function Answer({
+  slug,
+  matchId,
+  seen,
+}: {
+  slug: string
+  matchId: string
+  seen: { result: 'white' | 'black' | 'draw'; homeWhite: boolean }
+}) {
   const answer = useServerFn(answerReportFn)
   const router = useRouter()
   const [busy, setBusy] = useState<boolean | null>(null)
   const send = async (accept: boolean) => {
     setBusy(accept)
     try {
-      await answer({ data: { slug, matchId, accept } })
+      await answer({
+        data: {
+          slug,
+          matchId,
+          accept,
+          seen: { result: seen.result, homeWhite: seen.homeWhite },
+        },
+      })
       await router.invalidate()
       toast.success(
         accept

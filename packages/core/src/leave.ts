@@ -6,7 +6,7 @@
  * award = every unplayed game becomes a walkover to the opponent (a win for
  *         them, a forfeit for the leaver, who drops off the table)
  * void  = all their games are removed, played ones too, as if they never entered
- * keep  = played results stand; unplayed games simply never count
+ * keep  = played results stand; unplayed games are voided so they never count
  */
 export type LeaveRule = 'award' | 'void' | 'keep'
 
@@ -23,6 +23,8 @@ export interface Settlement {
   award: Array<{ matchId: string; winnerUserId: string }>
   /** matches to delete */
   remove: string[]
+  /** unplayed matches to close, so nobody can still put a result on them */
+  void: string[]
 }
 
 export function settleLeaver(
@@ -37,9 +39,14 @@ export function settleLeaver(
   // only a league has a choice: elsewhere the opponent always gets the games
   const effective = format === 'league' ? rule : 'award'
   if (effective === 'void') {
-    return { award: [], remove: theirs.map((m) => m.id) }
+    return { award: [], remove: theirs.map((m) => m.id), void: [] }
   }
-  if (effective === 'keep') return { award: [], remove: [] }
+  if (effective === 'keep') {
+    const unplayed = theirs.filter(
+      (m) => m.result === null && m.winnerUserId === null,
+    )
+    return { award: [], remove: [], void: unplayed.map((m) => m.id) }
+  }
   return {
     award: theirs.flatMap((m) => {
       const opponent = m.homeUserId === leaverId ? m.awayUserId : m.homeUserId
@@ -49,5 +56,6 @@ export function settleLeaver(
         : []
     }),
     remove: [],
+    void: [],
   }
 }

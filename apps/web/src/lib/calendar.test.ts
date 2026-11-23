@@ -42,3 +42,13 @@ test('long lines fold at 75 bytes, multi-byte characters kept whole', () => {
   }
   assert.equal(lines.map((l, i) => (i ? l.slice(1) : l)).join(''), long)
 })
+
+test('a lone CR in a name cannot start a new property', () => {
+  const ics = icsCalendar(
+    'Misri matches',
+    [{ ...event, summary: 'Play bob (Cup\rURL:https://x.test/p)' }],
+    new Date('2026-11-22T00:00:00Z'),
+  )
+  assert.ok(!/\r(?!\n)/.test(ics), 'no CR outside a CRLF')
+  assert.ok(ics.includes('SUMMARY:Play bob (Cup\\nURL:https://x.test/p)'))
+})
