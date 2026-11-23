@@ -1,3 +1,4 @@
+import { competitionNameCheck, competitionNameIdeas } from '@misri/core/account'
 import { actions } from '@misri/core/actions'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
@@ -9,19 +10,12 @@ import {
   listMyCompetitions,
   listOpenCompetitions,
 } from './competition-view.server'
-import {
-  checkCompetitionName,
-  currentViewer,
-  suggestCompetitionNames,
-  viewerId,
-} from './competitions.server'
+import { currentViewer, viewerId } from './competitions.server'
 import { getPlayer } from './player.server'
-import { takeAllowance } from './rate-limit.server'
 
 // Writes are the shared actions (packages/core/src/actions.ts): the same
 // checks and limits here and in the API, which runs them when it's set up.
 
-const MINUTE = 60 * 1000
 const slug = z.string().trim().min(1).max(80)
 
 export const createCompetitionFn = createServerFn({ method: 'POST' })
@@ -31,28 +25,24 @@ export const createCompetitionFn = createServerFn({ method: 'POST' })
     perform('createCompetition', context.viewer, data),
   )
 
-async function allowNameLookup(userId: string) {
-  if (!(await takeAllowance(`competition-name:${userId}`, 1, 60, MINUTE))) {
-    throw new Error('Too many tries. Wait a minute and try again.')
-  }
-}
-
 /** Is this name free? When not, three free ones close to it. */
 export const checkCompetitionNameFn = createServerFn({ method: 'GET' })
   .middleware([userMiddleware])
   .validator(z.object({ name: z.string().trim().min(3).max(60) }))
-  .handler(async ({ context, data }) => {
-    await allowNameLookup(context.user.id)
-    return checkCompetitionName(data.name)
-  })
+  .handler(
+    ({ context, data }) =>
+      apiClient()?.competitionNameCheck(data.name) ??
+      competitionNameCheck(context.user.id, data.name),
+  )
 
 /** Three free chess-themed names. */
 export const suggestCompetitionNamesFn = createServerFn({ method: 'GET' })
   .middleware([userMiddleware])
-  .handler(async ({ context }) => {
-    await allowNameLookup(context.user.id)
-    return suggestCompetitionNames()
-  })
+  .handler(
+    ({ context }) =>
+      apiClient()?.competitionNameIdeas() ??
+      competitionNameIdeas(context.user.id),
+  )
 
 /** Join by invite code, or by slug when the competition is public. */
 export const joinCompetitionFn = createServerFn({ method: 'POST' })
@@ -87,7 +77,10 @@ export const getCompetitionFn = createServerFn({ method: 'GET' })
 /** What an invite link points at; null for an unknown code. */
 export const getInviteFn = createServerFn({ method: 'GET' })
   .validator(z.object({ code: z.string().trim().toUpperCase().max(16) }))
-  .handler(async ({ data }) => getInvite(data.code, await viewerId()))
+  .handler(
+    async ({ data }) =>
+      apiClient()?.invite(data.code) ?? getInvite(data.code, await viewerId()),
+  )
 
 export const startCompetitionFn = createServerFn({ method: 'POST' })
   .middleware([userMiddleware])

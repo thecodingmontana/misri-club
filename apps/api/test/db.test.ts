@@ -5,6 +5,7 @@ import {
   chessAccounts,
   competitionMembers,
   competitions,
+  notifications,
   user,
 } from '@misri/db/schema'
 import { inArray } from 'drizzle-orm'
@@ -44,7 +45,7 @@ test('the same reads and the same access rules as the app', async () => {
       nameKey: `api ${tag}`,
       format: 'league',
       ownerId: o,
-      inviteCode: `inv${tag}`,
+      inviteCode: `INV${tag.toUpperCase()}`,
       visibility: 'private',
       points: { win: 3, draw: 1, loss: 0, forfeit: 0 },
       tieBreaks: [],
@@ -95,7 +96,10 @@ test('the same reads and the same access rules as the app', async () => {
   const owner = (await ask(`{ competition(slug: "${slug}") }`, v(o))).data as {
     competition: { competition: { inviteCode: string } }
   }
-  assert.equal(owner.competition.competition.inviteCode, `inv${tag}`)
+  assert.equal(
+    owner.competition.competition.inviteCode,
+    `INV${tag.toUpperCase()}`,
+  )
 
   const player = await ask(`{ player(username: "${o}") }`, v(a))
   assert.equal(
@@ -136,4 +140,59 @@ test('writes: signed in only, checked inputs, the same rules as the app', async 
     .from(competitions)
     .where(inArray(competitions.slug, [slug]))
   assert.equal(row.name, `Renamed ${tag}`)
+})
+
+test("the player's own things: account, inbox, onboarding, invite, names", async () => {
+  const out = await ask('{ chessAccount unreadCount }', null)
+  assert.match(String(out.errors?.[0]?.message), /Sign in first/)
+  const preview = await ask(`{ invite(code: "inv${tag}") }`, null)
+  assert.equal(
+    (preview.data as { invite: { slug: string } }).invite.slug,
+    slug,
+    'an invite shows signed out',
+  )
+
+  await db
+    .insert(notifications)
+    .values({ userId: a, title: `Hello ${tag}`, url: '/' })
+  const mine = await ask('{ chessAccount inbox unreadCount }', v(a))
+  assert.equal(mine.errors, undefined)
+  const data = mine.data as {
+    chessAccount: { status: string; username: string }
+    inbox: Array<{ title: string }>
+    unreadCount: number
+  }
+  assert.equal(data.chessAccount.status, 'verified')
+  assert.equal(data.chessAccount.username, a)
+  assert.equal(data.inbox[0].title, `Hello ${tag}`)
+  assert.equal(data.unreadCount, 1)
+
+  assert.equal(
+    (await ask('mutation { markInboxRead }', v(a))).errors,
+    undefined,
+  )
+  assert.equal(
+    ((await ask('{ unreadCount }', v(a))).data as { unreadCount: number })
+      .unreadCount,
+    0,
+  )
+
+  assert.equal(
+    (await ask('mutation { skipOnboarding }', v(a))).errors,
+    undefined,
+  )
+  const [row] = await db
+    .select({ onboardedAt: user.onboardedAt })
+    .from(user)
+    .where(inArray(user.id, [a]))
+  assert.ok(row.onboardedAt, 'onboarding marked done')
+
+  const taken = (
+    await ask(`{ competitionNameCheck(name: "Renamed ${tag}") }`, v(a))
+  ).data as { competitionNameCheck: { available: boolean } }
+  assert.equal(taken.competitionNameCheck.available, false)
+  const ideas = (await ask('{ competitionNameIdeas }', v(a))).data as {
+    competitionNameIdeas: string[]
+  }
+  assert.equal(ideas.competitionNameIdeas.length, 3)
 })

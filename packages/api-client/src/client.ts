@@ -1,7 +1,16 @@
+import type {
+  chessAccount,
+  competitionNameCheck,
+  competitionNameIdeas,
+  inbox,
+  matchGame,
+  myGames,
+} from '@misri/core/account'
 import type { ActionInput, ActionName, ActionResult } from '@misri/core/actions'
 import type {
   CompetitionSummary,
   getCompetition,
+  getInvite,
 } from '@misri/core/competition-view'
 import type { getPlayer } from '@misri/core/player'
 
@@ -14,6 +23,9 @@ export type CompetitionPage = NonNullable<
   Awaited<ReturnType<typeof getCompetition>>
 >
 export type PlayerPage = NonNullable<Awaited<ReturnType<typeof getPlayer>>>
+type Result<F extends (...args: never[]) => unknown> = Awaited<ReturnType<F>>
+export type InboxItem = Result<typeof inbox>[number]
+
 export type Me = { id: string; name: string; chessUsername: string | null }
 
 export interface ApiClientOptions {
@@ -80,6 +92,60 @@ export function createApiClient(options: ApiClientOptions) {
           { slug },
         )
       ).competition,
+    chessAccount: async () =>
+      (
+        await query<{ chessAccount: Result<typeof chessAccount> }>(
+          '{ chessAccount }',
+        )
+      ).chessAccount,
+    // JSON carries dates as text: back to Dates, as the app reads them
+    inbox: async (): Promise<InboxItem[]> =>
+      (
+        await query<{
+          inbox: Array<
+            Omit<InboxItem, 'readAt' | 'createdAt'> & {
+              readAt: string | null
+              createdAt: string
+            }
+          >
+        }>('{ inbox }')
+      ).inbox.map((n) => ({
+        ...n,
+        readAt: n.readAt ? new Date(n.readAt) : null,
+        createdAt: new Date(n.createdAt),
+      })),
+    unreadCount: async () =>
+      (await query<{ unreadCount: number }>('{ unreadCount }')).unreadCount,
+    invite: async (code: string) =>
+      (
+        await query<{ invite: Result<typeof getInvite> }>(
+          'query ($code: String!) { invite(code: $code) }',
+          { code },
+        )
+      ).invite,
+    competitionNameCheck: async (name: string) =>
+      (
+        await query<{
+          competitionNameCheck: Result<typeof competitionNameCheck>
+        }>('query ($name: String!) { competitionNameCheck(name: $name) }', {
+          name,
+        })
+      ).competitionNameCheck,
+    competitionNameIdeas: async () =>
+      (
+        await query<{
+          competitionNameIdeas: Result<typeof competitionNameIdeas>
+        }>('{ competitionNameIdeas }')
+      ).competitionNameIdeas,
+    myGames: async () =>
+      (await query<{ myGames: Result<typeof myGames> }>('{ myGames }')).myGames,
+    matchGame: async (url: string) =>
+      (
+        await query<{ matchGame: Result<typeof matchGame> }>(
+          'query ($url: String!) { matchGame(url: $url) }',
+          { url },
+        )
+      ).matchGame,
     /** One write, as the signed-in player: `act('joinCompetition', { code })`. */
     act: async <N extends ActionName>(
       name: N,

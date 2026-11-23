@@ -3,6 +3,7 @@ import { getCookie, getRequestHeaders } from '@tanstack/react-start/server'
 import { eq } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import { chessAccounts, user as userTable } from '#/db/schema'
+import { perform } from './api-client.server'
 import { auth, googleEnabled, isAdminEmail } from './auth.server'
 import { fetchPlayerProfile } from './chesscom.server'
 
@@ -115,10 +116,4 @@ export const getSignInLinkEmailFn = createServerFn({ method: 'GET' })
 /** Onboarding without chess.com: they can link it later from their account. */
 export const skipChessFn = createServerFn({ method: 'POST' })
   .middleware([userMiddleware])
-  .handler(async ({ context }) => {
-    await db
-      .update(userTable)
-      .set({ onboardedAt: new Date() })
-      .where(eq(userTable.id, context.user.id))
-    return { ok: true }
-  })
+  .handler(({ context }) => perform('skipOnboarding', context.viewer, {}))
