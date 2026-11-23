@@ -78,4 +78,5 @@ test('security headers on every response', async () => {
   assert.equal(res.headers.get('x-content-type-options'), 'nosniff')
   assert.ok(res.headers.get('strict-transport-security'))
   assert.equal(res.headers.get('x-frame-options'), 'SAMEORIGIN')
+  assert.equal(res.headers.get('cross-origin-resource-policy'), 'cross-origin')
 })

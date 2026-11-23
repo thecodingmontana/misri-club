@@ -10,7 +10,8 @@ import { MAX_BODY_BYTES, rateLimit } from './limits.ts'
  * `GET /health`, and GraphQL at `/graphql`; sign in with a Bearer token.
  */
 const app = new Hono()
-  .use(secureHeaders())
+  // other apps call this from their own sites
+  .use(secureHeaders({ crossOriginResourcePolicy: 'cross-origin' }))
   .use(
     cors({
       origin: '*',
