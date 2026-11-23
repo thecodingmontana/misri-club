@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { fetchPlayerRating } from './chesscom.server.ts'
+import { fetchPlayerRating } from './chesscom.ts'
 
 test('ratings are cached per member, in any casing, and failures are not', async () => {
   let calls = 0

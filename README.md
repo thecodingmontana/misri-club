@@ -44,8 +44,17 @@ behind them (access, standings, brackets, round-robin) live in
 competition page in the web app also refreshes results from chess.com first,
 the API reads what's stored. The web app's competition, player and list reads go through the API when
 `MISRI_API_URL` is set, via the typed client in **`packages/api-client`**
-(`@misri/api-client`), which other apps use too. The web app keeps its own
-routes only for auth, cron, version and calendar; it has no GraphQL of its own.
+(`@misri/api-client`), which other apps use too. Writes go the same way: every
+write a player can make (create, join, start, report a result, decide a match,
+rename, leave, …) is one entry in `packages/core/src/actions.ts`, with its
+input check, rate limit and the call that does it. The API exposes each as a
+mutation (`renameCompetition(input: JSON): JSON` and so on, signed in only;
+messages meant for the player pass through, anything else is masked), and the
+web app's server functions run the same actions, through the API when
+`MISRI_API_URL` is set. The API needs `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`
+and `EMAIL_FROM` too, so writes made there still send push notifications. The
+web app keeps its own routes only for auth, cron, version and calendar; it has
+no GraphQL of its own.
 
 Limits: 120 requests a minute per IP (429 with `Retry-After`), 16 KB bodies,
 no batching, and security headers on every response. The GraphQL endpoint

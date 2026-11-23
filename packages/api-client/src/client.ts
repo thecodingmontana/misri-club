@@ -1,3 +1,4 @@
+import type { ActionInput, ActionName, ActionResult } from '@misri/core/actions'
 import type {
   CompetitionSummary,
   getCompetition,
@@ -79,6 +80,17 @@ export function createApiClient(options: ApiClientOptions) {
           { slug },
         )
       ).competition,
+    /** One write, as the signed-in player: `act('joinCompetition', { code })`. */
+    act: async <N extends ActionName>(
+      name: N,
+      input: ActionInput<N>,
+    ): Promise<ActionResult<N>> =>
+      (
+        await query<Record<N, ActionResult<N>>>(
+          `mutation ($input: JSON) { ${name}(input: $input) }`,
+          { input },
+        )
+      )[name],
     player: async (username: string) =>
       (
         await query<{ player: PlayerPage | null }>(

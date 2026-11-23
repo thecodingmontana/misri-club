@@ -1,4 +1,5 @@
 import { createAuth } from '@misri/auth'
+import { APIError } from 'better-auth/api'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
 import { createElement } from 'react'
 import MagicLinkEmail from '#/emails/magic-link'
@@ -25,7 +26,10 @@ export const auth = createAuth({
   beforeDeleteUser: async (user) => {
     // lazy: membership.server imports this module
     const { refuseIfOwner } = await import('./membership.server')
-    await refuseIfOwner(user.id)
+    // Better Auth shows its own errors' messages to the person deleting
+    await refuseIfOwner(user.id).catch((error: Error) => {
+      throw new APIError('BAD_REQUEST', { message: error.message })
+    })
   },
   plugins: [tanstackStartCookies()], // must stay last
 })
