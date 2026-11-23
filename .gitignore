@@ -16,5 +16,5 @@ data/
 .env*
 
 # Copied from node_modules on install
-apps/web/public/stockfish
+public/stockfish
 !.env.example
