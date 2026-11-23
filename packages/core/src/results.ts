@@ -52,6 +52,7 @@ import { rankStandings } from './standings.ts'
 
 const DAY = 24 * 60 * 60 * 1000
 const SYNC_EVERY_MS = 5 * 60 * 1000
+const ARCHIVE_LAG_MS = 10 * 60 * 1000
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -215,7 +216,8 @@ export async function syncResults(competitionId: string, now = new Date()) {
   if (!fetchFailed) {
     await db
       .update(competitions)
-      .set({ readThrough: now })
+      // chess.com can take a few minutes to publish a game; leave that margin unread
+      .set({ readThrough: new Date(now.getTime() - ARCHIVE_LAG_MS) })
       .where(eq(competitions.id, competitionId))
     await advance(competitionId, now)
   }
@@ -640,6 +642,17 @@ export async function decideMatch(
       .update(matches)
       .set({ ...fields, note })
       .where(eq(matches.id, match.id))
+    // a reopened game was never searched: chess.com is read again before its
+    // deadline can settle it
+    if (decision.kind === 'reopen' && competition.readThrough) {
+      const before = new Date(match.dueAt.getTime() - 1)
+      if (competition.readThrough > before) {
+        await tx
+          .update(competitions)
+          .set({ readThrough: before })
+          .where(eq(competitions.id, competition.id))
+      }
+    }
     return competition.id
   })
   await advance(competitionId)

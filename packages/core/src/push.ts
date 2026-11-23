@@ -1,6 +1,6 @@
 import { db } from '@misri/db/client'
-import { pushSubscriptions } from '@misri/db/schema'
-import { and, eq, inArray, isNotNull } from 'drizzle-orm'
+import { pushSubscriptions, session } from '@misri/db/schema'
+import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import webpush from 'web-push'
 import { isPushEndpoint } from './push-endpoint.ts'
 
@@ -45,6 +45,8 @@ export async function sendPushes(messages: PushMessage[]) {
         // only devices still signed in; a device saved before sign-ins were
         // recorded is picked up again on its next visit
         isNotNull(pushSubscriptions.sessionId),
+        // Better Auth removes an expired sign-in only when it is next used
+        sql`exists (select 1 from ${session} where ${session.id} = ${pushSubscriptions.sessionId} and ${session.expiresAt} > now())`,
       ),
     )
   // rows saved before the allowlist are forgotten, never contacted
