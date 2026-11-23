@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@misri/core": "workspace:*",
     "@misri/db": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "graphql": "^17.1.0",

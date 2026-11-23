@@ -42,9 +42,14 @@ That API is moving out into **`apps/api`**, its own Vercel project
 (`misri-api`): Hono with GraphQL Yoga at `/graphql`, plus `GET /health`. It
 shares the schema and client through **`packages/db`** (`@misri/db`), and
 callers sign in with `Authorization: Bearer <session token>`, a Better Auth
-session from the web app. It needs only `DATABASE_URL`. So far it serves `me`,
-`myCompetitions` and `openCompetitions`; the rest follow one at a time, and the
-web app's `/api/graphql` goes once they've all moved. Run it locally with
+session from the web app. It needs only `DATABASE_URL`. It serves `me`,
+`myCompetitions`, `openCompetitions`, `competition(slug)` and
+`player(username)`, with the web app's access rules. The reads and the rules
+behind them (access, standings, brackets, round-robin) live in
+**`packages/core`** (`@misri/core`), so both apps run the same code; the
+competition page in the web app also refreshes results from chess.com first,
+the API reads what's stored. The web app's `/api/graphql` goes once its
+callers have moved. Run it locally with
 `pnpm --filter @misri/api dev` (port 8787).
 
 ## Environment

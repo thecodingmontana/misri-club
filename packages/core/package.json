@@ -1,0 +1,22 @@
+{
+  "name": "@misri/core",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "check": "biome check",
+    "test": "DATABASE_URL=${DATABASE_URL:-postgres://test:test@127.0.0.1:1/test} node --test --experimental-strip-types 'src/**/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@misri/db": "workspace:*",
+    "drizzle-orm": "^0.45.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "^24.19.2",
+    "typescript": "^6.0.3"
+  }
+}
