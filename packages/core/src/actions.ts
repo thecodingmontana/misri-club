@@ -1,6 +1,15 @@
 import { z } from 'zod'
 import type { Viewer } from './access.ts'
 import {
+  checkChessVerification,
+  markInboxRead,
+  removePush,
+  savePush,
+  skipOnboarding,
+  startChessVerification,
+  testPush,
+} from './account.ts'
+import {
   createCompetition,
   joinCompetition,
   rematch,
@@ -19,6 +28,7 @@ import {
   removePlayer,
   renameCompetition,
 } from './membership.ts'
+import { isPushEndpoint } from './push-endpoint.ts'
 import { takeAllowance } from './rate-limit.ts'
 import {
   answerReport,
@@ -317,6 +327,50 @@ export const actions = {
       return { ok: true }
     },
   ),
+
+  // --- the player's own account ---
+
+  /** Step 1: name your chess.com account and get a code to put in your profile. */
+  startChessVerification: define(
+    z.object({ username: z.string().max(40) }),
+    (viewer, data) => startChessVerification(viewer.id, data.username),
+  ),
+
+  /** Step 2: we read your public profile and, if the code is there, link it. */
+  checkChessVerification: define(z.object({}).default({}), (viewer) =>
+    checkChessVerification(viewer.id),
+  ),
+
+  /** Onboarding without chess.com: they can link it later from their account. */
+  skipOnboarding: define(z.object({}).default({}), (viewer) =>
+    skipOnboarding(viewer.id),
+  ),
+
+  /** Opening the inbox reads everything in it. */
+  markInboxRead: define(z.object({}).default({}), (viewer) =>
+    markInboxRead(viewer.id),
+  ),
+
+  /** Remembers this device for push notifications. */
+  savePush: define(
+    z.object({
+      endpoint: z
+        .string()
+        .max(1000)
+        .refine(isPushEndpoint, 'That is not a browser push address.'),
+      p256dh: z.string().min(1).max(200),
+      auth: z.string().min(1).max(100),
+    }),
+    (viewer, data) => savePush(viewer.id, data),
+  ),
+
+  removePush: define(
+    z.object({ endpoint: z.string().max(1000) }),
+    (viewer, data) => removePush(viewer.id, data.endpoint),
+  ),
+
+  /** A test notification to every device of the player. */
+  testPush: define(z.object({}).default({}), (viewer) => testPush(viewer.id)),
 }
 
 export type Actions = typeof actions

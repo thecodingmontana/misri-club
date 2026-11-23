@@ -52,7 +52,11 @@ mutation (`renameCompetition(input: JSON): JSON` and so on, signed in only;
 messages meant for the player pass through, anything else is masked), and the
 web app's server functions run the same actions, through the API when
 `MISRI_API_URL` is set. The API needs `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`
-and `EMAIL_FROM` too, so writes made there still send push notifications. The
+and `EMAIL_FROM` too, so writes made there still send push notifications. A player's own things go the same way: their chess.com link,
+inbox, push devices, onboarding, latest games, invite previews and the
+competition name check (`packages/core/src/account.ts`). What stays in the web
+app is sign-in itself (Better Auth, the session for the UI, the emailed-link
+confirmation), the calendar feed, the push public key and the nightly cron. The
 web app keeps its own routes only for auth, cron, version and calendar; it has
 no GraphQL of its own.
 

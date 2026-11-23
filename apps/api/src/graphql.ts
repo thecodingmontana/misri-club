@@ -1,6 +1,16 @@
+import {
+  chessAccount,
+  competitionNameCheck,
+  competitionNameIdeas,
+  inbox,
+  matchGame,
+  myGames,
+  unreadCount,
+} from '@misri/core/account'
 import { type ActionName, actions, runAction } from '@misri/core/actions'
 import {
   getCompetition,
+  getInvite,
   listMyCompetitions,
   listOpenCompetitions,
 } from '@misri/core/competition-view'
@@ -55,8 +65,34 @@ const typeDefs = /* GraphQL */ `
     competition(slug: String!): JSON
     "A player page by chess.com username or user id (signed in); null if unknown."
     player(username: String!): JSON
+    "Your chess.com link: verified, a pending code, or none (signed in)."
+    chessAccount: JSON
+    "Your latest notifications, newest first (signed in)."
+    inbox: JSON
+    "How many notifications are unread (signed in)."
+    unreadCount: Int!
+    "What an invite code points at, and where you stand; null if unknown."
+    invite(code: String!): JSON
+    "Is this competition name free? If not, free ones close to it (signed in)."
+    competitionNameCheck(name: String!): JSON
+    "Three free competition names (signed in)."
+    competitionNameIdeas: JSON
+    "Your latest chess.com games (signed in, chess.com linked)."
+    myGames: JSON
+    "One competition game you played, by its chess.com link (signed in)."
+    matchGame(url: String!): JSON
   }
 `
+
+/** A message for the player passes; anything else stays masked. */
+async function passMessages<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run()
+  } catch (error) {
+    if (error instanceof UserError) throw new GraphQLError(error.message)
+    throw error
+  }
+}
 
 const signedIn = (context: Context) => {
   if (!context.viewer) throw new GraphQLError('Sign in first.')
@@ -112,6 +148,36 @@ export const schema = createSchema<Context>({
         listMyCompetitions(signedIn(context).id),
       openCompetitions: (_, __, context) =>
         listOpenCompetitions(context.viewer?.id ?? null),
+      chessAccount: (_, __, context) =>
+        passMessages(() => chessAccount(signedIn(context).id)),
+      inbox: (_, __, context) =>
+        passMessages(() => inbox(signedIn(context).id)),
+      unreadCount: (_, __, context) =>
+        passMessages(() => unreadCount(signedIn(context).id)),
+      invite: (_, { code }: { code: string }, context) =>
+        getInvite(
+          code.trim().toUpperCase().slice(0, 16),
+          context.viewer?.id ?? null,
+        ),
+      competitionNameCheck: (_, { name }: { name: string }, context) => {
+        const viewer = signedIn(context)
+        const clean = name.trim()
+        if (clean.length < 3 || clean.length > 60) {
+          throw new GraphQLError('Names are 3 to 60 characters.')
+        }
+        return passMessages(() => competitionNameCheck(viewer.id, clean))
+      },
+      competitionNameIdeas: (_, __, context) =>
+        passMessages(() => competitionNameIdeas(signedIn(context).id)),
+      myGames: (_, __, context) =>
+        passMessages(() => myGames(signedIn(context).id)),
+      matchGame: (_, { url }: { url: string }, context) => {
+        const viewer = signedIn(context)
+        if (url.length > 200 || !URL.canParse(url)) {
+          throw new GraphQLError('That is not a game link.')
+        }
+        return passMessages(() => matchGame(viewer.id, url))
+      },
       // results as stored: the web app and the nightly sync bring them in
       competition: (_, { slug }: { slug: string }, context) =>
         getCompetition(slug.slice(0, 80), context.viewer),
