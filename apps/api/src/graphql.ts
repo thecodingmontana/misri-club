@@ -8,7 +8,8 @@ import { db } from '@misri/db/client'
 import { chessAccounts, user } from '@misri/db/schema'
 import { eq } from 'drizzle-orm'
 import { GraphQLError } from 'graphql'
-import { createSchema, createYoga } from 'graphql-yoga'
+import { createSchema, createYoga, type Plugin } from 'graphql-yoga'
+import { maxRootFields } from './limits.ts'
 import { type Viewer, viewerFrom } from './viewer.ts'
 
 /**
@@ -89,13 +90,19 @@ export const schema = createSchema<Context>({
   },
 })
 
+const limitFields: Plugin = {
+  onValidate: ({ addValidationRule }) => addValidationRule(maxRootFields),
+}
+
 export const yoga = createYoga<{ request: Request }, Context>({
   schema,
   graphqlEndpoint: '/graphql',
   // bearer tokens, no cookies: any origin may call it; Hono's cors() answers
   cors: false,
-  graphiql: true,
+  // the explorer stays off in production; the schema itself is public
+  graphiql: process.env.VERCEL_ENV !== 'production',
   landingPage: false,
+  plugins: [limitFields],
   context: async ({ request }) => ({
     viewer: await viewerFrom(request.headers),
   }),

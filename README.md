@@ -49,7 +49,12 @@ behind them (access, standings, brackets, round-robin) live in
 **`packages/core`** (`@misri/core`), so both apps run the same code; the
 competition page in the web app also refreshes results from chess.com first,
 the API reads what's stored. The web app's `/api/graphql` goes once its
-callers have moved. Run it locally with
+callers have moved.
+
+Limits: 120 requests a minute per IP (429 with `Retry-After`), at most 5
+top-level fields per request (aliases and fragments count), no batching, 16 KB
+bodies, and security headers on every response. GraphiQL is on in development
+and previews, off in production. Run it locally with
 `pnpm --filter @misri/api dev` (port 8787).
 
 ## Environment
