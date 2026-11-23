@@ -386,7 +386,7 @@ export const actions = {
       p256dh: z.string().min(1).max(200),
       auth: z.string().min(1).max(100),
     }),
-    (viewer, data) => savePush(viewer.id, data),
+    (viewer, data) => savePush(viewer.id, data, viewer.sessionId),
   ),
 
   removePush: define(

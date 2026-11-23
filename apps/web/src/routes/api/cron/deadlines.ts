@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto'
+import { pruneAllowances } from '@misri/core/rate-limit'
 import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
 import { db } from '#/db/client.server'
@@ -65,6 +66,9 @@ export const Route = createFileRoute('/api/cron/deadlines')({
           )
         }
         const reminded = await remindDeadlines()
+        await pruneAllowances().catch((error) =>
+          console.error('[cron] prune failed', (error as Error).message),
+        )
         return Response.json({
           started,
           added,

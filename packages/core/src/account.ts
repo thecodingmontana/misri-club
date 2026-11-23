@@ -236,6 +236,7 @@ export async function markInboxRead(userId: string) {
 export async function savePush(
   userId: string,
   device: { endpoint: string; p256dh: string; auth: string },
+  sessionId?: string,
 ) {
   await allow(
     `push-save:${userId}`,
@@ -246,10 +247,10 @@ export async function savePush(
   // an endpoint belongs to one browser; whoever signs in there now owns it
   await db
     .insert(pushSubscriptions)
-    .values({ ...device, userId })
+    .values({ ...device, userId, sessionId })
     .onConflictDoUpdate({
       target: pushSubscriptions.endpoint,
-      set: { userId, p256dh: device.p256dh, auth: device.auth },
+      set: { userId, sessionId, p256dh: device.p256dh, auth: device.auth },
     })
   return { ok: true }
 }

@@ -12,6 +12,7 @@ import { syncResults } from './results.server'
 export * from '@misri/core/competition-view'
 
 const SYNC_WAIT_MS = 3000
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
  * Everything the competition page shows, after fresh results from chess.com
@@ -28,12 +29,17 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
       console.error('[results] sync failed', (error as Error).message),
     )
     // a slow chess.com mustn't hold the page: show what we have after a moment
+    await Promise.race([sync, wait(SYNC_WAIT_MS)])
+  }
+  // same for pictures: a slow chess.com shows initials this time, not a stall
+  if (peek) {
     await Promise.race([
-      sync,
-      new Promise((resolve) => setTimeout(resolve, SYNC_WAIT_MS)),
+      fillAvatars(peek.id).catch((error) =>
+        console.error('[avatars] fill failed', (error as Error).message),
+      ),
+      wait(SYNC_WAIT_MS),
     ])
   }
-  if (peek) await fillAvatars(peek.id)
   return apiClient()?.competition(slug) ?? readCompetition(slug, viewer)
 }
 

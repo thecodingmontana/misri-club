@@ -1,5 +1,5 @@
 import { db } from '@misri/db/client'
-import { rateLimit } from '@misri/db/schema'
+import { allowance } from '@misri/db/schema'
 import { sql } from 'drizzle-orm'
 
 /**
@@ -15,27 +15,25 @@ export async function takeAllowance(
 ): Promise<boolean> {
   if (adding > max) return false
   const now = Date.now()
-  const fresh = sql`${rateLimit.lastRequest} < ${now - windowMs}`
-  const take = () =>
-    db
-      .insert(rateLimit)
-      .values({ id: key, key, count: adding, lastRequest: now })
-      .onConflictDoUpdate({
-        target: rateLimit.key,
-        set: {
-          count: sql`case when ${fresh} then ${adding} else ${rateLimit.count} + ${adding} end`,
-          lastRequest: sql`case when ${fresh} then ${now} else ${rateLimit.lastRequest} end`,
-        },
-        setWhere: sql`${fresh} or ${rateLimit.count} + ${adding} <= ${max}`,
-      })
-      .returning({ count: rateLimit.count })
-  // Two first requests at once both insert; the loser trips the primary key
-  // (same value as `key`) rather than the conflict target, so run it again.
-  const [taken] = await take().catch(
-    (error: { code?: string; cause?: { code?: string } }) => {
-      if ((error.cause?.code ?? error.code) === '23505') return take()
-      throw error
-    },
-  )
+  const fresh = sql`${allowance.lastRequest} < ${now - windowMs}`
+  const [taken] = await db
+    .insert(allowance)
+    .values({ key, count: adding, lastRequest: now })
+    .onConflictDoUpdate({
+      target: allowance.key,
+      set: {
+        count: sql`case when ${fresh} then ${adding} else ${allowance.count} + ${adding} end`,
+        lastRequest: sql`case when ${fresh} then ${now} else ${allowance.lastRequest} end`,
+      },
+      setWhere: sql`${fresh} or ${allowance.count} + ${adding} <= ${max}`,
+    })
+    .returning({ count: allowance.count })
   return Boolean(taken)
+}
+
+/** Budgets whose longest window (a day) is over: nothing reads them again. */
+export async function pruneAllowances(now = Date.now()) {
+  await db
+    .delete(allowance)
+    .where(sql`${allowance.lastRequest} < ${now - 24 * 60 * 60_000}`)
 }

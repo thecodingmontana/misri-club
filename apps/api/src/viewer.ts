@@ -19,6 +19,10 @@ export async function viewerFrom(headers: Headers): Promise<Viewer | null> {
   if (!headers.get('authorization')) return null
   const session = await auth.api.getSession({ headers })
   return session
-    ? { id: session.user.id, isAdmin: isAdminEmail(session.user) }
+    ? {
+        id: session.user.id,
+        isAdmin: isAdminEmail(session.user),
+        sessionId: session.session.id,
+      }
     : null
 }

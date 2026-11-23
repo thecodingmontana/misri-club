@@ -1,6 +1,6 @@
 import { db } from '@misri/db/client'
 import { pushSubscriptions } from '@misri/db/schema'
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull } from 'drizzle-orm'
 import webpush from 'web-push'
 import { isPushEndpoint } from './push-endpoint.ts'
 
@@ -38,9 +38,14 @@ export async function sendPushes(messages: PushMessage[]) {
     .select()
     .from(pushSubscriptions)
     .where(
-      inArray(pushSubscriptions.userId, [
-        ...new Set(messages.map((m) => m.userId)),
-      ]),
+      and(
+        inArray(pushSubscriptions.userId, [
+          ...new Set(messages.map((m) => m.userId)),
+        ]),
+        // only devices still signed in; a device saved before sign-ins were
+        // recorded is picked up again on its next visit
+        isNotNull(pushSubscriptions.sessionId),
+      ),
     )
   // rows saved before the allowlist are forgotten, never contacted
   const subs = all.filter((s) => isPushEndpoint(s.endpoint))

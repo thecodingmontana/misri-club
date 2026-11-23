@@ -30,6 +30,7 @@ import {
 import { getPlayer, recordOf } from '#/server/player.server'
 import {
   leaveCompetition,
+  prepareAccountDeletion,
   refuseIfOwner,
   removePlayer,
 } from '#/server/membership.server'
@@ -530,6 +531,46 @@ test('sync: chess.com failing never finishes a league; the late result then coun
   assert.equal(end.championUserId, m.homeUserId)
 })
 
+test('sync: a concede after the deadline waits for chess.com before finishing', async () => {
+  const c = await competition('league', ['o', 'a', 'b'], { legs: 1, unplayedRule: 'both_forfeit' })
+  const [o, a, b] = c.ids
+  await startCompetition(c.slug, c.organiser)
+  const names = c.ids.map((id) => id.toLowerCase())
+  await db.insert(chessAccounts).values(c.ids.map((userId, i) => ({ userId, username: names[i], verifiedAt: new Date() }))).onConflictDoNothing()
+  const now = Date.now()
+  await db.update(matches).set({ opensAt: new Date(now - 3 * 86_400_000), dueAt: new Date(now - 60_000) }).where(eq(matches.competitionId, c.row.id))
+  const pair = (x: string, y: string) => async () =>
+    (await c.rows()).find((m) => [m.homeUserId, m.awayUserId].sort().join() === [x, y].sort().join())
+  const oa = await pair(o, a)()
+  assert.ok(oa)
+  // a beat b on chess.com in time, but no sync has read it yet
+  await concedeMatch(c.slug, v(o), oa.id)
+  assert.equal((await c.state()).status, 'running', 'the clock alone must not finish it')
+  const ab = await pair(a, b)()
+  assert.ok(ab)
+  const [white, black] = ab.homeUserId === a ? [names[1], names[2]] : [names[2], names[1]]
+  const aWhite = ab.homeUserId === a
+  const game = {
+    url: `https://www.chess.com/game/live/${c.row.id}`,
+    end_time: Math.floor((now - 120_000) / 1000),
+    rules: 'chess',
+    time_class: 'blitz',
+    time_control: '180',
+    white: { username: white, result: aWhite ? 'win' : 'resigned' },
+    black: { username: black, result: aWhite ? 'resigned' : 'win' },
+  }
+  const realFetch = globalThis.fetch
+  try {
+    globalThis.fetch = (async () => Response.json({ games: [game] })) as typeof fetch
+    await syncResults(c.row.id, new Date(now))
+  } finally {
+    globalThis.fetch = realFetch
+  }
+  const [after] = await db.select().from(matches).where(eq(matches.id, ab.id))
+  assert.equal(after.gameUrl, game.url, 'the in-time game counts')
+  assert.equal((await c.state()).status, 'finished')
+})
+
 test('account deletion: refused while you own a competition others are in', async () => {
   const c = await competition('league', ['o', 'a'])
   const asUser = (id: string) => refuseIfOwner(id)
@@ -537,6 +578,25 @@ test('account deletion: refused while you own a competition others are in', asyn
   await asUser(c.ids[1])
   const solo = await competition('league', ['s'])
   await asUser(solo.ids[0])
+})
+
+test('account deletion: opponents keep their results; finished ones stay final', async () => {
+  const c = await competition('league', ['o', 'a', 'b'], { legs: 1 }, 0)
+  const [o, a, b] = c.ids
+  await startCompetition(c.slug, c.organiser)
+  const ab = (await c.rows()).find((m) => [m.homeUserId, m.awayUserId].sort().join() === [a, b].sort().join())
+  assert.ok(ab)
+  await decideMatch(c.slug, c.organiser, ab.id, { kind: 'walkover', winnerUserId: b }, null)
+  const pointsOf = async (id: string) =>
+    (await getCompetition(c.slug, v(o)))?.standings?.find((r) => r.player?.id === id)?.points
+  const before = await pointsOf(b)
+  assert.ok(before && before > 0)
+  await prepareAccountDeletion(a)
+  await db.delete(user).where(eq(user.id, a))
+  assert.equal(await pointsOf(b), before, 'b keeps the win over the deleted player')
+  const [row] = await db.select().from(matches).where(eq(matches.id, ab.id))
+  assert.equal(row.winnerUserId, b)
+  assert.ok([row.homeUserId, row.awayUserId].includes('former-player'))
 })
 
 test('reminders: a deadline just past 24 hours away is still reminded, once', async () => {

@@ -1,0 +1,1 @@
+ALTER TABLE "competitions" ADD COLUMN "read_through" timestamp (3) with time zone;
