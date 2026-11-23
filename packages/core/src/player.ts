@@ -22,6 +22,8 @@ const RECENT = 10
 export type PlayerResult = {
   matchId: string
   outcome: Outcome
+  /** awarded or forfeited without a game */
+  walkover: boolean
   opponent: string
   opponentImage: string | null
   opponentId: string
@@ -139,6 +141,8 @@ export async function getPlayer(username: string, viewer: Viewer) {
           {
             matchId: m.id,
             outcome,
+            // awarded or forfeited, not a game anyone played
+            walkover: !m.result,
             opponent: m.opponentName,
             opponentImage: m.opponentImage,
             opponentId: m.opponentId,
@@ -158,6 +162,8 @@ export async function getPlayer(username: string, viewer: Viewer) {
       isYou: player.id === viewer.id,
     },
     record: recordOf(results.map((r) => r.outcome)),
+    /** games actually played: walkovers either way don't count */
+    played: results.filter((r) => !r.walkover).length,
     headToHead:
       player.id === viewer.id
         ? null

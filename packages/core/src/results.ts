@@ -317,7 +317,11 @@ export async function advance(competitionId: string, now = new Date()) {
       rows,
       [...memberIds],
       now,
-      { unplayed: competition.unplayedRule, points: competition.points },
+      {
+        unplayed: competition.unplayedRule,
+        points: competition.points,
+        walkoverWinsBreakTies: competition.walkoverWinsBreakTies,
+      },
       competition.tieBreaks,
       nameOf,
     )
@@ -514,7 +518,11 @@ async function advanceGroups(
       groupGames.filter((m) => m.groupNo === groupNo),
       members.filter((m) => m.groupNo === groupNo).map((m) => m.userId),
       now,
-      { unplayed: competition.unplayedRule, points: competition.points },
+      {
+        unplayed: competition.unplayedRule,
+        points: competition.points,
+        walkoverWinsBreakTies: competition.walkoverWinsBreakTies,
+      },
       competition.tieBreaks,
       nameOf,
     ).map((r) => r.id),

@@ -20,6 +20,8 @@ export type UnplayedRule = (typeof UNPLAYED_RULES)[number]
 export interface Rules {
   unplayed: UnplayedRule
   points: Points
+  /** whether a walkover win counts in the "most wins" tie-break (older competitions) */
+  walkoverWinsBreakTies?: boolean
 }
 export const DEFAULT_RULES: Rules = { unplayed: 'organiser', points: POINTS }
 
@@ -29,6 +31,8 @@ export interface Tally {
   draws: number
   losses: number
   forfeits: number
+  /** wins awarded without a game: points the same, but not "won on the board" */
+  walkoverWins: number
 }
 
 /**
@@ -116,7 +120,14 @@ export function tallyStandings(
   const row = (userId: string) => {
     let entry = tally.get(userId)
     if (!entry) {
-      entry = { points: 0, wins: 0, draws: 0, losses: 0, forfeits: 0 }
+      entry = {
+        points: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        forfeits: 0,
+        walkoverWins: 0,
+      }
       tally.set(userId, entry)
     }
     return entry
@@ -132,6 +143,7 @@ export function tallyStandings(
       if (!outcome) continue
       const entry = row(userId)
       entry[COUNTER[outcome]]++
+      if (outcome === 'win' && !match.result) entry.walkoverWins++
       entry.points += rules.points[outcome]
     }
   }
@@ -174,8 +186,10 @@ export function rankStandings(
     return (pair.get(y)?.points ?? 0) - (pair.get(x)?.points ?? 0)
   }
   type Row = Tally & { id: string }
+  const won = (r: Row) =>
+    r.wins - (rules.walkoverWinsBreakTies === false ? r.walkoverWins : 0)
   const by: Record<TieBreak, (a: Row, b: Row) => number> = {
-    wins: (a, b) => b.wins - a.wins,
+    wins: (a, b) => won(b) - won(a),
     forfeits: (a, b) => a.forfeits - b.forfeits,
     headToHead: (a, b) => headToHead(a.id, b.id),
   }

@@ -625,7 +625,10 @@ function StandingsTable({
           <tr className="border-b border-border">
             <th className="w-8 py-2 pl-3 text-left font-semibold">#</th>
             <th className="py-2 text-left font-semibold">Player</th>
-            <th className="py-2 text-center font-semibold" data-tip="Wins">
+            <th
+              className="py-2 text-center font-semibold"
+              data-tip="Wins, walkovers included"
+            >
               W
             </th>
             <th className="py-2 text-center font-semibold" data-tip="Draws">
@@ -633,6 +636,12 @@ function StandingsTable({
             </th>
             <th className="py-2 text-center font-semibold" data-tip="Losses">
               L
+            </th>
+            <th
+              className="py-2 text-center font-semibold"
+              data-tip="Forfeits: walkovers conceded and games not played"
+            >
+              F
             </th>
             <th
               className="py-2 pr-3 text-right font-semibold"
@@ -671,6 +680,7 @@ function StandingsTable({
               <td className="py-2 text-center">{row.wins}</td>
               <td className="py-2 text-center">{row.draws}</td>
               <td className="py-2 text-center">{row.losses}</td>
+              <td className="py-2 text-center">{row.forfeits}</td>
               <td className="py-2 pr-3 text-right font-bold">{row.points}</td>
             </tr>
           ))}

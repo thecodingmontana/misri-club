@@ -110,6 +110,7 @@ test('a walkover gives the winner 3 and the other -1, even before the deadline',
     draws: 0,
     losses: 0,
     forfeits: 0,
+    walkoverWins: 1,
   })
   assert.deepEqual(tally.get('a'), {
     points: -1,
@@ -117,6 +118,7 @@ test('a walkover gives the winner 3 and the other -1, even before the deadline',
     draws: 0,
     losses: 0,
     forfeits: 1,
+    walkoverWins: 0,
   })
 })
 
@@ -262,5 +264,51 @@ test('head-to-head puts the winner of the game between them first', () => {
   assert.equal(
     h2h.findIndex((r) => r.id === 'q') < h2h.findIndex((r) => r.id === 'p'),
     true,
+  )
+})
+
+test('a walkover win is a win, but newer leagues break ties on board wins only', () => {
+  // a and b on 3 points each: a won on the board, b by walkover; c lost both
+  const games = [
+    match({
+      homeUserId: 'a',
+      awayUserId: 'c',
+      result: 'white',
+      whiteUserId: 'a',
+    }),
+    match({ homeUserId: 'b', awayUserId: 'c', winnerUserId: 'b' }),
+  ]
+  const tally = tallyStandings(games, ['a', 'b', 'c'], now)
+  assert.equal(tally.get('b')?.wins, 1)
+  assert.equal(tally.get('b')?.walkoverWins, 1)
+  assert.equal(tally.get('a')?.walkoverWins, 0)
+  assert.equal(
+    tally.get('c')?.forfeits,
+    1,
+    'the conceded walkover shows as a forfeit',
+  )
+  const rank = (walkoverWinsBreakTies: boolean) =>
+    rankStandings(
+      games,
+      ['a', 'b', 'c'],
+      now,
+      {
+        unplayed: 'organiser',
+        points: { ...POINTS, forfeit: 0 },
+        walkoverWinsBreakTies,
+      },
+      ['wins'],
+      // b sorts first by name, so only the tie-break can put a ahead
+      (id) => ({ a: 'zed', b: 'amy', c: 'cal' })[id] ?? id,
+    ).map((r) => r.id)
+  assert.deepEqual(
+    rank(true).slice(0, 2),
+    ['b', 'a'],
+    'older leagues: level on wins, name decides',
+  )
+  assert.deepEqual(
+    rank(false).slice(0, 2),
+    ['a', 'b'],
+    'newer leagues: the board win comes first',
   )
 })

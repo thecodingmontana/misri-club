@@ -31,7 +31,8 @@ const OUTCOME = {
 
 function PlayerPage() {
   const page: Page = Route.useLoaderData()
-  const { player, record, headToHead, titles, competitions, recent } = page
+  const { player, record, played, headToHead, titles, competitions, recent } =
+    page
 
   return (
     <div className="space-y-6 pt-2">
@@ -64,12 +65,8 @@ function PlayerPage() {
         />
         <Tile
           label={player.isYou ? 'Played' : 'You vs them'}
-          value={
-            headToHead
-              ? tally(headToHead)
-              : String(record.wins + record.draws + record.losses)
-          }
-          hint={headToHead ? 'your W–D–L' : 'decided games'}
+          value={headToHead ? tally(headToHead) : String(played)}
+          hint={headToHead ? 'your W–D–L' : 'games, walkovers aside'}
         />
       </div>
 
