@@ -28,18 +28,7 @@ links are printed in the terminal instead of emailed.
 
 ## API
 
-`apps/web` hosts the API other apps use: a Hono app
-(`src/server/api.server.ts`) mounted at `/api/*` by one catch-all route, with
-GraphQL Yoga at `/api/graphql` (`src/server/graphql.server.ts`). Auth, cron,
-version and calendar keep their own routes. Features move into the API one at
-a time; today it reads `me`, `myCompetitions`, `openCompetitions`,
-`competition(slug)` and `player(username)` with the same access rules as the
-pages. It uses the session cookie and refuses cross-site requests; GraphiQL
-opens at `/api/graphql` in development. Other apps get a typed client with
-`hc<AppType>(origin)` from `hono/client`.
-
-That API is moving out into **`apps/api`**, its own Vercel project
-(`misri-api`): Hono with GraphQL Yoga at `/graphql`, plus `GET /health`. It
+The API is **`apps/api`**, its own Vercel project (`misri-api`): Hono with GraphQL Yoga at `/graphql`, plus `GET /health`. It
 shares the schema and client through **`packages/db`** (`@misri/db`), and
 callers send `Authorization: Bearer <token>`. Sign-in lives in
 **`packages/auth`** (`@misri/auth`), the one Better Auth setup both apps use:
@@ -53,13 +42,14 @@ app's), `BETTER_AUTH_URL` and `ADMIN_EMAILS`. It serves `me`,
 behind them (access, standings, brackets, round-robin) live in
 **`packages/core`** (`@misri/core`), so both apps run the same code; the
 competition page in the web app also refreshes results from chess.com first,
-the API reads what's stored. The web app's own competition, player and list reads now go through the API
-when `MISRI_API_URL` is set, via the typed client in **`packages/api-client`**
-(`@misri/api-client`); its `/api/graphql` goes once nothing else uses it.
+the API reads what's stored. The web app's competition, player and list reads go through the API when
+`MISRI_API_URL` is set, via the typed client in **`packages/api-client`**
+(`@misri/api-client`), which other apps use too. The web app keeps its own
+routes only for auth, cron, version and calendar; it has no GraphQL of its own.
 
 Limits: 120 requests a minute per IP (429 with `Retry-After`), 16 KB bodies,
-no batching, and security headers on every response. Both GraphQL endpoints
-(the API's and the web app's) run the same protections from
+no batching, and security headers on every response. The GraphQL endpoint
+runs the protections in
 **`packages/graphql`** (`@misri/graphql`): CSRF prevention (a GET or a
 form-encoded POST needs an `x-graphql-yoga-csrf` header; JSON POSTs pass),
 GraphQL Armor (depth 6, 5 aliases, 5 directives, 500 tokens, a cost limit, no
@@ -86,6 +76,8 @@ introspection or GraphiQL in production. Run it locally with
 ## Scripts
 
 - `pnpm test` — unit tests (`node --test`, no database needed)
+- `pnpm --filter @misri/api test:db` — the API's reads and access rules against
+  the local database
 - `pnpm --filter @misri/web test:db` — whole flows (knockout, leaving,
   seeding, early rounds, time controls) against the local Docker database;
   refuses any non-local `DATABASE_URL`

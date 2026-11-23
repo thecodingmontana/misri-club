@@ -251,9 +251,6 @@ importers:
       '@misri/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@misri/graphql':
-        specifier: workspace:*
-        version: link:../../packages/graphql
       '@react-email/components':
         specifier: ^1.0.12
         version: 1.0.12(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -302,15 +299,6 @@ importers:
       drizzle-orm:
         specifier: ^0.45.4
         version: 0.45.4(kysely@0.29.8)(postgres@3.4.9)
-      graphql:
-        specifier: ^17.1.0
-        version: 17.1.0
-      graphql-yoga:
-        specifier: ^6.1.0
-        version: 6.1.0(graphql@17.1.0)
-      hono:
-        specifier: ^4.13.19
-        version: 4.13.19
       motion:
         specifier: ^14.10.1
         version: 14.14.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)

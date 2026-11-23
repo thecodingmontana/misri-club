@@ -7,6 +7,7 @@
     "check": "biome check",
     "dev": "node --watch --experimental-strip-types src/dev.ts",
     "test": "DATABASE_URL=${DATABASE_URL:-postgres://test:test@127.0.0.1:1/test} BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-test-only-secret-test-only-secret-00} node --test --experimental-strip-types 'src/**/*.test.ts'",
+    "test:db": "BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-test-only-secret-test-only-secret-00} node --test --experimental-strip-types test/db.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
