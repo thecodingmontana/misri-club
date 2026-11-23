@@ -1,14 +1,15 @@
-import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { getSavedAnalysesFn, saveAnalysisFn } from '#/server/analysis.functions'
 import { positionsOf } from './analysis'
 import type { Score } from './engine'
 import { Engine } from './engine'
 
 /**
- * Engine scores live in this browser only. TanStack Query holds them in memory
- * for the page; localStorage keeps them across visits, so a game is analysed
- * once per browser, not once per page view. A finished game never changes, so
- * the cache never goes stale.
+ * Engine scores: TanStack Query holds them in memory for the page,
+ * localStorage keeps them across visits, and a signed-in player's account
+ * keeps them for their other devices. A game is analysed once, not once per
+ * browser. A finished game never changes, so nothing goes stale.
  */
 
 /** Per position. ~80 positions a game makes this about 10 s per game. */
@@ -44,7 +45,8 @@ export function useStoredScores(urls: Array<string>) {
       new Map(urls.map((url, i) => [url, results[i].data ?? undefined])),
     [urls],
   )
-  return useQueries({
+  const queryClient = useQueryClient()
+  const local = useQueries({
     queries: urls.map((url) => ({
       queryKey: queryKey(url),
       // localStorage only exists in the browser; the server renders "not yet".
@@ -55,6 +57,29 @@ export function useStoredScores(urls: Array<string>) {
     })),
     combine,
   })
+  // what this browser hasn't got: one look in the account (signed in only;
+  // signed out, the call fails and the games are simply not analysed yet)
+  // null = this browser looked and has none; undefined = still looking
+  const missing = urls.filter(
+    (url) => queryClient.getQueryData(queryKey(url)) === null,
+  )
+  useQuery({
+    queryKey: ['saved-analyses', missing],
+    enabled: typeof window !== 'undefined' && missing.length > 0,
+    retry: false,
+    staleTime: Number.POSITIVE_INFINITY,
+    queryFn: async () => {
+      const saved = await getSavedAnalysesFn({
+        data: { urls: missing.slice(0, 50) },
+      })
+      for (const [url, scores] of Object.entries(saved)) {
+        writeStored(url, scores)
+        queryClient.setQueryData(queryKey(url), scores)
+      }
+      return Object.keys(saved).length
+    },
+  })
+  return local
 }
 
 export interface AnalysisProgress {
@@ -112,6 +137,10 @@ export function useEngineAnalysis() {
           if (engine.current !== current) return
           writeStored(game.chessComUrl, scores)
           queryClient.setQueryData(queryKey(game.chessComUrl), scores)
+          // for the player's other devices; signed out or offline, this browser still has it
+          saveAnalysisFn({ data: { url: game.chessComUrl, scores } }).catch(
+            () => {},
+          )
         }
         if (skipped > 0) {
           setError(

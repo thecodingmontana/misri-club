@@ -1,6 +1,8 @@
 import { db } from '@misri/db/client'
 import {
   chessAccounts,
+  type EngineScore,
+  gameAnalyses,
   matches,
   notifications,
   pushSubscriptions,
@@ -8,7 +10,7 @@ import {
   verification,
 } from '@misri/db/schema'
 import { generateNanoId } from '@misri/db/utils'
-import { and, count, desc, eq, gt, isNull, or } from 'drizzle-orm'
+import { and, count, desc, eq, gt, inArray, isNull, or } from 'drizzle-orm'
 import {
   CODE_MINUTES,
   newVerificationCode,
@@ -371,4 +373,47 @@ export async function matchGame(userId: string, url: string) {
     (g) => g.url === url,
   )
   return game ? toMyGame(game, account.username) : null
+}
+
+// --- saved engine analysis -----------------------------------------------
+
+/** Most games a page asks about at once (the analysis page shows up to 50). */
+export const MAX_ANALYSES = 50
+
+/** Your saved engine scores for these games, by game link; missing ones are left out. */
+export async function savedAnalyses(userId: string, urls: string[]) {
+  if (urls.length === 0) return {}
+  const rows = await db
+    .select({ gameUrl: gameAnalyses.gameUrl, scores: gameAnalyses.scores })
+    .from(gameAnalyses)
+    .where(
+      and(
+        eq(gameAnalyses.userId, userId),
+        inArray(gameAnalyses.gameUrl, urls.slice(0, MAX_ANALYSES)),
+      ),
+    )
+  return Object.fromEntries(rows.map((r) => [r.gameUrl, r.scores]))
+}
+
+/** Keeps one game's engine scores with the account (a finished game never changes). */
+export async function saveAnalysis(
+  userId: string,
+  gameUrl: string,
+  scores: EngineScore[],
+) {
+  // one save per analysed game; a page analyses at most 50
+  await allow(
+    `analysis-save:${userId}`,
+    300,
+    HOUR,
+    'Too many saves. Try again in a while.',
+  )
+  await db
+    .insert(gameAnalyses)
+    .values({ userId, gameUrl, scores })
+    .onConflictDoUpdate({
+      target: [gameAnalyses.userId, gameAnalyses.gameUrl],
+      set: { scores },
+    })
+  return { ok: true }
 }

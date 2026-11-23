@@ -3,8 +3,10 @@ import {
   competitionNameCheck,
   competitionNameIdeas,
   inbox,
+  MAX_ANALYSES,
   matchGame,
   myGames,
+  savedAnalyses,
   unreadCount,
 } from '@misri/core/account'
 import { type ActionName, actions, runAction } from '@misri/core/actions'
@@ -81,6 +83,8 @@ const typeDefs = /* GraphQL */ `
     myGames: JSON
     "One competition game you played, by its chess.com link (signed in)."
     matchGame(url: String!): JSON
+    "Your saved engine analysis for these games, by game link (signed in, up to 50)."
+    savedAnalyses(urls: [String!]!): JSON
   }
 `
 
@@ -171,6 +175,13 @@ export const schema = createSchema<Context>({
         passMessages(() => competitionNameIdeas(signedIn(context).id)),
       myGames: (_, __, context) =>
         passMessages(() => myGames(signedIn(context).id)),
+      savedAnalyses: (_, { urls }: { urls: string[] }, context) => {
+        const viewer = signedIn(context)
+        if (urls.length > MAX_ANALYSES) {
+          throw new GraphQLError(`At most ${MAX_ANALYSES} games at once.`)
+        }
+        return savedAnalyses(viewer.id, urls)
+      },
       matchGame: (_, { url }: { url: string }, context) => {
         const viewer = signedIn(context)
         if (url.length > 200 || !URL.canParse(url)) {

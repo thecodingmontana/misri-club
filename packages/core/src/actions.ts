@@ -4,6 +4,7 @@ import {
   checkChessVerification,
   markInboxRead,
   removePush,
+  saveAnalysis,
   savePush,
   skipOnboarding,
   startChessVerification,
@@ -367,6 +368,30 @@ export const actions = {
   removePush: define(
     z.object({ endpoint: z.string().max(1000) }),
     (viewer, data) => removePush(viewer.id, data.endpoint),
+  ),
+
+  /** Keeps one game's engine analysis with the account, for the player's other devices. */
+  saveAnalysis: define(
+    z.object({
+      url: z.string().url().max(300),
+      // one score per position; even a 300-move game stays under 700
+      scores: z
+        .array(
+          z.union([
+            z.object({
+              cp: z.number().int().min(-100_000).max(100_000),
+              best: z.string().max(8).optional(),
+            }),
+            z.object({
+              mate: z.number().int().min(-500).max(500),
+              best: z.string().max(8).optional(),
+            }),
+          ]),
+        )
+        .min(1)
+        .max(700),
+    }),
+    (viewer, data) => saveAnalysis(viewer.id, data.url, data.scores),
   ),
 
   /** A test notification to every device of the player. */

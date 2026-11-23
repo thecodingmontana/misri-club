@@ -196,3 +196,43 @@ test("the player's own things: account, inbox, onboarding, invite, names", async
   }
   assert.equal(ideas.competitionNameIdeas.length, 3)
 })
+
+test('saved analysis: kept per player, checked on the way in', async () => {
+  const url = `https://www.chess.com/game/live/${tag}`
+  const save = (scores: string, who: string) =>
+    ask(
+      `mutation { saveAnalysis(input: { url: "${url}", scores: ${scores} }) }`,
+      v(who),
+    )
+  const first = await save('[{ cp: 30, best: "e2e4" }, { mate: -3 }]', a)
+  assert.equal(first.errors, undefined)
+
+  const read = (who: string) =>
+    ask(
+      `{ savedAnalyses(urls: ["${url}", "https://www.chess.com/game/live/none"]) }`,
+      v(who),
+    )
+  const mine = (await read(a)).data as {
+    savedAnalyses: Record<string, unknown>
+  }
+  assert.deepEqual(mine.savedAnalyses, {
+    [url]: [{ cp: 30, best: 'e2e4' }, { mate: -3 }],
+  })
+  const theirs = (await read(o)).data as {
+    savedAnalyses: Record<string, unknown>
+  }
+  assert.deepEqual(theirs.savedAnalyses, {}, "another player doesn't see yours")
+
+  // saving again replaces, never duplicates
+  assert.equal((await save('[{ cp: 10 }]', a)).errors, undefined)
+  const again = (await read(a)).data as {
+    savedAnalyses: Record<string, unknown>
+  }
+  assert.deepEqual(again.savedAnalyses[url], [{ cp: 10 }])
+
+  const bad = await save('[{ eval: "lots" }]', a)
+  assert.ok(bad.errors?.length, 'a score that is not a score is refused')
+  assert.doesNotMatch(String(bad.errors?.[0]?.message), /Unexpected error/)
+  const out = await ask(`{ savedAnalyses(urls: ["${url}"]) }`, null)
+  assert.match(String(out.errors?.[0]?.message), /Sign in first/)
+})

@@ -448,3 +448,25 @@ export const pushSubscriptions = pgTable(
 
 export type Competition = typeof competitions.$inferSelect
 export type Match = typeof matches.$inferSelect
+
+/** Stockfish's verdict on one position: centipawns or mate-in, and its best move. */
+export type EngineScore = ({ cp: number } | { mate: number }) & {
+  best?: string
+}
+
+/**
+ * Engine analysis of a game, kept with the player's account so another device
+ * doesn't analyse it again. A finished game never changes, so neither does this.
+ */
+export const gameAnalyses = pgTable(
+  'game_analyses',
+  {
+    userId: varchar('user_id', { length: 16 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    gameUrl: text('game_url').notNull(),
+    scores: jsonb('scores').$type<EngineScore[]>().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.gameUrl] })],
+).enableRLS()
