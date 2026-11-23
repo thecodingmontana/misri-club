@@ -13,6 +13,7 @@ import {
 import {
   calendarFeed,
   calendarToken,
+  resetCalendarToken,
   userOfToken,
 } from '#/server/calendar.server'
 import { getCompetition } from '#/server/competition-view.server'
@@ -590,6 +591,47 @@ test('reopening a game after its deadline sends it back to chess.com first', asy
   assert.equal(row.status, 'running')
 })
 
+test('one chess.com game counts once, even when the same two play in two competitions', async () => {
+  const first = await competition('league', ['o', 'a'], { legs: 1 })
+  const [o, a] = first.ids
+  await startCompetition(first.slug, first.organiser)
+  // the same pair in a second league
+  const tag = Math.random().toString(36).slice(2, 10)
+  const slug2 = `t2-${tag}`
+  const [row2] = await db
+    .insert(competitions)
+    .values({ ...(await first.state()), id: undefined, name: `T2 ${tag}`, slug: slug2, nameKey: `t2${tag}`, inviteCode: `U${tag}`.toUpperCase(), status: 'open', championUserId: null, syncedAt: null, readThrough: null } as never)
+    .returning()
+  await db.insert(competitionMembers).values([o, a].map((userId) => ({ competitionId: row2.id, userId })))
+  await startCompetition(slug2, first.organiser)
+  const names = [o, a].map((id) => id.toLowerCase())
+  await db.insert(chessAccounts).values([o, a].map((userId, i) => ({ userId, username: names[i], verifiedAt: new Date() }))).onConflictDoNothing()
+  const now = Date.now()
+  for (const id of [first.row.id, row2.id]) {
+    await db.update(matches).set({ opensAt: new Date(now - 86_400_000), dueAt: new Date(now + 86_400_000) }).where(eq(matches.competitionId, id))
+  }
+  const [m1] = await db.select().from(matches).where(eq(matches.competitionId, first.row.id))
+  const [white, black] = m1.homeUserId === o ? names : [names[1], names[0]]
+  const game = {
+    url: `https://www.chess.com/game/live/once-${tag}`,
+    end_time: Math.floor((now - 3_600_000) / 1000),
+    rules: 'chess',
+    time_class: 'blitz',
+    time_control: '180',
+    white: { username: white, result: 'win' },
+    black: { username: black, result: 'resigned' },
+  }
+  const realFetch = globalThis.fetch
+  try {
+    globalThis.fetch = (async () => Response.json({ games: [game] })) as typeof fetch
+    assert.equal(await syncResults(first.row.id, new Date(now)), 1)
+    assert.equal(await syncResults(row2.id, new Date(now)), 0, 'already counted in the first league')
+  } finally {
+    globalThis.fetch = realFetch
+    await db.delete(competitions).where(eq(competitions.id, row2.id))
+  }
+})
+
 test('account deletion: refused while you own a competition others are in', async () => {
   const c = await competition('league', ['o', 'a'])
   const asUser = (id: string) => refuseIfOwner(id)
@@ -737,11 +779,16 @@ test('calendar: a signed link opens your open match deadlines, nobody else\'s', 
   process.env.BETTER_AUTH_SECRET ??= 'test-secret'
   const c = await competition('league', ['o', 'a', 'b'], { legs: 1 })
   await startCompetition(c.slug, c.organiser)
-  const token = calendarToken(c.ids[0])
-  assert.equal(userOfToken(token), c.ids[0])
-  assert.equal(userOfToken(`${token}.ics`), c.ids[0])
-  assert.equal(userOfToken(`${c.ids[1]}.${token.split('.')[1]}`), null, 'a signature only fits its user')
-  assert.equal(userOfToken('junk'), null)
+  const token = await calendarToken(c.ids[0])
+  assert.equal(await userOfToken(token), c.ids[0])
+  assert.equal(await userOfToken(`${token}.ics`), c.ids[0])
+  assert.equal(await userOfToken(`${c.ids[1]}.${token.split('.')[1]}`), null, 'a signature only fits its user')
+  assert.equal(await userOfToken('junk'), null)
+  // reset: the old link stops, the new one works
+  const fresh = await resetCalendarToken(c.ids[0])
+  assert.notEqual(fresh, token)
+  assert.equal(await userOfToken(token), null, 'a reset link no longer opens')
+  assert.equal(await userOfToken(fresh), c.ids[0])
 
   const feed = await calendarFeed(c.ids[0], 'https://misri.test')
   assert.ok(feed)

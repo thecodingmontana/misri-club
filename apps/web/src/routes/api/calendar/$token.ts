@@ -7,7 +7,7 @@ export const Route = createFileRoute('/api/calendar/$token')({
   server: {
     handlers: {
       GET: async ({ request, params }) => {
-        const userId = userOfToken(params.token)
+        const userId = await userOfToken(params.token)
         const feed = userId
           ? await calendarFeed(userId, SITE_URL || new URL(request.url).origin)
           : null

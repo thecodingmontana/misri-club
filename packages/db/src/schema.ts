@@ -69,6 +69,8 @@ export const user = pgTable('user', {
   twoFactorEnabled: boolean('two_factor_enabled').default(false),
   /** Finished onboarding without linking chess.com (they skipped that step). */
   onboardedAt: ts('onboarded_at'),
+  /** Bumped by "Reset link": calendar links signed for an older version stop working. */
+  calendarVersion: integer('calendar_version').notNull().default(0),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }).enableRLS()
