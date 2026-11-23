@@ -39,10 +39,11 @@ test('void: all their games go, played ones too, and nobody else’s', () => {
   assert.deepEqual(s.award, [])
 })
 
-test('keep: nothing changes; unplayed games just never count', () => {
+test('keep: played results stand; unplayed games are voided so they never count', () => {
   assert.deepEqual(settleLeaver(games, 'x', 'keep', 'league'), {
     award: [],
     remove: [],
+    void: ['next1', 'next2'],
   })
 })
 

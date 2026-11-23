@@ -112,6 +112,12 @@ async function depart(tx: Tx, competition: Competition, userId: string) {
   if (settlement.remove.length > 0) {
     await tx.delete(matches).where(inArray(matches.id, settlement.remove))
   }
+  if (settlement.void.length > 0) {
+    await tx
+      .update(matches)
+      .set({ voided: true, report: null })
+      .where(inArray(matches.id, settlement.void))
+  }
   await tx
     .insert(competitionLeavers)
     .values({ competitionId: competition.id, userId })

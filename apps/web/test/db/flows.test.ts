@@ -161,6 +161,23 @@ test('league: removing the last unsettled player finishes it', async () => {
   assert.equal((await c.state()).status, 'finished')
 })
 
+test('league keep rule: a removed player’s unplayed games are closed, so they never count', async () => {
+  const c = await competition('league', ['o', 'a', 'b'], { leaveRule: 'keep', legs: 1 }, 0)
+  const [, a, b] = c.ids
+  await startCompetition(c.slug, c.organiser)
+  const ab = (await c.rows()).find((m) => [m.homeUserId, m.awayUserId].sort().join() === [a, b].sort().join())
+  assert.ok(ab)
+  await db.update(matches).set({ opensAt: new Date(Date.now() - 60_000) }).where(eq(matches.id, ab.id))
+  await removePlayer(c.slug, c.organiser, a)
+  const [row] = await db.select().from(matches).where(eq(matches.id, ab.id))
+  assert.equal(row.voided, true)
+  await assert.rejects(concedeMatch(c.slug, v(a), ab.id))
+  await assert.rejects(reportResult(c.slug, v(a), ab.id, 'loss', true))
+  const [after] = await db.select().from(matches).where(eq(matches.id, ab.id))
+  assert.equal(after.winnerUserId, null)
+  assert.equal(after.result, null)
+})
+
 test('seeding: organiser only, start pairs 1 v 4 and 2 v 3, fixed after start', async () => {
   const c = await competition('knockout', ['o', 'a', 'b', 'c'])
   await assert.rejects(seedCompetition(c.slug, v(c.ids[1]), c.ids))
@@ -685,6 +702,13 @@ test('player page: record, head-to-head, and private competitions stay private',
   assert.equal(await getPlayer('no-such-player', v(a)), null)
 })
 
+/** The report as the opponent's page shows it. */
+async function seen(matchId: string) {
+  const [row] = await db.select().from(matches).where(eq(matches.id, matchId))
+  assert.ok(row.report)
+  return row.report
+}
+
 test('reported results: the opponent confirms (it counts) or disputes (the organiser hears)', async () => {
   const c = await competition('league', ['o', 'a', 'b'], { legs: 1 }, 0)
   const [o, a, b] = c.ids
@@ -697,12 +721,12 @@ test('reported results: the opponent confirms (it counts) or disputes (the organ
   await assert.rejects(reportResult(c.slug, v(o), ab.id, 'win', true), /two players/)
   // a says they beat b with white
   await reportResult(c.slug, v(a), ab.id, 'win', true)
-  await assert.rejects(answerReport(c.slug, v(a), ab.id, true), /Only the opponent/)
+  await assert.rejects(answerReport(c.slug, v(a), ab.id, true, await seen(ab.id)), /Only the opponent/)
   const toldB = await db.select().from(notifications).where(eq(notifications.userId, b))
   assert.ok(toldB.some((n) => n.title.includes('reported your result')))
 
   // b disputes: report cleared, the organiser (not in this match) hears
-  await answerReport(c.slug, v(b), ab.id, false)
+  await answerReport(c.slug, v(b), ab.id, false, await seen(ab.id))
   let [row] = await db.select().from(matches).where(eq(matches.id, ab.id))
   assert.equal(row.report, null)
   assert.equal(row.result, null)
@@ -710,8 +734,12 @@ test('reported results: the opponent confirms (it counts) or disputes (the organ
   assert.ok(toldO.some((n) => n.title.includes('disagree')))
 
   // reported again, and this time confirmed: a won with white
+  await reportResult(c.slug, v(a), ab.id, 'draw', true)
+  const sawDraw = await seen(ab.id)
+  // a changes the report after b saw it: b's confirm must not apply the new one
   await reportResult(c.slug, v(a), ab.id, 'win', true)
-  await answerReport(c.slug, v(b), ab.id, true)
+  await assert.rejects(answerReport(c.slug, v(b), ab.id, true, sawDraw), /report changed/)
+  await answerReport(c.slug, v(b), ab.id, true, await seen(ab.id))
   ;[row] = await db.select().from(matches).where(eq(matches.id, ab.id))
   assert.equal(row.report, null)
   assert.equal(row.result, 'white')
@@ -754,7 +782,7 @@ test('tracked here: no chess.com needed, no chess.com calls, players report and 
     }) as typeof fetch
     assert.equal(await syncResults(row.id, new Date(Date.now() + 6 * 60_000)), 0)
     await reportResult(slug, v(a), m.id, 'win', false)
-    await answerReport(slug, v(o), m.id, true)
+    await answerReport(slug, v(o), m.id, true, await seen(m.id))
   } finally {
     globalThis.fetch = realFetch
   }

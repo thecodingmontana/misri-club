@@ -15,6 +15,7 @@ import { generateRandomString } from 'better-auth/crypto'
 import { bearer, magicLink, twoFactor } from 'better-auth/plugins'
 import type { BetterAuthPlugin } from 'better-auth/types'
 import { eq } from 'drizzle-orm'
+import { cleanName } from './name.ts'
 
 /**
  * Accounts: Google, an emailed sign-in link and passkeys, with optional
@@ -194,8 +195,8 @@ export function createAuth<P extends BetterAuthPlugin[] = []>(
             }
             // names show on every table and fixture: keep them short and real
             if (typeof user.name === 'string') {
-              const name = user.name.trim().replace(/\s+/g, ' ')
-              if (name.length < 1 || name.length > 50) {
+              const name = cleanName(user.name)
+              if (!name) {
                 throw new APIError('BAD_REQUEST', {
                   message: 'Use a name between 1 and 50 characters.',
                 })
@@ -210,8 +211,9 @@ export function createAuth<P extends BetterAuthPlugin[] = []>(
           before: async (user) => ({
             data: {
               ...user,
+              // same rule as a rename; a bad sign-up name falls back to the email's
               name:
-                user.name?.trim() ||
+                cleanName(user.name) ||
                 user.email
                   .split('@')[0]
                   .split(/[._+-]+/)
