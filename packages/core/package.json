@@ -11,12 +11,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@faker-js/faker": "^10.6.0",
     "@misri/db": "workspace:*",
-    "drizzle-orm": "^0.45.4"
+    "drizzle-orm": "^0.45.4",
+    "web-push": "3.6.7",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
     "@types/node": "^24.19.2",
+    "@types/web-push": "^3.6.4",
     "typescript": "^6.0.3"
   }
 }
