@@ -41,8 +41,13 @@ opens at `/api/graphql` in development. Other apps get a typed client with
 That API is moving out into **`apps/api`**, its own Vercel project
 (`misri-api`): Hono with GraphQL Yoga at `/graphql`, plus `GET /health`. It
 shares the schema and client through **`packages/db`** (`@misri/db`), and
-callers sign in with `Authorization: Bearer <session token>`, a Better Auth
-session from the web app. It needs only `DATABASE_URL`. It serves `me`,
+callers send `Authorization: Bearer <token>`. Sign-in lives in
+**`packages/auth`** (`@misri/auth`), the one Better Auth setup both apps use:
+the web app signs people in at `/api/auth/*` (its pages finish the emailed-link
+and two-step flows) and returns a signed token in the `set-auth-token` header;
+the API checks it with Better Auth's own `getSession`, and refuses raw or
+tampered tokens. The API needs `DATABASE_URL`, `BETTER_AUTH_SECRET` (the web
+app's), `BETTER_AUTH_URL` and `ADMIN_EMAILS`. It serves `me`,
 `myCompetitions`, `openCompetitions`, `competition(slug)` and
 `player(username)`, with the web app's access rules. The reads and the rules
 behind them (access, standings, brackets, round-robin) live in

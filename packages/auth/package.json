@@ -1,0 +1,24 @@
+{
+  "name": "@misri/auth",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/auth.ts"
+  },
+  "scripts": {
+    "check": "biome check",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@better-auth/passkey": "1.7.18",
+    "@misri/core": "workspace:*",
+    "@misri/db": "workspace:*",
+    "better-auth": "1.7.18",
+    "drizzle-orm": "^0.45.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "^24.19.2",
+    "typescript": "^6.0.3"
+  }
+}
