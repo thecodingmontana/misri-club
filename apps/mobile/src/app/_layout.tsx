@@ -1,4 +1,3 @@
-import '../web-preview'
 import '../global.css'
 import { useFonts } from 'expo-font'
 import { Redirect, Stack, useSegments } from 'expo-router'
@@ -83,7 +82,14 @@ function Gate() {
         <Stack.Screen name="verify" options={{ headerShown: false }} />
         <Stack.Screen name="two-factor" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="index" options={{ title: 'Misri' }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="inbox" options={{ title: '' }} />
+        <Stack.Screen name="discover" options={{ title: '' }} />
+        <Stack.Screen name="join/[code]" options={{ title: 'Invite' }} />
+        <Stack.Screen
+          name="competitions/new"
+          options={{ title: 'New competition' }}
+        />
         <Stack.Screen name="c/[slug]" options={{ title: '' }} />
         <Stack.Screen name="account" options={{ title: 'Account' }} />
       </Stack>

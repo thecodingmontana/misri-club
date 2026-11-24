@@ -1,3 +1,4 @@
+import { LEAVE_HELP, LEAVE_LABEL } from '@misri/core/formats'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { type ReactNode, useState } from 'react'
@@ -37,19 +38,7 @@ import {
   renameCompetitionFn,
 } from '#/server/competitions.functions'
 
-const LEAVE_LABEL: Record<LeaveRule, string> = {
-  award: 'Award their games',
-  void: 'Wipe their games',
-  keep: 'Keep results',
-}
-
-/** What leaving does, in the words the leaver and organiser both read. */
-export const LEAVE_HELP: Record<LeaveRule, string> = {
-  award:
-    'Their unplayed games go to the opponents as wins; they take the forfeits and drop off the table.',
-  void: 'All their games are removed, played ones too, as if they never entered.',
-  keep: 'Games already played still count; the rest are called off.',
-}
+export { LEAVE_HELP }
 
 /** Leagues: the organiser's rule for a player who leaves after the start. */
 export function LeaveRuleChoice({

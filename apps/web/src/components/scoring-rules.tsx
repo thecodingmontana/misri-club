@@ -1,48 +1,16 @@
+import {
+  POINT_KEYS,
+  POINT_LABEL,
+  scoringSummary,
+  UNPLAYED_HELP,
+  UNPLAYED_LABEL,
+} from '@misri/core/formats'
 import { useId, useState } from 'react'
 import { Choice } from '#/components/competitions'
 import { Input } from '#/components/ui/input'
 import type { Points, UnplayedRule } from '#/server/standings'
 
-const UNPLAYED_LABEL: Record<UnplayedRule, string> = {
-  organiser: 'I decide',
-  both_forfeit: 'Both lose it',
-  void: 'No result',
-}
-
-const UNPLAYED_HELP: Record<UnplayedRule, string> = {
-  organiser:
-    'It waits for you: award a walkover to whoever turned up, or call it off.',
-  both_forfeit: 'Both players take the forfeit points.',
-  void: "It doesn't count for anyone.",
-}
-
-const POINT_LABEL: Record<keyof Points, string> = {
-  win: 'Win',
-  draw: 'Draw',
-  loss: 'Loss',
-  forfeit: 'Forfeit',
-}
-const POINT_KEYS = Object.keys(POINT_LABEL) as Array<keyof Points>
-
-const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0')
-
-/** One line anyone can read: how unplayed matches go and what results are worth. */
-export function scoringSummary(
-  format: 'league' | 'knockout' | 'challenge' | 'groups',
-  unplayedRule: UnplayedRule,
-  points: Points,
-) {
-  if (format !== 'league') return 'Unplayed matches: the organiser decides'
-  const rule = {
-    organiser: 'the organiser decides',
-    both_forfeit: 'both lose it',
-    void: 'no result',
-  }[unplayedRule]
-  const worth = POINT_KEYS.map(
-    (key) => `${POINT_LABEL[key]} ${signed(points[key])}`,
-  ).join(' · ')
-  return `Unplayed matches: ${rule} · ${worth}`
-}
+export { scoringSummary }
 
 export interface Scoring {
   unplayedRule: UnplayedRule
