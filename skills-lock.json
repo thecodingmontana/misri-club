@@ -1,6 +1,13 @@
 {
   "version": 2,
   "skills": {
+    "powersync": {
+      "source": "powersync-ja/agent-skills",
+      "commit": "09f4fb108da67070e859fd2c80f0d338a109faea",
+      "sourceType": "github",
+      "skillPath": "skills/powersync/SKILL.md",
+      "computedHash": "9b43bf2504a476bdc9291d15c3f7609ac6395b07281e5520f68f264eefefb29b"
+    },
     "security-audit": {
       "source": "cloudflare/security-audit-skill",
       "commit": "c1c8a8c1471069fb0e188eeaff69b8e8db6564a8",

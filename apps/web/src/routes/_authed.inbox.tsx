@@ -4,6 +4,7 @@ import { useServerFn } from '@tanstack/react-start'
 import { useEffect } from 'react'
 import { relativeTime } from '#/lib/format'
 import { seo } from '#/lib/seo'
+import { useSyncedQuery } from '#/lib/sync/use-synced'
 import { cn } from '#/lib/utils'
 import { getInboxFn, markInboxReadFn } from '#/server/inbox.functions'
 
@@ -15,8 +16,31 @@ export const Route = createFileRoute('/_authed/inbox')({
   component: Inbox,
 })
 
+type LocalNotification = {
+  id: string
+  title: string
+  body: string | null
+  url: string
+  read_at: string | null
+  created_at: string
+}
+
 function Inbox() {
-  const items = Route.useLoaderData()
+  const loaded = Route.useLoaderData()
+  // the synced copy once this device has it: works offline, updates live
+  const local = useSyncedQuery<LocalNotification>(
+    'SELECT * FROM notifications ORDER BY created_at DESC LIMIT 50',
+  )
+  const items = local
+    ? local.map((n) => ({
+        id: n.id,
+        title: n.title,
+        body: n.body,
+        url: n.url,
+        readAt: n.read_at,
+        createdAt: n.created_at,
+      }))
+    : loaded
   const markRead = useServerFn(markInboxReadFn)
   const queryClient = useQueryClient()
 

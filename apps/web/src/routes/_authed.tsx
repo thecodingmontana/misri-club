@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import { useRememberDevice } from '#/components/push-device'
 import { last } from '#/lib/session-cache'
 import { getSessionFn } from '#/server/auth.functions'
@@ -44,5 +45,8 @@ export const Route = createFileRoute('/_authed')({
 
 function Signed() {
   useRememberDevice()
+  useEffect(() => {
+    void import('#/lib/sync/powersync').then((sync) => sync.startSync())
+  }, [])
   return <Outlet />
 }

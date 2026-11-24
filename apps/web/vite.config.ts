@@ -14,7 +14,12 @@ const config = defineConfig({
   preview: { port: 3005 },
   // Pre-bundle at startup: found late, Vite re-optimizes mid-session and
   // serves the old chunk as 504, so the page never hydrates.
-  optimizeDeps: { include: ['motion/react'] },
+  optimizeDeps: {
+    include: ['motion/react'],
+    // PowerSync ships web workers and WASM, which pre-bundling breaks
+    exclude: ['@powersync/web', '@journeyapps/wa-sqlite'],
+  },
+  worker: { format: 'es' },
   // one id for client and server, so an open tab can spot a newer deploy
   define: {
     __BUILD_ID__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev'),
