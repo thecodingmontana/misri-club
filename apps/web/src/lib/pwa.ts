@@ -31,6 +31,10 @@ export function startPwa() {
           .map((entry) => entry.name)
           .filter((name) => name.startsWith(location.origin))
         registration.active?.postMessage({ type: 'keep-files', urls })
+        registration.active?.postMessage({
+          type: 'keep-page',
+          url: location.href,
+        })
       })
       .catch(() => {})
   }
@@ -65,6 +69,11 @@ export function startPwa() {
   addEventListener('online', onReturn)
   void checkVersion(true)
   setInterval(() => void checkVersion(false), VERSION_CHECK_MS)
+}
+
+/** Asks the service worker to keep an offline copy of a page opened in-app. */
+export function keepPage(url: string) {
+  navigator.serviceWorker?.controller?.postMessage({ type: 'keep-page', url })
 }
 
 const RELOADED_AT = 'misri-reloaded-for'
