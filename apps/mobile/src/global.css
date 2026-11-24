@@ -61,3 +61,10 @@
     }
   }
 }
+
+/* The website's typeface, Bricolage Grotesque (OFL, assets/fonts), loaded in app/_layout.tsx */
+@theme {
+  --font-display: "BricolageCondensed-ExtraBold";
+  --font-body: "Bricolage-Regular";
+  --font-strong: "Bricolage-Bold";
+}

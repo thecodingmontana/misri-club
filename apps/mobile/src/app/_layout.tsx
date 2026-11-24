@@ -1,5 +1,6 @@
 import '../web-preview'
 import '../global.css'
+import { useFonts } from 'expo-font'
 import { Redirect, Stack, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { HeroUINativeProvider, useThemeColor } from 'heroui-native'
@@ -10,6 +11,12 @@ import { introSeen } from '@/lib/intro'
 import { SessionProvider, useSession } from '@/lib/session'
 
 export default function RootLayout() {
+  const [fontsReady] = useFonts({
+    'Bricolage-Regular': require('../../assets/fonts/Bricolage-Regular.ttf'),
+    'Bricolage-Bold': require('../../assets/fonts/Bricolage-Bold.ttf'),
+    'BricolageCondensed-ExtraBold': require('../../assets/fonts/BricolageCondensed-ExtraBold.ttf'),
+  })
+  if (!fontsReady) return null
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <HeroUINativeProvider>
