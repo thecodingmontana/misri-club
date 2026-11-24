@@ -76,7 +76,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(fromCacheFirst(request))
   } else if (
     request.mode === 'navigate' ||
-    url.pathname.startsWith('/_serverFn/')
+    url.pathname.startsWith('/_serverFn/') ||
+    url.pathname === '/openings.tsv' // same name every deploy: latest copy
   ) {
     event.respondWith(fromNetworkFirst(request))
   }

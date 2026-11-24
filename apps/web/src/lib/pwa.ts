@@ -71,6 +71,53 @@ export function startPwa() {
   setInterval(() => void checkVersion(false), VERSION_CHECK_MS)
 }
 
+// What Train needs offline, fetched once per deploy: the pages (and the
+// openings list, kept like a page), and the engine.
+const OFFLINE_PAGES = [
+  '/train',
+  '/train/puzzles',
+  '/train/play',
+  '/train/progress',
+  '/train/brilliant',
+  '/train/masters',
+  '/train/openings',
+  // one of each: every game and course shares its page's code
+  '/train/masters/anderssen-kieseritzky-1851',
+  '/train/openings/italian-game',
+  '/analysis',
+  '/openings.tsv',
+]
+const OFFLINE_FILES = [
+  '/stockfish/stockfish-19-lite-single.js',
+  '/stockfish/stockfish-19-lite-single.wasm',
+]
+const WARMED = 'misri-offline-ready'
+
+/**
+ * Gets Train ready to use offline: in the installed app, or once someone opens
+ * Train; skipped on data saver. `preload` loads a page's code.
+ */
+export function warmOffline(preload: (path: string) => Promise<unknown>) {
+  const sw = navigator.serviceWorker?.controller
+  const saveData = (navigator as { connection?: { saveData?: boolean } })
+    .connection?.saveData
+  const wanted =
+    matchMedia('(display-mode: standalone)').matches ||
+    location.pathname.startsWith('/train')
+  if (!sw || !navigator.onLine || saveData || !wanted) return
+  try {
+    if (localStorage.getItem(WARMED) === __BUILD_ID__) return
+    localStorage.setItem(WARMED, __BUILD_ID__)
+  } catch {
+    return
+  }
+  sw.postMessage({ type: 'keep-files', urls: OFFLINE_FILES })
+  for (const path of OFFLINE_PAGES) {
+    sw.postMessage({ type: 'keep-page', url: path })
+    if (!path.includes('.')) void preload(path).catch(() => {})
+  }
+}
+
 /** Asks the service worker to keep an offline copy of a page opened in-app. */
 export function keepPage(url: string) {
   navigator.serviceWorker?.controller?.postMessage({ type: 'keep-page', url })
