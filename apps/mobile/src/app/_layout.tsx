@@ -1,3 +1,4 @@
+import '../web-preview'
 import '../global.css'
 import { Redirect, Stack, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'

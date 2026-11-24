@@ -1,34 +1,54 @@
+import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
-import { Button } from 'heroui-native'
+import { Button, useThemeColor } from 'heroui-native'
 import { useRef, useState } from 'react'
-import { FlatList, Text, useWindowDimensions, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Icon } from '@/icon'
-import type { IconName } from '@/icons.generated'
+import {
+  FlatList,
+  ImageBackground,
+  type ImageSourcePropType,
+  Text,
+  View,
+} from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { markIntroSeen } from '@/lib/intro'
 
-const SLIDES: Array<{ icon: IconName; title: string; body: string }> = [
+// Photos from Unsplash (downloaded through its API, credited on each slide).
+const SLIDES: Array<{
+  photo: ImageSourcePropType
+  credit: string
+  kicker: string
+  title: string
+  body: string
+}> = [
   {
-    icon: 'Trophy',
+    photo: require('../../assets/welcome/welcome-1.jpg'),
+    credit: 'Mesh',
+    kicker: 'Competitions',
     title: 'Run your club’s chess',
-    body: 'Leagues, knockouts, groups and 1v1 challenges. Share an invite link and the fixtures, deadlines and table look after themselves.',
+    body: 'Leagues, knockouts, groups and 1v1 challenges. Share an invite link; fixtures, deadlines and the table look after themselves.',
   },
   {
-    icon: 'CheckCircle',
+    photo: require('../../assets/welcome/welcome-2.jpg'),
+    credit: 'Eugene Chystiakov',
+    kicker: 'Results',
     title: 'Results without the chasing',
-    body: 'Play on chess.com and Misri finds your games. Playing over the board? Report the result and your opponent confirms it.',
+    body: 'Play on chess.com and Misri finds your games. Over the board? Report the result and your opponent confirms it.',
   },
   {
-    icon: 'TrainFilled',
-    title: 'Train between rounds',
-    body: 'Puzzles by theme, opening courses, famous master games and Stockfish, all running on your phone.',
+    photo: require('../../assets/welcome/welcome-3.jpg'),
+    credit: 'Dipesh Shrestha',
+    kicker: 'Training',
+    title: 'Sharpen up between rounds',
+    body: 'Puzzles by theme, opening courses, famous master games and Stockfish, right on your phone.',
   },
 ]
 
-/** First launch: what Misri is, three screens, then sign-in. */
+/** First launch: what Misri is, three photo screens, then sign-in. */
 export default function Welcome() {
-  const { width } = useWindowDimensions()
+  const insets = useSafeAreaInsets()
+  const background = useThemeColor('background')
   const list = useRef<FlatList>(null)
+  const [size, setSize] = useState({ width: 0, height: 0 })
   const [page, setPage] = useState(0)
   const last = page === SLIDES.length - 1
 
@@ -37,38 +57,81 @@ export default function Welcome() {
     router.replace('/sign-in')
   }
 
+  function go(next: number) {
+    list.current?.scrollToOffset({ offset: next * size.width, animated: true })
+    setPage(next)
+  }
+
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-row justify-end px-4 pt-2">
+    <View
+      className="flex-1 bg-background"
+      onLayout={(e) => setSize(e.nativeEvent.layout)}
+    >
+      {size.width > 0 && (
+        <FlatList
+          ref={list}
+          data={SLIDES}
+          keyExtractor={(slide) => slide.title}
+          horizontal
+          pagingEnabled
+          bounces={false}
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={(e) =>
+            setPage(Math.round(e.nativeEvent.contentOffset.x / size.width))
+          }
+          renderItem={({ item }) => (
+            <ImageBackground
+              source={item.photo}
+              resizeMode="cover"
+              style={{ width: size.width, height: size.height }}
+              accessibilityIgnoresInvertColors
+            >
+              <LinearGradient
+                colors={['transparent', background, background]}
+                locations={[0.3, 0.62, 1]}
+                style={{ flex: 1 }}
+              >
+                <View
+                  className="flex-1 justify-end gap-3 px-7"
+                  style={{ paddingBottom: insets.bottom + 150 }}
+                >
+                  <Text className="text-xs font-semibold uppercase tracking-widest text-accent">
+                    {item.kicker}
+                  </Text>
+                  <Text className="text-4xl font-bold leading-tight text-foreground">
+                    {item.title}
+                  </Text>
+                  <Text className="text-base leading-6 text-muted">
+                    {item.body}
+                  </Text>
+                </View>
+              </LinearGradient>
+              <Text
+                className="absolute right-4 overflow-hidden rounded-full bg-black/40 px-2 py-0.5 text-[10px] text-white/80"
+                style={{ top: insets.top + 56 }}
+              >
+                Photo: {item.credit} / Unsplash
+              </Text>
+            </ImageBackground>
+          )}
+        />
+      )}
+
+      {/* over the slides: Skip, the page dots and the main button */}
+      <View
+        className="absolute right-4 left-4 flex-row justify-end"
+        style={{ top: insets.top + 8 }}
+      >
         {!last && (
-          <Button variant="ghost" size="sm" onPress={done}>
+          <Button variant="secondary" size="sm" onPress={done}>
             Skip
           </Button>
         )}
       </View>
-      <FlatList
-        ref={list}
-        data={SLIDES}
-        keyExtractor={(slide) => slide.title}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(event) =>
-          setPage(Math.round(event.nativeEvent.contentOffset.x / width))
-        }
-        renderItem={({ item }) => (
-          <View style={{ width }} className="flex-1 justify-center gap-5 px-8">
-            <View className="size-24 items-center justify-center rounded-3xl bg-surface">
-              <Icon name={item.icon} size={52} />
-            </View>
-            <Text className="text-3xl font-bold text-foreground">
-              {item.title}
-            </Text>
-            <Text className="text-base leading-6 text-muted">{item.body}</Text>
-          </View>
-        )}
-      />
-      <View className="gap-6 px-6 pb-6">
+      <View
+        className="absolute right-0 left-0 gap-6 px-6"
+        style={{ bottom: insets.bottom + 24 }}
+      >
         <View className="flex-row justify-center gap-2">
           {SLIDES.map((slide, i) => (
             <View
@@ -79,17 +142,10 @@ export default function Welcome() {
             />
           ))}
         </View>
-        <Button
-          size="lg"
-          onPress={() => {
-            if (last) return void done()
-            list.current?.scrollToIndex({ index: page + 1 })
-            setPage(page + 1)
-          }}
-        >
+        <Button size="lg" onPress={() => (last ? done() : go(page + 1))}>
           {last ? 'Get started' : 'Next'}
         </Button>
       </View>
-    </SafeAreaView>
+    </View>
   )
 }
