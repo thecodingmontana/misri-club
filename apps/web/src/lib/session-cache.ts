@@ -16,4 +16,9 @@ export function forgetSession() {
   if (typeof caches !== 'undefined') {
     void caches.delete('misri-pages-v1').catch(() => {})
   }
+  if (typeof window !== 'undefined') {
+    void import('#/lib/sync/powersync')
+      .then((sync) => sync.stopSync())
+      .catch(() => {})
+  }
 }
