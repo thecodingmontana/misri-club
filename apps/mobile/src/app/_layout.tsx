@@ -13,6 +13,8 @@ import { SessionProvider, useSession } from '@/lib/session'
 export default function RootLayout() {
   const [fontsReady] = useFonts({
     'Bricolage-Regular': require('../../assets/fonts/Bricolage-Regular.ttf'),
+    'Bricolage-Medium': require('../../assets/fonts/Bricolage-Medium.ttf'),
+    'Bricolage-SemiBold': require('../../assets/fonts/Bricolage-SemiBold.ttf'),
     'Bricolage-Bold': require('../../assets/fonts/Bricolage-Bold.ttf'),
     'BricolageCondensed-ExtraBold': require('../../assets/fonts/BricolageCondensed-ExtraBold.ttf'),
   })
@@ -60,6 +62,7 @@ function Gate() {
         screenOptions={{
           headerStyle: { backgroundColor: background },
           headerTintColor: foreground,
+          headerTitleStyle: { fontFamily: 'Bricolage-Bold' },
           headerShadowVisible: false,
           contentStyle: { backgroundColor: background },
         }}

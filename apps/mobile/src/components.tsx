@@ -26,7 +26,9 @@ export function Problem({
       <Text className="text-base font-semibold text-foreground">
         Couldn't load this
       </Text>
-      <Text className="text-center text-sm text-muted">{message}</Text>
+      <Text className="font-normal text-center text-sm text-muted">
+        {message}
+      </Text>
       <Button variant="secondary" onPress={onRetry}>
         Try again
       </Button>

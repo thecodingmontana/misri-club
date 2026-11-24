@@ -74,7 +74,7 @@ export default function Home() {
           }
         >
           <Section title="Your competitions" items={data.mine}>
-            <Text className="text-sm text-muted">
+            <Text className="font-normal text-sm text-muted">
               No competitions yet. Create one or join with an invite link on the
               website.
             </Text>

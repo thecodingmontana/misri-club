@@ -62,9 +62,13 @@
   }
 }
 
-/* The website's typeface, Bricolage Grotesque (OFL, assets/fonts), loaded in app/_layout.tsx */
+/* The website's typeface, Bricolage Grotesque (OFL, assets/fonts), loaded in
+   app/_layout.tsx. HeroUI's components read the four weights; font-display is
+   the site's condensed headline cut. */
 @theme {
+  --font-normal: "Bricolage-Regular";
+  --font-medium: "Bricolage-Medium";
+  --font-semibold: "Bricolage-SemiBold";
+  --font-bold: "Bricolage-Bold";
   --font-display: "BricolageCondensed-ExtraBold";
-  --font-body: "Bricolage-Regular";
-  --font-strong: "Bricolage-Bold";
 }

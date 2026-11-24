@@ -74,7 +74,7 @@ export default function Competition() {
         <Text className="text-2xl font-bold text-foreground">
           {data.competition.name}
         </Text>
-        <Text className="text-sm text-muted">
+        <Text className="font-normal text-sm text-muted">
           {data.playerCount} {data.playerCount === 1 ? 'player' : 'players'}
         </Text>
 
@@ -131,12 +131,12 @@ export default function Competition() {
                         {status.label}
                       </Chip>
                       {(m.status === 'live' || m.status === 'upcoming') && (
-                        <Text className="text-xs text-muted">
+                        <Text className="font-normal text-xs text-muted">
                           Due {new Date(m.dueAt).toLocaleDateString()}
                         </Text>
                       )}
                       {m.report && (
-                        <Text className="text-xs text-muted">
+                        <Text className="font-normal text-xs text-muted">
                           Result reported, waiting to confirm
                         </Text>
                       )}
@@ -161,7 +161,7 @@ function Row({ cells, head }: { cells: string[]; head?: boolean }) {
           key={i}
           numberOfLines={1}
           className={`${i === 1 ? 'flex-1' : 'w-9 text-center'} ${
-            head ? 'font-semibold text-muted' : 'text-foreground'
+            head ? 'font-semibold text-muted' : 'font-normal text-foreground'
           }`}
         >
           {cell}

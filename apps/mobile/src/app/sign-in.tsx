@@ -30,10 +30,10 @@ export default function SignIn() {
         <Text className="text-3xl font-bold text-foreground">
           Misri Chess Club
         </Text>
-        <Text className="text-base text-foreground">
+        <Text className="font-normal text-base text-foreground">
           Leagues, knockouts and 1v1 challenges for your club.
         </Text>
-        <Text className="text-sm text-muted">
+        <Text className="font-normal text-sm text-muted">
           You sign in on the Misri website, with Google, an emailed link or a
           passkey, then come straight back here.
         </Text>
@@ -47,7 +47,9 @@ export default function SignIn() {
           )}
         </Button>
         {error && (
-          <Text className="text-center text-sm text-danger">{error}</Text>
+          <Text className="font-normal text-center text-sm text-danger">
+            {error}
+          </Text>
         )}
       </View>
     </SafeAreaView>
