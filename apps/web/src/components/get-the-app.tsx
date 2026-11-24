@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { Button } from '#/components/ui/button'
 import { isIosSafari, isStandalone, useInstall } from '#/lib/pwa'
@@ -18,7 +19,7 @@ export function GetTheApp() {
   }, [])
 
   return (
-    <div className="space-y-4">
+    <div className="not-prose space-y-4">
       <div className="space-y-2">
         <p className="text-sm font-medium">Android app</p>
         <p className="text-xs text-muted-foreground">
@@ -45,6 +46,35 @@ export function GetTheApp() {
           </Button>
         )}
       </div>
+    </div>
+  )
+}
+
+/** The same two, side by side, for the welcome page: no searching for a link. */
+export function AppButtons() {
+  const install = useInstall()
+  const [standalone, setStandalone] = useState(false)
+  useEffect(() => setStandalone(isStandalone()), [])
+  if (standalone) return null
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button asChild variant="outline" size="sm" className="rounded-xl">
+        <a href={APK_URL}>Download for Android</a>
+      </Button>
+      {install ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-xl"
+          onClick={install}
+        >
+          Install the web app
+        </Button>
+      ) : (
+        <Button asChild variant="ghost" size="sm" className="rounded-xl">
+          <Link to="/download">iPhone and other ways</Link>
+        </Button>
+      )}
     </div>
   )
 }

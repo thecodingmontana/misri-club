@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import type { CSSProperties } from 'react'
+import { AppButtons } from '#/components/get-the-app'
 import { Check } from '#/components/icons'
 import { MatchCard } from '#/components/match-card'
 import { Button } from '#/components/ui/button'
@@ -78,6 +79,7 @@ export function Hero({ signedIn }: { signedIn: boolean }) {
                 </li>
               ))}
             </ul>
+            <AppButtons />
           </div>
         </div>
       </div>
