@@ -145,7 +145,6 @@ const FOOTER_LINKS: Array<{
       { label: 'Formats', href: '#formats' },
       { label: 'Questions', href: '#faq' },
       { label: 'Training', link: { to: '/train' } },
-      { label: 'Get the app', link: { to: '/download' } },
     ],
   },
   {

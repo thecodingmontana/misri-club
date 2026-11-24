@@ -3,7 +3,7 @@
 Chess leagues, knockouts, groups and 1v1 challenges for clubs and friends,
 with free training built in.
 
-**Live:** [misri-chess-club.vercel.app](https://misri-chess-club.vercel.app) · **Android app:** [download](https://misri-chess-club.vercel.app/download)
+**Live:** [misri-chess-club.vercel.app](https://misri-chess-club.vercel.app) · **Android app:** [misri.apk](https://github.com/thecodingmontana/misri-club/releases/latest/download/misri.apk)
 
 - **Competitions:** round robin (one or two legs), knockouts, groups and
   1v1 challenges, with invite links, join approvals, scoring and leave rules

@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as DiscoverRouteImport } from './routes/discover'
-import { Route as DownloadRouteImport } from './routes/download'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RobotsDottxtRouteImport } from './routes/robots[.]txt'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -55,11 +54,6 @@ const AuthedRoute = AuthedRouteImport.update({
 const DiscoverRoute = DiscoverRouteImport.update({
   id: '/discover',
   path: '/discover',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DownloadRoute = DownloadRouteImport.update({
-  id: '/download',
-  path: '/download',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -241,7 +235,6 @@ const TrainOpeningsSlugRoute = TrainOpeningsSlugRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/discover': typeof DiscoverRoute
-  '/download': typeof DownloadRoute
   '/privacy': typeof PrivacyRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -279,7 +272,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/discover': typeof DiscoverRoute
-  '/download': typeof DownloadRoute
   '/privacy': typeof PrivacyRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -320,7 +312,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authed': typeof AuthedRouteWithChildren
   '/discover': typeof DiscoverRoute
-  '/download': typeof DownloadRoute
   '/privacy': typeof PrivacyRoute
   '/robots.txt': typeof RobotsDottxtRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -362,7 +353,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/discover'
-    | '/download'
     | '/privacy'
     | '/robots.txt'
     | '/sitemap.xml'
@@ -400,7 +390,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/discover'
-    | '/download'
     | '/privacy'
     | '/robots.txt'
     | '/sitemap.xml'
@@ -440,7 +429,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_authed'
     | '/discover'
-    | '/download'
     | '/privacy'
     | '/robots.txt'
     | '/sitemap.xml'
@@ -481,7 +469,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
   DiscoverRoute: typeof DiscoverRoute
-  DownloadRoute: typeof DownloadRoute
   PrivacyRoute: typeof PrivacyRoute
   RobotsDottxtRoute: typeof RobotsDottxtRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -522,13 +509,6 @@ declare module '@tanstack/react-router' {
       path: '/discover'
       fullPath: '/discover'
       preLoaderRoute: typeof DiscoverRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/download': {
-      id: '/download'
-      path: '/download'
-      fullPath: '/download'
-      preLoaderRoute: typeof DownloadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -813,7 +793,6 @@ const AuthedRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
   DiscoverRoute: DiscoverRoute,
-  DownloadRoute: DownloadRoute,
   PrivacyRoute: PrivacyRoute,
   RobotsDottxtRoute: RobotsDottxtRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,

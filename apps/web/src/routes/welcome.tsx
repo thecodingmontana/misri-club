@@ -33,7 +33,6 @@ function Nav({ signedIn }: { signedIn: boolean }) {
             ['#how', 'How it works'],
             ['#formats', 'Formats'],
             ['#faq', 'Questions'],
-            ['/download', 'Get the app'],
           ].map(([href, label]) => (
             <a
               key={href}

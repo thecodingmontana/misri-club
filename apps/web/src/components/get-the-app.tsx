@@ -1,5 +1,5 @@
-import { Link } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
+import { Android, Smartphone } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { isIosSafari, isStandalone, useInstall } from '#/lib/pwa'
 
@@ -26,7 +26,10 @@ export function GetTheApp() {
           Not on the Play Store yet: your phone asks before installing it.
         </p>
         <Button asChild className="w-full">
-          <a href={APK_URL}>Download the APK</a>
+          <a href={APK_URL}>
+            <Android className="size-4" aria-hidden />
+            Download the APK
+          </a>
         </Button>
       </div>
       <div className="space-y-2">
@@ -54,26 +57,35 @@ export function GetTheApp() {
 export function AppButtons() {
   const install = useInstall()
   const [standalone, setStandalone] = useState(false)
-  useEffect(() => setStandalone(isStandalone()), [])
+  const [ios, setIos] = useState(false)
+  useEffect(() => {
+    setStandalone(isStandalone())
+    setIos(isIosSafari())
+  }, [])
   if (standalone) return null
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button asChild variant="outline" size="sm" className="rounded-xl">
-        <a href={APK_URL}>Download for Android</a>
+        <a href={APK_URL}>
+          <Android className="size-4" aria-hidden />
+          Download for Android
+        </a>
       </Button>
-      {install ? (
+      {install && (
         <Button
           variant="outline"
           size="sm"
           className="rounded-xl"
           onClick={install}
         >
+          <Smartphone className="size-4" aria-hidden />
           Install the web app
         </Button>
-      ) : (
-        <Button asChild variant="ghost" size="sm" className="rounded-xl">
-          <Link to="/download">iPhone and other ways</Link>
-        </Button>
+      )}
+      {ios && (
+        <p className="text-xs text-muted-foreground">
+          iPhone: tap Share, then "Add to Home Screen".
+        </p>
       )}
     </div>
   )
