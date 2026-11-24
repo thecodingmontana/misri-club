@@ -5,6 +5,7 @@ import { Spinner } from '#/components/auth'
 import { Choice } from '#/components/competitions'
 import { displayName } from '#/components/match-card'
 import { Button } from '#/components/ui/button'
+import { sendOrQueue } from '#/lib/sync/outbox'
 import { toast } from '#/lib/toast'
 import type { MatchView } from '#/server/competition-view.server'
 import { answerReportFn, reportResultFn } from '#/server/competitions.functions'
@@ -82,14 +83,16 @@ function Answer({
   const send = async (accept: boolean) => {
     setBusy(accept)
     try {
-      await answer({
-        data: {
-          slug,
-          matchId,
-          accept,
-          seen: { result: seen.result, homeWhite: seen.homeWhite },
-        },
-      })
+      const data = {
+        slug,
+        matchId,
+        accept,
+        seen: { result: seen.result, homeWhite: seen.homeWhite },
+      }
+      const done = await sendOrQueue('answerReport', data, () =>
+        answer({ data }),
+      )
+      if (done === 'queued') return
       await router.invalidate()
       toast.success(
         accept
@@ -165,7 +168,11 @@ function ReportForm({
         event.preventDefault()
         setBusy(true)
         try {
-          await report({ data: { slug, matchId, outcome, white } })
+          const data = { slug, matchId, outcome, white }
+          const done = await sendOrQueue('reportResult', data, () =>
+            report({ data }),
+          )
+          if (done === 'queued') return setOpen(false)
           await router.invalidate()
           toast.success('Reported. It counts once your opponent confirms.')
         } catch (error) {

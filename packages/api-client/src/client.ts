@@ -42,7 +42,17 @@ export interface ApiClientOptions {
 }
 
 /** What the API said went wrong (its message, as the user should see it). */
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  /** true: the API refused this request for good (a message for the player) */
+  refused: boolean
+  constructor(message: string, refused = false) {
+    super(message)
+    this.refused = refused
+  }
+}
+
+// GraphQL Yoga's text for a masked (internal) error
+const MASKED = 'Unexpected error.'
 
 export function createApiClient(options: ApiClientOptions) {
   const send = options.fetch ?? fetch
@@ -67,7 +77,10 @@ export function createApiClient(options: ApiClientOptions) {
       errors?: Array<{ message: string }>
       error?: string
     } | null
-    if (body?.errors?.length) throw new ApiError(body.errors[0].message)
+    if (body?.errors?.length) {
+      const { message } = body.errors[0]
+      throw new ApiError(message, res.ok && message !== MASKED)
+    }
     if (!res.ok || !body?.data) {
       throw new ApiError(body?.error ?? `The API answered ${res.status}.`)
     }

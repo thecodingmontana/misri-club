@@ -24,6 +24,7 @@ import {
 } from '#/components/ui/select'
 import type { EarlyRounds } from '#/lib/early-rounds'
 import type { LeaveRule } from '#/lib/leave'
+import { sendOrQueue } from '#/lib/sync/outbox'
 import { toast } from '#/lib/toast'
 import {
   answerRequestFn,
@@ -228,9 +229,14 @@ export function ConcedeButton({
       description={`${opponent} gets the win for this match. You can't take it back; only the organiser can reopen it.`}
       confirmLabel="Give walkover"
       onConfirm={() =>
-        concede({ data: { slug, matchId } })
-          .then(() => router.invalidate())
-          .then(() => toast.success(`${opponent} has the walkover`))
+        sendOrQueue('concedeMatch', { slug, matchId }, () =>
+          concede({ data: { slug, matchId } }),
+        )
+          .then(async (done) => {
+            if (done === 'queued') return
+            await router.invalidate()
+            toast.success(`${opponent} has the walkover`)
+          })
           .catch(fail("Couldn't give the walkover"))
       }
     />
@@ -499,7 +505,11 @@ export function JoinRequests({
   async function reply(userId: string, name: string, approve: boolean) {
     setBusy(userId)
     try {
-      await answer({ data: { slug, userId, approve } })
+      const data = { slug, userId, approve }
+      const done = await sendOrQueue('answerRequest', data, () =>
+        answer({ data }),
+      )
+      if (done === 'queued') return
       await router.invalidate()
       toast.success(approve ? `${name} is in` : `Declined ${name}`)
     } catch (error) {

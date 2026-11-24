@@ -6,8 +6,11 @@ import type {
   UploadMutationsOptions,
 } from '@powersync/web'
 import { PowerSyncDatabase, UpdateType } from '@powersync/web'
+import { toast } from '#/lib/toast'
 import { saveAnalysisFn } from '#/server/analysis.functions'
 import { markInboxReadFn } from '#/server/inbox.functions'
+import { runQueuedActionFn } from '#/server/outbox.functions'
+import { QUEUEABLE, QUEUED_LABEL, type Queueable } from './queueable'
 import { AppSchema } from './schema'
 
 // Misri's PowerSync client: a SQLite copy of the signed-in player's data in
@@ -66,7 +69,8 @@ type MutationOutcome =
  * (the same server functions the pages call, so the same sign-in and checks).
  *
  * Written on the device so far: reading the inbox (read_at on notifications)
- * and saving a game's engine scores (game_analyses).
+ * and saving a game's engine scores (game_analyses), plus competition actions
+ * taken offline (pending_actions, queued by outbox.ts).
  * Anything else queued is a bug, classified fatal so it can't block the queue.
  * `sent` holds the actions already called for this transaction: reading the
  * inbox changes every unread row, but one call reads them all.
@@ -91,6 +95,25 @@ async function callBackendApi(
       // offline, signed out for now or a server hiccup: reading the inbox
       // can't be refused for good, so it is always worth another try.
       // shortcut: no retry cap; add one if a write that can be refused lands
+      return { status: 'retryable_error', message: String(error) }
+    }
+  }
+  if (mutation.table === 'pending_actions' && mutation.op === UpdateType.PUT) {
+    const name = mutation.opData?.name as Queueable
+    if (!QUEUEABLE.includes(name)) {
+      return { status: 'fatal_error', errorCode: 'unknown_action' }
+    }
+    try {
+      const input = JSON.parse(String(mutation.opData?.input))
+      const { refused } = await runQueuedActionFn({ data: { name, input } })
+      if (refused) {
+        toast.error(`${QUEUED_LABEL[name]} wasn't sent`, { desc: refused })
+        return { status: 'fatal_error', errorCode: 'refused', message: refused }
+      }
+      toast.success(`${QUEUED_LABEL[name]} was sent`)
+      return { status: 'success' }
+    } catch (error) {
+      // offline, signed out for now, or the server failing: try again later
       return { status: 'retryable_error', message: String(error) }
     }
   }
@@ -126,19 +149,28 @@ async function callBackendApi(
   }
 }
 
+// A change the server keeps failing on (not refusing) is retried for this
+// long, then dropped, so one bad change can't hold up everything behind it.
+const GIVE_UP_AFTER_MS = 24 * 60 * 60 * 1000
+
+/** When this transaction first failed, kept across reloads (null: never). */
+function failingSince(key: string, now: number | null) {
+  try {
+    const kept = Number(localStorage.getItem(key)) || null
+    if (now === null) localStorage.removeItem(key)
+    else if (!kept) localStorage.setItem(key, String(now))
+    return kept ?? now
+  } catch {
+    return now // no storage (private window): retry without a limit
+  }
+}
+
 // Pulls up to BATCH_SIZE pending transactions, then processes them in order. Within a
 // transaction, mutations are applied one at a time so a single rejected mutation can be
 // discarded without blocking the rest of that transaction or anything queued after it. The first
 // retryable_error stops processing and throws. Anything not yet completed stays in the queue
-// for the next attempt, which is what makes PowerSync retry.
-//
-// Hardening follow-ups (not built yet, see the PowerSync write-path docs):
-// - retry cap: a persisted per-transaction attempt counter, so a backend that
-//   answers 5xx for a permanent failure can't block the queue forever;
-// - dead-letter storage: keep rejected mutations in a server table instead of
-//   only logging them;
-// - client status in logs: ship the table, op, id and sync status with each
-//   failure so a stuck queue on one device is visible from the server.
+// for the next attempt, which is what makes PowerSync retry, for up to GIVE_UP_AFTER_MS.
+// Refused queued actions are logged on the server (outbox.functions.ts) and shown to the player.
 async function uploadData({ database }: UploadMutationsOptions): Promise<void> {
   const transactions: CrudTransaction[] = []
 
@@ -149,6 +181,7 @@ async function uploadData({ database }: UploadMutationsOptions): Promise<void> {
   if (transactions.length === 0) return
 
   for (const transaction of transactions) {
+    const key = `misri-upload-failing:${transaction.transactionId ?? transaction.crud[0]?.clientId}`
     const sent = new Set<string>()
     for (const mutation of transaction.crud) {
       const outcome = await callBackendApi(mutation, sent)
@@ -159,14 +192,28 @@ async function uploadData({ database }: UploadMutationsOptions): Promise<void> {
 
       if (outcome.status === 'fatal_error') {
         // The backend said this exact mutation can never succeed as sent. Retrying it would block
-        // the queue forever, so log it as an error and move on. The log line is how you find out
-        // about the bug that caused it. If discarding the mutation is unacceptable,
-        // add the dead-letter storage described above.
+        // the queue forever, so log it and move on.
         console.error(
           'Discarding a mutation the backend rejected',
           mutation,
           outcome,
         )
+        continue
+      }
+
+      const since = failingSince(key, Date.now()) ?? Date.now()
+      if (Date.now() - since > GIVE_UP_AFTER_MS) {
+        console.error(
+          'Giving up on a mutation after a day of failures',
+          mutation,
+          outcome,
+        )
+        if (mutation.table === 'pending_actions') {
+          const name = mutation.opData?.name as Queueable
+          toast.error(`${QUEUED_LABEL[name] ?? 'A change'} couldn't be sent`, {
+            desc: 'The server kept failing for a day. Please do it again.',
+          })
+        }
         continue
       }
 
@@ -180,6 +227,7 @@ async function uploadData({ database }: UploadMutationsOptions): Promise<void> {
     // Every mutation in this transaction is now applied or discarded, so the queue can move
     // past it.
     await transaction.complete()
+    failingSince(key, null)
   }
 }
 
