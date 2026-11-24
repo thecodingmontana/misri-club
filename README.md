@@ -1,74 +1,89 @@
-# Misri Chess Club League II
+# Misri Chess Club
 
-Chess leagues, knockouts, groups and 1v1 challenges for clubs and friends.
-Each competition takes its results either from chess.com (games are read
-from the public API and matched to the fixtures) or from the players (one
-reports, the opponent confirms), so clubs that play over the board or
-elsewhere can use it too. Train runs Stockfish in the visitor's browser.
+Chess leagues, knockouts, groups and 1v1 challenges for clubs and friends,
+with free training built in.
 
-Stack: TanStack Start (React), Drizzle ORM on Supabase Postgres, Better Auth,
-deployed to Vercel (`dub1`, next to the database).
+**Live:** [misri-chess-club.vercel.app](https://misri-chess-club.vercel.app)
 
-## Layout
+- **Competitions:** round robin (one or two legs), knockouts, groups and
+  1v1 challenges, with invite links, join approvals, scoring and leave rules
+  set by the organiser.
+- **Results from chess.com or from the players:** games are read from
+  chess.com's public API and matched to the fixtures, or one player reports
+  and the opponent confirms, so clubs playing over the board can use it too.
+- **Train:** Lichess puzzles by theme, 13 opening courses, famous master
+  games, a brilliant-moves lesson, Stockfish 19 at five strengths and a
+  progress dashboard. The engine runs on your device.
+- **Works offline:** an installable app (PWA) that keeps your competitions,
+  inbox and training on the device, syncs your data with PowerSync and sends
+  what you did offline once you're back.
+- **Notifications:** web push and an inbox, deadline reminders and a
+  calendar feed of your matches.
 
-A pnpm monorepo. `apps/*` are things people run: today only `apps/web`; a
-desktop or React Native app joins it later. `packages/*` is for code they
-share, once there is a second app to share it with. Vercel builds `apps/web`.
+## Stack
 
-## Setup
+TanStack Start (React) on Vercel, Drizzle ORM on Supabase Postgres, Better
+Auth (Google, emailed links, passkeys, two-step), a Hono + GraphQL Yoga API,
+PowerSync for on-device sync, and Stockfish (WebAssembly) in the browser.
+
+## Repository
+
+A pnpm monorepo:
+
+| Path | What it is |
+| --- | --- |
+| `apps/web` | The site and installable app (TanStack Start). |
+| `apps/api` | The API: Hono with GraphQL Yoga at `/graphql`, its own Vercel project. |
+| `packages/core` | Shared reads, rules and every write (`actions.ts`): access, standings, brackets, round robin. |
+| `packages/db` | The Drizzle schema and database client. |
+| `packages/auth` | The one Better Auth setup both apps use. |
+| `packages/api-client` | A typed client for the API, for any app. |
+| `packages/graphql` | The API's GraphQL protections. |
+
+## Getting started
+
+Needs Node 24, pnpm and a Postgres database.
 
 ```bash
 pnpm install          # also copies Stockfish into apps/web/public/stockfish/
+cp apps/web/.env.example apps/web/.env.local   # then fill it in
 pnpm db:migrate
 pnpm dev              # http://localhost:3005
 ```
 
-Put local settings in `apps/web/.env.local`. Without `RESEND_API_KEY`, sign-in
-links are printed in the terminal instead of emailed.
+Without `RESEND_API_KEY`, sign-in links are printed in the terminal instead
+of emailed. Run the API with `pnpm --filter @misri/api dev` (port 8787).
 
 ## API
 
-The API is **`apps/api`**, its own Vercel project (`misri-api`): Hono with GraphQL Yoga at `/graphql`, plus `GET /health`. It
-shares the schema and client through **`packages/db`** (`@misri/db`), and
-callers send `Authorization: Bearer <token>`. Sign-in lives in
-**`packages/auth`** (`@misri/auth`), the one Better Auth setup both apps use:
-the web app signs people in at `/api/auth/*` (its pages finish the emailed-link
-and two-step flows) and returns a signed token in the `set-auth-token` header;
-the API checks it with Better Auth's own `getSession`, and refuses raw or
-tampered tokens. The API needs `DATABASE_URL`, `BETTER_AUTH_SECRET` (the web
-app's), `BETTER_AUTH_URL` and `ADMIN_EMAILS`. It serves `me`,
-`myCompetitions`, `openCompetitions`, `competition(slug)` and
-`player(username)`, with the web app's access rules. The reads and the rules
-behind them (access, standings, brackets, round-robin) live in
-**`packages/core`** (`@misri/core`), so both apps run the same code; the
-competition page in the web app also refreshes results from chess.com first,
-the API reads what's stored. The web app's competition, player and list reads go through the API when
-`MISRI_API_URL` is set, via the typed client in **`packages/api-client`**
-(`@misri/api-client`), which other apps use too. Writes go the same way: every
-write a player can make (create, join, start, report a result, decide a match,
-rename, leave, …) is one entry in `packages/core/src/actions.ts`, with its
-input check, rate limit and the call that does it. The API exposes each as a
-mutation (`renameCompetition(input: JSON): JSON` and so on, signed in only;
-messages meant for the player pass through, anything else is masked), and the
-web app's server functions run the same actions, through the API when
-`MISRI_API_URL` is set. The API needs `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`
-and `EMAIL_FROM` too, so writes made there still send push notifications. A player's own things go the same way: their chess.com link,
-inbox, push devices, onboarding, latest games, invite previews and the
-competition name check (`packages/core/src/account.ts`). What stays in the web
-app is sign-in itself (Better Auth, the session for the UI, the emailed-link
-confirmation), the calendar feed, the push public key and the nightly cron. The
-web app keeps its own routes only for auth, cron, version and calendar; it has
-no GraphQL of its own.
+Every write a player can make (create, join, start, report a result, decide
+a match, rename, leave, …) is one entry in `packages/core/src/actions.ts`,
+with its input check, rate limit and the call that does it. The API exposes
+each as a GraphQL mutation (`renameCompetition(input: JSON): JSON` and so on,
+signed in only), and the web app's server functions run the same actions,
+through the API when `MISRI_API_URL` is set. Callers send
+`Authorization: Bearer <token>`; messages meant for the player pass through,
+anything else is masked.
 
-Limits: 120 requests a minute per IP (429 with `Retry-After`), 16 KB bodies,
-no batching, and security headers on every response. The GraphQL endpoint
-runs the protections in
-**`packages/graphql`** (`@misri/graphql`): CSRF prevention (a GET or a
-form-encoded POST needs an `x-graphql-yoga-csrf` header; JSON POSTs pass),
-GraphQL Armor (depth 6, 5 aliases, 5 directives, 500 tokens, a cost limit, no
-"did you mean" hints), at most 5 top-level fields per request, and no
-introspection or GraphiQL in production. Run it locally with
-`pnpm --filter @misri/api dev` (port 8787).
+Reads: `me`, `myCompetitions`, `openCompetitions`, `competition(slug)`,
+`player(username)` and the player's own inbox, games and analyses.
+
+Limits: 120 requests a minute per IP, 16 KB bodies, no batching, depth 6,
+5 aliases, 500 tokens, at most 5 top-level fields, CSRF prevention and no
+introspection in production. The API needs `DATABASE_URL`,
+`BETTER_AUTH_SECRET` (the web app's), `BETTER_AUTH_URL`, `ADMIN_EMAILS`,
+`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `EMAIL_FROM`.
+
+## Offline and sync
+
+- The service worker (`apps/web/public/sw.js`) keeps the app's files, the
+  pages you open, your competitions and Train for offline use.
+- PowerSync keeps a copy of your competitions, inbox and analyses on the
+  device (`apps/web/src/lib/sync`). Better Auth issues its short-lived
+  tokens (`/api/auth/token`, keys at `/api/auth/jwks`).
+- Changes made offline (reading the inbox, saving an analysis, reporting a
+  result, answering a report or a join request, giving a walkover) wait in
+  PowerSync's upload queue and run through the same actions once online.
 
 ## Environment
 
@@ -103,6 +118,8 @@ introspection or GraphiQL in production. Run it locally with
   code reads the old shape).
 
 ## How it works
+
+Paths below are under `apps/web`.
 
 - **Competitions** (`src/server/competitions.server.ts`,
   `membership.server.ts`): anyone creates a league (round robin, one or two
@@ -155,3 +172,13 @@ introspection or GraphiQL in production. Run it locally with
 - **Sound** (`src/lib/sound.ts`): cuelume synthesizes interface sounds in the
   browser. Buttons, inputs, tabs and toasts sound through `data-cuelume-*`
   attributes; a top-bar toggle turns them off per browser.
+
+## Contributing
+
+Issues and pull requests are welcome. Commits follow
+[Conventional Commits](https://www.conventionalcommits.org) (commitlint checks
+them), and `pnpm typecheck`, `pnpm check` and `pnpm test` should pass.
+
+## Licence
+
+[MIT](LICENSE)
