@@ -1,4 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient'
+import { Alert } from 'heroui-native'
 import type { ReactNode } from 'react'
 import {
   ImageBackground,
@@ -73,11 +74,11 @@ export function AuthShell({
 export function FormError({ message }: { message: string | null }) {
   if (!message) return null
   return (
-    <Text
-      className="font-normal text-sm text-danger"
-      accessibilityLiveRegion="polite"
-    >
-      {message}
-    </Text>
+    <Alert status="danger" accessibilityLiveRegion="polite">
+      <Alert.Indicator />
+      <Alert.Content>
+        <Alert.Description>{message}</Alert.Description>
+      </Alert.Content>
+    </Alert>
   )
 }
