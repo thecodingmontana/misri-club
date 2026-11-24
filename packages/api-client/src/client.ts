@@ -93,7 +93,11 @@ export function createApiClient(options: ApiClientOptions) {
   }
   return {
     me: async () =>
-      (await query<{ me: Me | null }>('{ me { id name chessUsername onboarded } }')).me,
+      (
+        await query<{ me: Me | null }>(
+          '{ me { id name chessUsername onboarded } }',
+        )
+      ).me,
     myCompetitions: async () =>
       (
         await query<{ myCompetitions: CompetitionSummary[] }>(
