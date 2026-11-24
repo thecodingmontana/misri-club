@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { AppSection } from '#/components/landing/app-section'
 import { FormatCards } from '#/components/landing/format-cards'
 import { GroupChat } from '#/components/landing/group-chat'
 import { Hero } from '#/components/landing/hero'
@@ -33,6 +34,7 @@ function Nav({ signedIn }: { signedIn: boolean }) {
             ['#how', 'How it works'],
             ['#formats', 'Formats'],
             ['#faq', 'Questions'],
+            ['#app', 'Get the app'],
           ].map(([href, label]) => (
             <a
               key={href}
@@ -71,6 +73,9 @@ function Welcome() {
         <GroupChat />
         <div id="how" className="scroll-mt-20">
           <Steps />
+        </div>
+        <div id="app" className="scroll-mt-20">
+          <AppSection />
         </div>
         <div id="faq" className="scroll-mt-20">
           <Faq />
