@@ -13,6 +13,9 @@ export const last: { checked: { at: number; session: Session } | null } = {
  */
 export function forgetSession() {
   last.checked = null
+  try {
+    localStorage.removeItem('misri-mine-kept-at') // see keepMine in pwa.ts
+  } catch {}
   if (typeof caches !== 'undefined') {
     void caches.delete('misri-pages-v1').catch(() => {})
   }

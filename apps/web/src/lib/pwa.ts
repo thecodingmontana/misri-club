@@ -119,8 +119,52 @@ export function warmOffline(preload: (path: string) => Promise<unknown>) {
 }
 
 /** Asks the service worker to keep an offline copy of a page opened in-app. */
-export function keepPage(url: string) {
-  navigator.serviceWorker?.controller?.postMessage({ type: 'keep-page', url })
+export function keepPage(url: string, fresh = false) {
+  navigator.serviceWorker?.controller?.postMessage({
+    type: 'keep-page',
+    url,
+    fresh,
+  })
+}
+
+const KEPT_MINE = 'misri-mine-kept-at'
+const KEEP_MINE_EVERY_MS = 30 * 60 * 1000
+const KEEP_MINE_MAX = 12
+
+/**
+ * The signed-in player's home, inbox and competitions, refreshed for offline
+ * at most every half hour: the page (for a reload) and its data (preloading
+ * runs the page's loader, whose answer the service worker keeps).
+ */
+export async function keepMine(
+  listMine: () => Promise<Array<{ slug: string; status: string }>>,
+  preload: (path: string) => Promise<unknown>,
+) {
+  const saveData = (navigator as { connection?: { saveData?: boolean } })
+    .connection?.saveData
+  if (!navigator.serviceWorker?.controller || !navigator.onLine || saveData) {
+    return
+  }
+  try {
+    const at = Number(localStorage.getItem(KEPT_MINE))
+    if (Date.now() - at < KEEP_MINE_EVERY_MS) return
+    localStorage.setItem(KEPT_MINE, String(Date.now()))
+  } catch {
+    return
+  }
+  const mine = await listMine()
+  const paths = [
+    '/',
+    '/inbox',
+    ...mine
+      .filter((c) => c.status !== 'finished')
+      .slice(0, KEEP_MINE_MAX)
+      .map((c) => `/c/${c.slug}`),
+  ]
+  for (const path of paths) {
+    keepPage(path, true)
+    await preload(path).catch(() => {})
+  }
 }
 
 const RELOADED_AT = 'misri-reloaded-for'

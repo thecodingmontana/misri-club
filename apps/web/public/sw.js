@@ -43,7 +43,8 @@ self.addEventListener('message', (event) => {
     caches
       .open(PAGES)
       .then(async (cache) => {
-        if (await cache.match(url.href)) return
+        // `fresh`: replace the kept copy (a page that changes, like a table)
+        if (!event.data.fresh && (await cache.match(url.href))) return
         const response = await fetch(url.href, { credentials: 'same-origin' })
         if (response.ok && response.type === 'basic' && !response.redirected) {
           await cache.put(url.href, response)
