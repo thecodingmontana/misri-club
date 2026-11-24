@@ -146,6 +146,20 @@ export const twoFactor = pgTable(
   ],
 ).enableRLS()
 
+/**
+ * Better Auth's signing keys for the short-lived tokens PowerSync checks (its
+ * jwt plugin). Private keys are stored encrypted with BETTER_AUTH_SECRET.
+ */
+export const jwks = pgTable('jwks', {
+  id: text('id').primaryKey(),
+  publicKey: text('public_key').notNull(),
+  privateKey: text('private_key').notNull(),
+  createdAt: ts('created_at').notNull(),
+  expiresAt: ts('expires_at'),
+  alg: text('alg'),
+  crv: text('crv'),
+}).enableRLS()
+
 export const passkey = pgTable(
   'passkey',
   {
