@@ -1,11 +1,17 @@
 name: Android app
 
 # Builds the Misri app's APK (apps/mobile). Every run keeps it as a build
-# artifact; a tag like `mobile-v0.1.0` also publishes it as a GitHub Release,
-# which the website's download page links to (releases/latest/download/misri.apk).
+# artifact. Each change to the app merged into main is also published as a
+# GitHub Release (mobile-v0.1.<run>), which becomes "latest": the website's
+# download link (releases/latest/download/misri.apk) always gets the newest.
 on:
   push:
+    branches: [main]
     tags: ['mobile-v*']
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/api-client/**'
+      - '.github/workflows/android.yml'
   pull_request:
     paths:
       - 'apps/mobile/**'
@@ -15,6 +21,11 @@ on:
 
 permissions:
   contents: read
+
+# a newer push to the same branch replaces a build still running
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   apk:
@@ -43,8 +54,11 @@ jobs:
       - name: Version
         working-directory: apps/mobile/android/app
         run: |
-          name="${GITHUB_REF_NAME#mobile-v}"
-          case "$GITHUB_REF" in refs/tags/mobile-v*) ;; *) name="0.0.${GITHUB_RUN_NUMBER}-dev" ;; esac
+          case "$GITHUB_REF" in
+            refs/tags/mobile-v*) name="${GITHUB_REF_NAME#mobile-v}" ;;
+            refs/heads/main) name="0.1.${GITHUB_RUN_NUMBER}" ;;
+            *) name="0.0.${GITHUB_RUN_NUMBER}-dev" ;;
+          esac
           sed -i "s/versionCode [0-9]*/versionCode ${GITHUB_RUN_NUMBER}/" build.gradle
           sed -i "s/versionName \"[^\"]*\"/versionName \"${name}\"/" build.gradle
           grep -E "versionCode|versionName" build.gradle
@@ -79,7 +93,7 @@ jobs:
           path: misri.apk
 
   release:
-    if: startsWith(github.ref, 'refs/tags/mobile-v')
+    if: startsWith(github.ref, 'refs/tags/mobile-v') || github.ref == 'refs/heads/main'
     needs: apk
     runs-on: ubuntu-latest
     permissions:
@@ -91,5 +105,9 @@ jobs:
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: misri.apk
-          name: Misri ${{ github.ref_name }}
+          # main: a new tag per build; a pushed tag: that tag
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('mobile-v0.1.{0}', github.run_number) }}
+          target_commitish: ${{ github.sha }}
+          name: Misri ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('mobile-v0.1.{0}', github.run_number) }}
+          make_latest: true
           body: Install misri.apk on Android (allow installing from your browser when asked).

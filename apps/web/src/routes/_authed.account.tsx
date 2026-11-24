@@ -10,6 +10,7 @@ import { DeviceList, NameForm } from '#/components/account-settings'
 import { Spinner } from '#/components/auth'
 import { CalendarLink } from '#/components/calendar-link'
 import { ChessAccount } from '#/components/chess-account'
+import { GetTheApp } from '#/components/get-the-app'
 import { KeyRound, LogOut, ShieldCheck, Trash } from '#/components/icons'
 import { PushDevice } from '#/components/push-device'
 import {
@@ -95,6 +96,13 @@ function AccountPage() {
         lead="Push notifications on this phone or computer. No emails."
       >
         <PushDevice />
+      </Section>
+
+      <Section
+        title="Get the app"
+        lead="Misri on your phone: the Android app, or the site installed as an app."
+      >
+        <GetTheApp />
       </Section>
 
       <Section
