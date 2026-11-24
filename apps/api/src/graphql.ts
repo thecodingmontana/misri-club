@@ -10,6 +10,7 @@ import {
   unreadCount,
 } from '@misri/core/account'
 import { type ActionName, actions, runAction } from '@misri/core/actions'
+import { calendarPath, calendarToken } from '@misri/core/calendar-token'
 import {
   getCompetition,
   getInvite,
@@ -71,6 +72,8 @@ const typeDefs = /* GraphQL */ `
     player(username: String!): JSON
     "Your chess.com link: verified, a pending code, or none (signed in)."
     chessAccount: JSON
+    "Your private calendar feed's path on the website (signed in)."
+    calendarPath: String!
     "Your latest notifications, newest first (signed in)."
     inbox: JSON
     "How many notifications are unread (signed in)."
@@ -160,6 +163,8 @@ export const schema = createSchema<Context>({
         listOpenCompetitions(context.viewer?.id ?? null),
       chessAccount: (_, __, context) =>
         passMessages(() => chessAccount(signedIn(context).id)),
+      calendarPath: async (_, __, context) =>
+        calendarPath(await calendarToken(signedIn(context).id)),
       inbox: (_, __, context) =>
         passMessages(() => inbox(signedIn(context).id)),
       unreadCount: (_, __, context) =>

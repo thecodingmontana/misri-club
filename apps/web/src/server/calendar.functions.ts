@@ -1,8 +1,10 @@
+import {
+  calendarToken,
+  calendarPath as pathOf,
+  resetCalendarToken,
+} from '@misri/core/calendar-token'
 import { createServerFn } from '@tanstack/react-start'
 import { userMiddleware } from './auth.functions'
-import { calendarToken, resetCalendarToken } from './calendar.server'
-
-const pathOf = (token: string) => `/api/calendar/${token}.ics`
 
 /** The path of your private calendar feed. */
 export const getCalendarPathFn = createServerFn({ method: 'GET' })
