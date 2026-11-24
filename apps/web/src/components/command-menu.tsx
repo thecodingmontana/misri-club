@@ -29,6 +29,7 @@ import {
 } from '#/components/ui/command'
 import { authClient } from '#/lib/auth-client'
 import { forgetSession } from '#/lib/session-cache'
+import { readyToSignOut } from '#/lib/sync/outbox'
 import { toast } from '#/lib/toast'
 import {
   getMyCompetitionsFn,
@@ -116,7 +117,8 @@ export function CommandMenu() {
     }
   }
 
-  async function signOut() {
+  async function signOut(anyway = false) {
+    if (!anyway && !(await readyToSignOut(() => signOut(true)))) return
     const { error } = await authClient.signOut()
     if (error) {
       toast.error("Couldn't sign out", { desc: error.message })

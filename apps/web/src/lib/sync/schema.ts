@@ -98,7 +98,15 @@ const game_analyses = new Table({
   scores: column.text,
 })
 
+// Actions taken offline, waiting to be sent (see outbox.ts). Insert-only:
+// never kept as rows, only queued for upload.
+const pending_actions = new Table(
+  { name: column.text, input: column.text },
+  { insertOnly: true },
+)
+
 export const AppSchema = new Schema({
+  pending_actions,
   competitions,
   competition_members,
   matches,

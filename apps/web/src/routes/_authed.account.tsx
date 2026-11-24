@@ -30,6 +30,7 @@ import { authClient, passkeyCancelled } from '#/lib/auth-client'
 import { formatDate } from '#/lib/format'
 import { seo } from '#/lib/seo'
 import { forgetSession } from '#/lib/session-cache'
+import { readyToSignOut } from '#/lib/sync/outbox'
 import { toast } from '#/lib/toast'
 import { useAdmin } from '#/lib/use-admin'
 
@@ -141,7 +142,9 @@ function AccountPage() {
         <Button
           variant="outline"
           className="w-full"
-          onClick={async () => {
+          onClick={async function signOut(anyway?: unknown) {
+            if (anyway !== true && !(await readyToSignOut(() => signOut(true))))
+              return
             try {
               await unwrap(authClient.signOut())
             } catch (error) {
