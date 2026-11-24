@@ -1,15 +1,9 @@
 import type { CompetitionPage } from '@misri/api-client'
 import { Stack, useLocalSearchParams } from 'expo-router'
-import {
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
-import { Card, Loading, Muted, Problem, Screen, Title } from '@/components'
+import { Card, Chip } from 'heroui-native'
+import { RefreshControl, ScrollView, Text, View } from 'react-native'
+import { Loading, Problem, Screen } from '@/components'
 import { useSession } from '@/lib/session'
-import { type Colors, useColors } from '@/lib/theme'
 import { useLoad } from '@/lib/use-load'
 
 type Player = { name: string; chessUsername: string | null } | null
@@ -17,14 +11,20 @@ type Match = CompetitionPage['matches'][number]
 
 const shown = (p: Player) => (p ? (p.chessUsername ?? p.name) : 'TBD')
 
-const STATUS: Record<string, string> = {
-  played: 'Played',
-  walkover: 'Walkover',
-  upcoming: 'Upcoming',
-  live: 'Open now',
-  expired: 'Past deadline',
-  bye: 'Bye',
-  void: 'Called off',
+const STATUS: Record<
+  string,
+  {
+    label: string
+    color: 'accent' | 'default' | 'success' | 'warning' | 'danger'
+  }
+> = {
+  played: { label: 'Played', color: 'success' },
+  walkover: { label: 'Walkover', color: 'default' },
+  upcoming: { label: 'Upcoming', color: 'default' },
+  live: { label: 'Open now', color: 'accent' },
+  expired: { label: 'Past deadline', color: 'warning' },
+  bye: { label: 'Bye', color: 'default' },
+  void: { label: 'Called off', color: 'danger' },
 }
 
 function score(m: Match) {
@@ -37,7 +37,6 @@ function score(m: Match) {
 export default function Competition() {
   const { slug } = useLocalSearchParams<{ slug: string }>()
   const { api } = useSession()
-  const c = useColors()
   const { data, error, loading, reload } = useLoad(
     () => (api ? api.competition(slug) : Promise.resolve(null)),
     `${Boolean(api)}:${slug}`,
@@ -67,64 +66,85 @@ export default function Competition() {
     <Screen>
       <Stack.Screen options={{ title: data.competition.name }} />
       <ScrollView
-        contentContainerStyle={styles.page}
+        contentContainerClassName="gap-3 p-4"
         refreshControl={
           <RefreshControl refreshing={loading} onRefresh={reload} />
         }
       >
-        <Title>{data.competition.name}</Title>
-        <Muted>
+        <Text className="text-2xl font-bold text-foreground">
+          {data.competition.name}
+        </Text>
+        <Text className="text-sm text-muted">
           {data.playerCount} {data.playerCount === 1 ? 'player' : 'players'}
-        </Muted>
+        </Text>
 
         {!data.canSeeDetails && (
           <Card>
-            <Muted>
-              Join this competition on the website to see its games.
-            </Muted>
+            <Card.Body>
+              <Card.Description>
+                Join this competition on the website to see its games.
+              </Card.Description>
+            </Card.Body>
           </Card>
         )}
 
         {data.standings && data.standings.length > 0 && (
           <Card>
-            <Heading c={c}>Table</Heading>
-            <Row c={c} cells={['#', 'Player', 'W', 'D', 'L', 'Pts']} head />
-            {data.standings.map((row, i) => (
-              <Row
-                key={row.player.id}
-                c={c}
-                cells={[
-                  String(i + 1),
-                  shown(row.player),
-                  String(row.wins),
-                  String(row.draws),
-                  String(row.losses),
-                  String(row.points),
-                ]}
-              />
-            ))}
+            <Card.Body>
+              <Card.Title>Table</Card.Title>
+              <Row cells={['#', 'Player', 'W', 'D', 'L', 'Pts']} head />
+              {data.standings.map((row, i) => (
+                <Row
+                  key={row.player.id}
+                  cells={[
+                    String(i + 1),
+                    shown(row.player),
+                    String(row.wins),
+                    String(row.draws),
+                    String(row.losses),
+                    String(row.points),
+                  ]}
+                />
+              ))}
+            </Card.Body>
           </Card>
         )}
 
         {[...rounds.entries()].map(([round, matches]) => (
           <Card key={round}>
-            <Heading c={c}>{`Round ${round}`}</Heading>
-            {matches.map((m) => (
-              <View key={m.id} style={styles.match}>
-                <Text style={[styles.players, { color: c.text }]}>
-                  {m.bye
-                    ? `${shown(m.bye)} has a bye`
-                    : `${shown(m.home)}  ${score(m)}  ${shown(m.away)}`}
-                </Text>
-                <Muted>
-                  {STATUS[m.status] ?? m.status}
-                  {m.status === 'live' || m.status === 'upcoming'
-                    ? ` · due ${new Date(m.dueAt).toLocaleDateString()}`
-                    : ''}
-                  {m.report ? ' · result reported, waiting to confirm' : ''}
-                </Muted>
-              </View>
-            ))}
+            <Card.Body className="gap-3">
+              <Card.Title>{`Round ${round}`}</Card.Title>
+              {matches.map((m) => {
+                const status = STATUS[m.status] ?? {
+                  label: m.status,
+                  color: 'default' as const,
+                }
+                return (
+                  <View key={m.id} className="gap-1">
+                    <Text className="text-base font-medium text-foreground">
+                      {m.bye
+                        ? `${shown(m.bye)} has a bye`
+                        : `${shown(m.home)}  ${score(m)}  ${shown(m.away)}`}
+                    </Text>
+                    <View className="flex-row flex-wrap items-center gap-2">
+                      <Chip size="sm" variant="soft" color={status.color}>
+                        {status.label}
+                      </Chip>
+                      {(m.status === 'live' || m.status === 'upcoming') && (
+                        <Text className="text-xs text-muted">
+                          Due {new Date(m.dueAt).toLocaleDateString()}
+                        </Text>
+                      )}
+                      {m.report && (
+                        <Text className="text-xs text-muted">
+                          Result reported, waiting to confirm
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                )
+              })}
+            </Card.Body>
           </Card>
         ))}
       </ScrollView>
@@ -132,33 +152,17 @@ export default function Competition() {
   )
 }
 
-function Heading({ c, children }: { c: Colors; children: string }) {
-  return <Text style={[styles.heading, { color: c.text }]}>{children}</Text>
-}
-
-function Row({
-  c,
-  cells,
-  head,
-}: {
-  c: Colors
-  cells: string[]
-  head?: boolean
-}) {
+function Row({ cells, head }: { cells: string[]; head?: boolean }) {
   return (
-    <View style={[styles.row, { borderColor: c.border }]}>
+    <View className="flex-row border-b border-border py-2">
       {cells.map((cell, i) => (
         <Text
           // biome-ignore lint/suspicious/noArrayIndexKey: fixed columns
           key={i}
           numberOfLines={1}
-          style={[
-            i === 1 ? styles.wide : styles.narrow,
-            {
-              color: head ? c.muted : c.text,
-              fontWeight: head ? '600' : '400',
-            },
-          ]}
+          className={`${i === 1 ? 'flex-1' : 'w-9 text-center'} ${
+            head ? 'font-semibold text-muted' : 'text-foreground'
+          }`}
         >
           {cell}
         </Text>
@@ -166,17 +170,3 @@ function Row({
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  page: { padding: 16, gap: 12 },
-  heading: { fontSize: 17, fontWeight: '700', marginBottom: 8 },
-  row: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  wide: { flex: 1 },
-  narrow: { width: 36, textAlign: 'center' },
-  match: { paddingVertical: 8, gap: 2 },
-  players: { fontSize: 15, fontWeight: '500' },
-})

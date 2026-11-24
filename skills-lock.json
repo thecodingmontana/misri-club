@@ -1,6 +1,13 @@
 {
   "version": 2,
   "skills": {
+    "heroui-native": {
+      "source": "heroui-inc/heroui",
+      "commit": "796b6923abb77c63d7e237faf0a029db525927d3",
+      "sourceType": "github",
+      "skillPath": "skills/heroui-native/SKILL.md",
+      "computedHash": "f1769079a8b741a65bcc2a0b052e2d26c3fc5959b43df0a39cdaacffff59558d"
+    },
     "powersync": {
       "source": "powersync-ja/agent-skills",
       "commit": "09f4fb108da67070e859fd2c80f0d338a109faea",

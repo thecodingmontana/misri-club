@@ -1,15 +1,10 @@
 import type { CompetitionPage } from '@misri/api-client'
-import { Link, Stack } from 'expo-router'
-import {
-  Pressable,
-  RefreshControl,
-  SectionList,
-  StyleSheet,
-  Text,
-} from 'react-native'
-import { Card, Loading, Muted, Problem, Screen } from '@/components'
+import { router, Stack } from 'expo-router'
+import { Button, ListGroup } from 'heroui-native'
+import { RefreshControl, ScrollView, Text, View } from 'react-native'
+import { Loading, Problem, Screen } from '@/components'
+import { Icon } from '@/icon'
 import { useSession } from '@/lib/session'
-import { useColors } from '@/lib/theme'
 import { useLoad } from '@/lib/use-load'
 
 type Summary = {
@@ -26,10 +21,14 @@ const FORMAT: Record<string, string> = {
   groups: 'Groups and knockout',
   challenge: '1v1 challenge',
 }
+const STATUS: Record<string, string> = {
+  open: 'Not started',
+  running: 'Running',
+  finished: 'Finished',
+}
 
 export default function Home() {
   const { api } = useSession()
-  const c = useColors()
   const { data, error, loading, reload } = useLoad(
     async () => {
       if (!api) return null
@@ -38,13 +37,10 @@ export default function Home() {
         api.openCompetitions(),
       ])
       const joined = new Set(mine.map((m) => m.slug))
-      return [
-        { title: 'Your competitions', data: mine as Summary[] },
-        {
-          title: 'Open to join',
-          data: (open as Summary[]).filter((o) => !joined.has(o.slug)),
-        },
-      ].filter((s) => s.data.length > 0)
+      return {
+        mine: mine as Summary[],
+        open: (open as Summary[]).filter((o) => !joined.has(o.slug)),
+      }
     },
     String(Boolean(api)),
   )
@@ -54,13 +50,15 @@ export default function Home() {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <Link href="/account" asChild>
-              <Pressable accessibilityRole="button" hitSlop={12}>
-                <Text style={{ color: c.primary, fontWeight: '600' }}>
-                  Account
-                </Text>
-              </Pressable>
-            </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              isIconOnly
+              accessibilityLabel="Account"
+              onPress={() => router.push('/account')}
+            >
+              <Icon name="UserRound" />
+            </Button>
           ),
         }}
       />
@@ -69,59 +67,66 @@ export default function Home() {
       ) : !data ? (
         <Loading />
       ) : (
-        <SectionList
-          sections={data}
-          keyExtractor={(item) => item.slug}
-          contentContainerStyle={styles.list}
+        <ScrollView
+          contentContainerClassName="gap-6 p-4"
           refreshControl={
             <RefreshControl refreshing={loading} onRefresh={reload} />
           }
-          ListEmptyComponent={
-            <Muted>
+        >
+          <Section title="Your competitions" items={data.mine}>
+            <Text className="text-sm text-muted">
               No competitions yet. Create one or join with an invite link on the
               website.
-            </Muted>
-          }
-          renderSectionHeader={({ section }) => (
-            <Text style={[styles.section, { color: c.muted }]}>
-              {section.title}
             </Text>
+          </Section>
+          {data.open.length > 0 && (
+            <Section title="Open to join" items={data.open} />
           )}
-          renderItem={({ item }) => (
-            <Link href={`/c/${item.slug}`} asChild>
-              <Pressable accessibilityRole="link">
-                <Card style={styles.item}>
-                  <Text style={[styles.name, { color: c.text }]}>
-                    {item.name}
-                  </Text>
-                  <Muted>
-                    {FORMAT[item.format] ?? item.format} · {item.members}{' '}
-                    {item.members === 1 ? 'player' : 'players'} ·{' '}
-                    {item.status === 'open'
-                      ? 'Not started'
-                      : item.status === 'running'
-                        ? 'Running'
-                        : 'Finished'}
-                  </Muted>
-                </Card>
-              </Pressable>
-            </Link>
-          )}
-        />
+        </ScrollView>
       )}
     </Screen>
   )
 }
 
-const styles = StyleSheet.create({
-  list: { padding: 16, gap: 8 },
-  section: {
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  item: { marginBottom: 8 },
-  name: { fontSize: 17, fontWeight: '600' },
-})
+function Section({
+  title,
+  items,
+  children,
+}: {
+  title: string
+  items: Summary[]
+  children?: React.ReactNode
+}) {
+  return (
+    <View className="gap-2">
+      <Text className="text-xs font-semibold uppercase text-muted">
+        {title}
+      </Text>
+      {items.length === 0 ? (
+        children
+      ) : (
+        <ListGroup>
+          {items.map((item) => (
+            <ListGroup.Item
+              key={item.slug}
+              onPress={() => router.push(`/c/${item.slug}`)}
+            >
+              <ListGroup.ItemPrefix>
+                <Icon name="Trophy" />
+              </ListGroup.ItemPrefix>
+              <ListGroup.ItemContent>
+                <ListGroup.ItemTitle>{item.name}</ListGroup.ItemTitle>
+                <ListGroup.ItemDescription>
+                  {FORMAT[item.format] ?? item.format} · {item.members}{' '}
+                  {item.members === 1 ? 'player' : 'players'} ·{' '}
+                  {STATUS[item.status] ?? item.status}
+                </ListGroup.ItemDescription>
+              </ListGroup.ItemContent>
+              <ListGroup.ItemSuffix />
+            </ListGroup.Item>
+          ))}
+        </ListGroup>
+      )}
+    </View>
+  )
+}

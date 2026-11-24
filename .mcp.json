@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "heroui-native": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@heroui/native-mcp@latest"
+      ],
+      "env": {}
+    }
+  }
+}

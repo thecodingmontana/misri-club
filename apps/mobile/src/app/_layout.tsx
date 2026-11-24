@@ -1,14 +1,20 @@
+import '../global.css'
 import { Redirect, Stack, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { HeroUINativeProvider, useThemeColor } from 'heroui-native'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { Loading, Screen } from '@/components'
 import { SessionProvider, useSession } from '@/lib/session'
-import { useColors } from '@/lib/theme'
 
 export default function RootLayout() {
   return (
-    <SessionProvider>
-      <Gate />
-    </SessionProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <HeroUINativeProvider>
+        <SessionProvider>
+          <Gate />
+        </SessionProvider>
+      </HeroUINativeProvider>
+    </GestureHandlerRootView>
   )
 }
 
@@ -16,7 +22,8 @@ export default function RootLayout() {
 function Gate() {
   const { token } = useSession()
   const segments = useSegments()
-  const c = useColors()
+  const background = useThemeColor('background')
+  const foreground = useThemeColor('foreground')
   if (token === undefined) {
     return (
       <Screen>
@@ -32,10 +39,10 @@ function Gate() {
       <StatusBar style="auto" />
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: c.background },
-          headerTintColor: c.text,
+          headerStyle: { backgroundColor: background },
+          headerTintColor: foreground,
           headerShadowVisible: false,
-          contentStyle: { backgroundColor: c.background },
+          contentStyle: { backgroundColor: background },
         }}
       >
         <Stack.Screen name="sign-in" options={{ headerShown: false }} />
