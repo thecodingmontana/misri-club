@@ -46,10 +46,20 @@ function Inbox() {
 
   useEffect(() => {
     if (!items.some((n) => !n.readAt)) return
+    if (local) {
+      // read on this device now, sent to the server when it can be (offline too)
+      void import('#/lib/sync/powersync').then(({ startSync }) =>
+        startSync()?.execute(
+          'UPDATE notifications SET read_at = ? WHERE read_at IS NULL',
+          [new Date().toISOString()],
+        ),
+      )
+      return
+    }
     markRead()
       .then(() => queryClient.invalidateQueries({ queryKey: ['unread'] }))
       .catch(() => {})
-  }, [items, markRead, queryClient])
+  }, [items, local, markRead, queryClient])
 
   return (
     <div className="space-y-4 pt-2">

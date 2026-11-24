@@ -5,7 +5,8 @@ import type {
   ResolveCredentialsOptions,
   UploadMutationsOptions,
 } from '@powersync/web'
-import { PowerSyncDatabase } from '@powersync/web'
+import { PowerSyncDatabase, UpdateType } from '@powersync/web'
+import { markInboxReadFn } from '#/server/inbox.functions'
 import { AppSchema } from './schema'
 
 // Misri's PowerSync client: a SQLite copy of the signed-in player's data in
@@ -56,22 +57,41 @@ type MutationOutcome =
   | { status: 'fatal_error'; errorCode?: string; message?: string }
 
 /**
- * Maps one local change onto Misri's backend.
+ * Maps one local change onto Misri's backend, through the app's own actions
+ * (the same server functions the pages call, so the same sign-in and checks).
  *
- * Misri doesn't write synced tables from the browser yet: every change still
- * goes through the app's own actions (report a result, mark the inbox read…),
- * online. So no table has a write path here, and any queued change is a bug —
- * classified fatal so it is logged and can never block the queue.
- *
- * Follow-up (agreed write scope): POST each change to a dedicated upload
- * endpoint that runs the matching action and answers 200 applied / 422
- * rejected for good / 401 signed out / 5xx try again, then map those here.
+ * Written on the device so far: reading the inbox (read_at on notifications).
+ * Anything else queued is a bug, classified fatal so it can't block the queue.
+ * `sent` holds the actions already called for this transaction: reading the
+ * inbox changes every unread row, but one call reads them all.
  */
-async function callBackendApi(mutation: CrudEntry): Promise<MutationOutcome> {
+async function callBackendApi(
+  mutation: CrudEntry,
+  sent: Set<string>,
+): Promise<MutationOutcome> {
+  const fields = Object.keys(mutation.opData ?? {})
+  if (
+    mutation.table === 'notifications' &&
+    mutation.op === UpdateType.PATCH &&
+    fields.length === 1 &&
+    fields[0] === 'read_at'
+  ) {
+    if (sent.has('markInboxRead')) return { status: 'success' }
+    try {
+      await markInboxReadFn()
+      sent.add('markInboxRead')
+      return { status: 'success' }
+    } catch (error) {
+      // offline, signed out for now or a server hiccup: reading the inbox
+      // can't be refused for good, so it is always worth another try.
+      // shortcut: no retry cap; add one if a write that can be refused lands
+      return { status: 'retryable_error', message: String(error) }
+    }
+  }
   return {
     status: 'fatal_error',
     errorCode: 'no_write_path',
-    message: `${mutation.op} on ${mutation.table} has no write path yet`,
+    message: `${mutation.op} on ${mutation.table} has no write path`,
   }
 }
 
@@ -98,8 +118,9 @@ async function uploadData({ database }: UploadMutationsOptions): Promise<void> {
   if (transactions.length === 0) return
 
   for (const transaction of transactions) {
+    const sent = new Set<string>()
     for (const mutation of transaction.crud) {
-      const outcome = await callBackendApi(mutation)
+      const outcome = await callBackendApi(mutation, sent)
 
       if (outcome.status === 'success') {
         continue
