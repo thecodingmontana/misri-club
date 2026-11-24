@@ -271,6 +271,8 @@ export function Confirm({
   description,
   confirmLabel,
   danger,
+  isDisabled,
+  children,
   onConfirm,
 }: {
   trigger: (open: () => void) => ReactNode
@@ -278,6 +280,10 @@ export function Confirm({
   description: string
   confirmLabel: string
   danger?: boolean
+  /** e.g. until the name is typed */
+  isDisabled?: boolean
+  /** a field inside the dialog */
+  children?: ReactNode
   onConfirm: () => Promise<unknown>
 }) {
   const [open, setOpen] = useState(false)
@@ -296,6 +302,7 @@ export function Confirm({
             <Dialog.Title>{title}</Dialog.Title>
             <Dialog.Description>{description}</Dialog.Description>
           </View>
+          {children}
           <FormError message={error} />
           <View className="mt-3 flex-row justify-end gap-3">
             <Button variant="ghost" size="sm" onPress={() => setOpen(false)}>
@@ -304,7 +311,7 @@ export function Confirm({
             <Button
               size="sm"
               variant={danger ? 'danger' : 'primary'}
-              isDisabled={busy}
+              isDisabled={busy || isDisabled}
               onPress={async () => {
                 setBusy(true)
                 setError(null)

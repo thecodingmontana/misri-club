@@ -8,7 +8,7 @@ import {
 import { groupName } from '@misri/core/groups'
 import { timeControlLabel } from '@misri/core/time-control'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
-import { Alert, Button, Card, Spinner, Tabs } from 'heroui-native'
+import { Button, Card, Spinner, Tabs } from 'heroui-native'
 import { type ReactNode, useState } from 'react'
 import { RefreshControl, ScrollView, Text, View } from 'react-native'
 import { FormError } from '@/auth-shell'
@@ -33,6 +33,7 @@ import {
   PlayerChip,
   type PlayerView,
 } from '@/match'
+import { DecideMatch, OwnerPanel, RemovePlayer } from '@/organiser'
 
 type Data = CompetitionPage
 type StandingRow = NonNullable<Data['standings']>[number]
@@ -142,17 +143,7 @@ export default function Competition() {
           />
         )}
 
-        {data.canManage && (
-          <Alert status="accent">
-            <Alert.Indicator />
-            <Alert.Content>
-              <Alert.Title>You organise this</Alert.Title>
-              <Alert.Description>
-                Organiser tools are coming to the app next.
-              </Alert.Description>
-            </Alert.Content>
-          </Alert>
-        )}
+        {data.canManage && <OwnerPanel data={data} reload={reload} />}
 
         {!isMember && <FormatExplainer format={competition.format} />}
 
@@ -264,7 +255,14 @@ function Sections({
             className="flex-row items-center justify-between px-3 py-2.5"
           >
             <PlayerChip player={member} size="md" />
-            {member.id === competition.ownerId && <Kicker>Organiser</Kicker>}
+            {member.id === competition.ownerId ? (
+              <Kicker>Organiser</Kicker>
+            ) : (
+              data.canManage &&
+              competition.status !== 'finished' && (
+                <RemovePlayer data={data} player={member} onDone={reload} />
+              )
+            )}
           </Card>
         ))}
       </Tabs.Content>
@@ -492,6 +490,12 @@ function Fixtures({
                   <Text className="font-medium mt-1.5 text-center text-xs text-muted">
                     {match.leg >= 3 ? 'Decider' : `Leg ${match.leg} of 2`}
                   </Text>
+                )}
+              {data.canManage &&
+                competition.status === 'running' &&
+                match.home !== null &&
+                match.away !== null && (
+                  <DecideMatch data={data} match={match} onDone={reload} />
                 )}
               <MatchReport
                 slug={competition.slug}

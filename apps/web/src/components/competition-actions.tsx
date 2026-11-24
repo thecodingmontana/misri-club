@@ -1,4 +1,9 @@
-import { LEAVE_HELP, LEAVE_LABEL } from '@misri/core/formats'
+import {
+  EARLY_HELP,
+  EARLY_LABEL,
+  LEAVE_HELP,
+  LEAVE_LABEL,
+} from '@misri/core/formats'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { type ReactNode, useState } from 'react'
@@ -64,19 +69,6 @@ export function LeaveRuleChoice({
       </p>
     </div>
   )
-}
-
-const EARLY_LABEL: Record<EarlyRounds, string> = {
-  organiser: 'Let me decide',
-  auto: 'Open the next round',
-  wait: 'Wait for its date',
-}
-
-const EARLY_HELP: Record<EarlyRounds, string> = {
-  organiser:
-    'When everyone has played, you get a button to open the next round.',
-  auto: 'The next round opens by itself as soon as everyone has played.',
-  wait: 'Each round opens on its scheduled date.',
 }
 
 /** Leagues: what happens when every game of a round is in before its window ends. */

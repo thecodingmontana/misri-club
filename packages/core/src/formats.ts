@@ -3,8 +3,9 @@
  * the app so the two never say different things.
  */
 
+import type { EarlyRounds } from './early-rounds'
 import type { LeaveRule } from './leave'
-import type { Points, UnplayedRule } from './standings'
+import type { Points, TieBreak, UnplayedRule } from './standings'
 
 export const FORMAT_LABEL = {
   league: 'League',
@@ -136,4 +137,23 @@ export const LEAVE_HELP: Record<LeaveRule, string> = {
     'Their unplayed games go to the opponents as wins; they take the forfeits and drop off the table.',
   void: 'All their games are removed, played ones too, as if they never entered.',
   keep: 'Games already played still count; the rest are called off.',
+}
+
+export const EARLY_LABEL: Record<EarlyRounds, string> = {
+  organiser: 'Let me decide',
+  auto: 'Open the next round',
+  wait: 'Wait for its date',
+}
+
+export const EARLY_HELP: Record<EarlyRounds, string> = {
+  organiser:
+    'When everyone has played, you get a button to open the next round.',
+  auto: 'The next round opens by itself as soon as everyone has played.',
+  wait: 'Each round opens on its scheduled date.',
+}
+
+export const TIE_LABEL: Record<TieBreak, string> = {
+  wins: 'More wins',
+  forfeits: 'Fewer forfeits',
+  headToHead: 'Head-to-head',
 }
