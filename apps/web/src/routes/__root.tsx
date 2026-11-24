@@ -5,6 +5,7 @@ import {
   HeadContent,
   Outlet,
   Scripts,
+  useRouter,
   useRouterState,
 } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
@@ -17,7 +18,7 @@ import { Toaster } from '#/components/toast/toaster'
 import { TopBar } from '#/components/top-bar'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { DataTips, TooltipProvider } from '#/components/ui/tooltip'
-import { keepPage, startPwa } from '#/lib/pwa'
+import { keepPage, startPwa, warmOffline } from '#/lib/pwa'
 import { CLUB_URL, HOME_DESCRIPTION, SITE_NAME, SITE_URL, seo } from '#/lib/seo'
 import { useInterfaceSounds } from '#/lib/sound'
 import { useAutoSync } from '#/lib/use-auto-sync'
@@ -144,6 +145,15 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   useEffect(startPwa, [])
   const href = useRouterState({ select: (s) => s.location.href })
   useEffect(() => keepPage(href), [href])
+  const router = useRouter()
+  const pathname = href.split('?')[0]
+  // once the service worker is in charge, ready Train for offline use
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-checked per page
+  useEffect(() => {
+    const ready = () =>
+      warmOffline((path) => router.preloadRoute({ to: path as never }))
+    navigator.serviceWorker?.ready.then(ready).catch(() => {})
+  }, [pathname, router])
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
