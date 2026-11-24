@@ -15,6 +15,7 @@ const PAGES = [
   '/train/openings',
   '/terms',
   '/privacy',
+  '/download',
   ...OPENINGS.map((course) => `/train/openings/${course.slug}`),
   ...MASTER_GAMES.map((game) => `/train/masters/${game.slug}`),
 ]
