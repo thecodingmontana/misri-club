@@ -5,9 +5,12 @@ import { StatusBar } from 'expo-status-bar'
 import { HeroUINativeProvider, useThemeColor } from 'heroui-native'
 import { useEffect, useState } from 'react'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { useUniwind } from 'uniwind'
 import { Loading, Screen } from '@/components'
 import { introSeen } from '@/lib/intro'
 import { SessionProvider, useSession } from '@/lib/session'
+import { loadSoundSetting } from '@/lib/sound'
+import { loadTheme } from '@/lib/theme'
 
 export default function RootLayout() {
   const [fontsReady] = useFonts({
@@ -38,8 +41,11 @@ function Gate() {
   const segments = useSegments()
   const [seen, setSeen] = useState<boolean | undefined>(undefined)
   useEffect(() => {
-    void introSeen().then(setSeen)
+    void Promise.all([loadTheme(), loadSoundSetting()]).finally(() =>
+      introSeen().then(setSeen),
+    )
   }, [])
+  const { theme } = useUniwind()
   const background = useThemeColor('background')
   const foreground = useThemeColor('foreground')
   if (
@@ -67,7 +73,7 @@ function Gate() {
   }
   return (
     <>
-      <StatusBar style="auto" />
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: background },

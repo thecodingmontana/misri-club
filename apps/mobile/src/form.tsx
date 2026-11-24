@@ -9,6 +9,7 @@ import {
 } from 'heroui-native'
 import { type ReactNode, useState } from 'react'
 import { Text, View } from 'react-native'
+import { play } from '@/lib/sound'
 
 /** The website's Choice: two to five exclusive options as one row (HeroUI Tabs). */
 export function Choice<T extends string | number>({
@@ -31,7 +32,10 @@ export function Choice<T extends string | number>({
         value={String(value)}
         onValueChange={(next) => {
           const picked = options.find((o) => String(o.value) === next)
-          if (picked) onChange(picked.value)
+          if (picked) {
+            play('select')
+            onChange(picked.value)
+          }
         }}
       >
         <Tabs.List>
@@ -71,7 +75,13 @@ export function CheckField({
   onChange: (value: boolean) => void
 }) {
   return (
-    <ControlField isSelected={value} onSelectedChange={onChange}>
+    <ControlField
+      isSelected={value}
+      onSelectedChange={(next) => {
+        play('select')
+        onChange(next)
+      }}
+    >
       <ControlField.Indicator>
         <Checkbox className="mt-0.5" />
       </ControlField.Indicator>

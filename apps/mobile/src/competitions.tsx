@@ -19,6 +19,7 @@ import { Text, View } from 'react-native'
 import { FormError } from '@/auth-shell'
 import { Icon, type IconName } from '@/icon'
 import { useSession } from '@/lib/session'
+import { play } from '@/lib/sound'
 
 export type CompetitionSummary = {
   slug: string
@@ -157,6 +158,7 @@ export function JoinButton({
               'joinCompetition',
               code ? { code } : { slug: slug as string },
             )
+            play('success')
             router.replace(`/c/${result.slug}`)
           } catch (cause) {
             setError((cause as Error).message)

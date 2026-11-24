@@ -16,6 +16,7 @@ import { FormError } from '@/auth-shell'
 import { Choice } from '@/form'
 import { countdown, formatDate } from '@/lib/format'
 import { useSession } from '@/lib/session'
+import { play } from '@/lib/sound'
 
 export type MatchView = CompetitionPage['matches'][number]
 export type PlayerView = NonNullable<MatchView['home']>
@@ -317,6 +318,7 @@ export function Confirm({
                 setError(null)
                 try {
                   await onConfirm()
+                  play('success')
                   setOpen(false)
                 } catch (cause) {
                   setError((cause as Error).message)
@@ -430,6 +432,7 @@ function Answer({
         accept,
         seen: { result: seen.result, homeWhite: seen.homeWhite },
       })
+      play('success')
       onDone()
     } catch (cause) {
       setError((cause as Error).message)
@@ -536,6 +539,7 @@ function ReportForm({
             setError(null)
             try {
               await api.act('reportResult', { slug, matchId, outcome, white })
+              play('success')
               setOpen(false)
               onDone()
             } catch (cause) {

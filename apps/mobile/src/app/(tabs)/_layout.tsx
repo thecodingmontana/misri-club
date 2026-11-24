@@ -3,8 +3,11 @@ import { Button, useThemeColor } from 'heroui-native'
 import { useCallback, useState } from 'react'
 import { Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useUniwind } from 'uniwind'
 import { Icon, type IconName } from '@/icon'
 import { useSession } from '@/lib/session'
+import { play, saveSoundOn, soundOn } from '@/lib/sound'
+import { saveTheme } from '@/lib/theme'
 
 // The website's MAIN_NAV (apps/web/src/components/nav.ts), same order and icons.
 const TABS: Array<{
@@ -46,6 +49,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           key={tab.name}
           name={tab.name}
+          listeners={{ tabPress: () => play('navigate') }}
           options={{
             title: tab.label,
             tabBarIcon: ({ focused, color }) => (
@@ -66,7 +70,7 @@ export default function TabsLayout() {
   )
 }
 
-/** The website's top bar: Misri in the middle, the inbox and you on the right. */
+/** The website's top bar: theme and sound on the left, Misri, then the inbox and you. */
 function TopBar() {
   const insets = useSafeAreaInsets()
   const { api, me } = useSession()
@@ -80,12 +84,41 @@ function TopBar() {
     }, [api]),
   )
   const label = unread > 0 ? `Inbox, ${unread} unread` : 'Inbox'
+  const { theme } = useUniwind()
+  const [sound, setSound] = useState(soundOn())
   return (
     <View
       className="flex-row items-center bg-background px-3 pb-2"
       style={{ paddingTop: insets.top + 8 }}
     >
-      <View className="flex-1" />
+      <View className="flex-1 flex-row items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          isIconOnly
+          accessibilityLabel="Toggle light and dark theme"
+          onPress={() => {
+            play('tap')
+            void saveTheme(theme === 'dark' ? 'light' : 'dark')
+          }}
+        >
+          <Icon name={theme === 'dark' ? 'Moon' : 'Sun'} size={19} />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          isIconOnly
+          accessibilityLabel="Interface sounds"
+          accessibilityState={{ checked: sound }}
+          onPress={() => {
+            void saveSoundOn(!sound)
+            setSound(!sound)
+            if (!sound) play('tap')
+          }}
+        >
+          <Icon name={sound ? 'Volume' : 'VolumeOff'} size={19} />
+        </Button>
+      </View>
       <Text className="font-display text-2xl uppercase text-foreground">
         Misri
       </Text>
