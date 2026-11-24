@@ -31,11 +31,11 @@ export default function RootLayout() {
 }
 
 /**
- * Signed out: the welcome screens (first launch), then sign-in.
- * Signed in: everything else.
+ * Signed out: the welcome screens (first launch), then sign-in. Signed in but
+ * new: onboarding. Otherwise everything else.
  */
 function Gate() {
-  const { token } = useSession()
+  const { token, me } = useSession()
   const segments = useSegments()
   const [seen, setSeen] = useState<boolean | undefined>(undefined)
   useEffect(() => {
@@ -43,18 +43,29 @@ function Gate() {
   }, [])
   const background = useThemeColor('background')
   const foreground = useThemeColor('foreground')
-  if (token === undefined || seen === undefined) {
+  if (
+    token === undefined ||
+    seen === undefined ||
+    (token && me === undefined)
+  ) {
     return (
       <Screen>
         <Loading />
       </Screen>
     )
   }
-  const signedOutPage = segments[0] === 'sign-in' || segments[0] === 'welcome'
-  if (!token && !signedOutPage) {
-    return <Redirect href={seen ? '/sign-in' : '/welcome'} />
+  const page = segments[0] ?? ''
+  const signedOutPage = ['welcome', 'sign-in', 'verify', 'two-factor'].includes(
+    page,
+  )
+  if (!token || !me) {
+    if (!signedOutPage)
+      return <Redirect href={seen ? '/sign-in' : '/welcome'} />
+  } else if (!me.onboarded) {
+    if (page !== 'onboarding') return <Redirect href="/onboarding" />
+  } else if (signedOutPage || page === 'onboarding') {
+    return <Redirect href="/" />
   }
-  if (token && signedOutPage) return <Redirect href="/" />
   return (
     <>
       <StatusBar style="auto" />
@@ -69,6 +80,9 @@ function Gate() {
       >
         <Stack.Screen name="welcome" options={{ headerShown: false }} />
         <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+        <Stack.Screen name="verify" options={{ headerShown: false }} />
+        <Stack.Screen name="two-factor" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="index" options={{ title: 'Misri' }} />
         <Stack.Screen name="c/[slug]" options={{ title: '' }} />
         <Stack.Screen name="account" options={{ title: 'Account' }} />

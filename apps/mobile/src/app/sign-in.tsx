@@ -1,57 +1,64 @@
-import { Button, Spinner, useThemeColor } from 'heroui-native'
+import { router } from 'expo-router'
+import {
+  Button,
+  Input,
+  Label,
+  Spinner,
+  TextField,
+  useThemeColor,
+} from 'heroui-native'
 import { useState } from 'react'
-import { Text, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Icon } from '@/icon'
-import { useSession } from '@/lib/session'
+import { AuthShell, FormError } from '@/auth-shell'
+import { authClient, authError } from '@/lib/auth'
 
+/** Step 1: your email; we send a 6-digit code to it. */
 export default function SignIn() {
-  const { signIn } = useSession()
   const onAccent = useThemeColor('accent-foreground')
+  const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const valid = /^\S+@\S+\.\S+$/.test(email.trim())
 
-  async function start() {
+  async function send() {
     setBusy(true)
     setError(null)
-    try {
-      await signIn()
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setBusy(false)
-    }
+    const address = email.trim().toLowerCase()
+    const { error } = await authClient.emailOtp.sendVerificationOtp({
+      email: address,
+      type: 'sign-in',
+    })
+    setBusy(false)
+    if (error) return setError(authError(error))
+    router.push({ pathname: '/verify', params: { email: address } })
   }
 
   return (
-    <SafeAreaView className="flex-1 justify-between bg-background p-6">
-      <View className="mt-16 gap-3">
-        <Icon name="Trophy" size={48} />
-        <Text className="text-3xl font-bold text-foreground">
-          Misri Chess Club
-        </Text>
-        <Text className="font-normal text-base text-foreground">
-          Leagues, knockouts and 1v1 challenges for your club.
-        </Text>
-        <Text className="font-normal text-sm text-muted">
-          You sign in on the Misri website, with Google, an emailed link or a
-          passkey, then come straight back here.
-        </Text>
-      </View>
-      <View className="gap-3">
-        <Button size="lg" onPress={start} isDisabled={busy}>
-          {busy ? (
-            <Spinner color={onAccent} />
-          ) : (
-            <Button.Label>Sign in</Button.Label>
-          )}
-        </Button>
-        {error && (
-          <Text className="font-normal text-center text-sm text-danger">
-            {error}
-          </Text>
+    <AuthShell
+      title={['Sign in', 'or join.']}
+      lead="New to Misri? The same code makes your account."
+    >
+      <TextField isInvalid={Boolean(error)}>
+        <Label>Email</Label>
+        <Input
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+          textContentType="emailAddress"
+          returnKeyType="send"
+          onSubmitEditing={() => valid && send()}
+        />
+      </TextField>
+      <FormError message={error} />
+      <Button size="lg" onPress={send} isDisabled={!valid || busy}>
+        {busy ? (
+          <Spinner color={onAccent} />
+        ) : (
+          <Button.Label>Email me a code</Button.Label>
         )}
-      </View>
-    </SafeAreaView>
+      </Button>
+    </AuthShell>
   )
 }
