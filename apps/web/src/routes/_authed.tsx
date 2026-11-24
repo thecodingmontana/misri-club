@@ -1,8 +1,15 @@
-import { createFileRoute, Outlet, redirect } from '@tanstack/react-router'
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useRouter,
+} from '@tanstack/react-router'
 import { useEffect } from 'react'
 import { useRememberDevice } from '#/components/push-device'
+import { keepMine } from '#/lib/pwa'
 import { last } from '#/lib/session-cache'
 import { getSessionFn } from '#/server/auth.functions'
+import { getMyCompetitionsFn } from '#/server/competitions.functions'
 
 // The browser reuses the session it checked for up to five minutes while you
 // move around inside the app (Zadaci's pattern), so opening a page doesn't wait
@@ -45,8 +52,17 @@ export const Route = createFileRoute('/_authed')({
 
 function Signed() {
   useRememberDevice()
+  const router = useRouter()
   useEffect(() => {
     void import('#/lib/sync/powersync').then((sync) => sync.startSync())
-  }, [])
+    // this player's pages, ready for offline
+    navigator.serviceWorker?.ready
+      .then(() =>
+        keepMine(getMyCompetitionsFn, (path) =>
+          router.preloadRoute({ to: path as never }),
+        ),
+      )
+      .catch(() => {})
+  }, [router])
   return <Outlet />
 }
