@@ -3,7 +3,7 @@
 Chess leagues, knockouts, groups and 1v1 challenges for clubs and friends,
 with free training built in.
 
-**Live:** [misri-chess-club.vercel.app](https://misri-chess-club.vercel.app)
+**Live:** [misri-chess-club.vercel.app](https://misri-chess-club.vercel.app) · **Android app:** [misri.apk](https://github.com/thecodingmontana/misri-club/releases/latest/download/misri.apk)
 
 - **Competitions:** round robin (one or two legs), knockouts, groups and
   1v1 challenges, with invite links, join approvals, scoring and leave rules
@@ -33,6 +33,7 @@ A pnpm monorepo:
 | Path | What it is |
 | --- | --- |
 | `apps/web` | The site and installable app (TanStack Start). |
+| `apps/mobile` | The Android app (Expo, React Native). GitHub Actions builds `misri.apk`; tag `mobile-v*` to publish a release. |
 | `apps/api` | The API: Hono with GraphQL Yoga at `/graphql`, its own Vercel project. |
 | `packages/core` | Shared reads, rules and every write (`actions.ts`): access, standings, brackets, round robin. |
 | `packages/db` | The Drizzle schema and database client. |
@@ -53,6 +54,24 @@ pnpm dev              # http://localhost:3005
 
 Without `RESEND_API_KEY`, sign-in links are printed in the terminal instead
 of emailed. Run the API with `pnpm --filter @misri/api dev` (port 8787).
+
+## Mobile app
+
+`apps/mobile` is an Expo (React Native) app that reads and writes through the
+API with `packages/api-client`. Signing in happens on the website: the app
+opens `/app-sign-in` with a PKCE challenge, the player confirms, and the app
+trades the one-time code at `/api/app/token` for its own session.
+
+```bash
+pnpm --filter @misri/mobile start     # Expo dev server
+pnpm --filter @misri/mobile bundle    # check the Android bundle builds
+```
+
+The **Android app** workflow builds the APK on pull requests that touch the
+app and publishes a GitHub Release for tags like `mobile-v0.1.0`. Release
+signing uses the secrets `ANDROID_KEYSTORE_BASE64`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`;
+without them the APK is debug-signed.
 
 ## API
 

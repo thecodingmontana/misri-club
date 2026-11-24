@@ -4,10 +4,12 @@
  * same; swap a glyph here and it changes everywhere.
  */
 
+export { default as Android } from '~icons/hugeicons/android'
 export { default as ChevronDown } from '~icons/hugeicons/arrow-down-01'
 export { default as ChevronUp } from '~icons/hugeicons/arrow-up-01'
 export { default as Diamond } from '~icons/hugeicons/diamond'
 export { default as Loader } from '~icons/hugeicons/loading-03'
+export { default as Smartphone } from '~icons/hugeicons/smartphone'
 export { default as Check } from '~icons/hugeicons/tick-02'
 export { default as Plus } from '~icons/solar/add-circle-bold'
 export { default as PlusOutline } from '~icons/solar/add-circle-linear'
