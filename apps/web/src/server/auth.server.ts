@@ -1,5 +1,6 @@
 import { createAuth } from '@misri/auth'
 import { APIError } from 'better-auth/api'
+import { jwt } from 'better-auth/plugins'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
 import { createElement } from 'react'
 import MagicLinkEmail from '#/emails/magic-link'
@@ -31,5 +32,24 @@ export const auth = createAuth({
       throw new APIError('BAD_REQUEST', { message: error.message })
     })
   },
-  plugins: [tanstackStartCookies()], // must stay last
+  plugins: [
+    // tokens for PowerSync (local-first sync): only the user id, for 15
+    // minutes, for this one audience; the app fetches one at /api/auth/token
+    ...(process.env.POWERSYNC_URL
+      ? [
+          jwt({
+            // RS256: the algorithm every JWT verifier (PowerSync included) accepts
+            jwks: { keyPairConfig: { alg: 'RS256', modulusLength: 2048 } },
+            jwt: {
+              audience: process.env.POWERSYNC_URL,
+              expirationTime: '15m',
+              definePayload: () => ({}),
+            },
+            // only /api/auth/token hands one out, not every session check
+            disableSettingJwtHeader: true,
+          }),
+        ]
+      : []),
+    tanstackStartCookies(), // must stay last
+  ],
 })
