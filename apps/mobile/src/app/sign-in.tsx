@@ -15,14 +15,18 @@ import { GoogleLogo } from '@/google-logo'
 import { Icon } from '@/icon'
 import { authClient, authError, signInWithGoogle } from '@/lib/auth'
 import { SITE_URL } from '@/lib/config'
-import { signInWithPasskey } from '@/lib/passkey'
+import { signInWithPasskey, usePasskeys } from '@/lib/passkey'
 import { useSession } from '@/lib/session'
 
 type Busy = 'google' | 'passkey' | 'email' | null
 
-/** Sign in like on the website: Google, an emailed code, or a passkey. */
+/**
+ * Sign in like on the website: Google, an emailed code, or a passkey (shown
+ * only where this phone's passkeys work).
+ */
 export default function SignIn() {
   const { refresh } = useSession()
+  const passkeys = usePasskeys()
   const onAccent = useThemeColor('accent-foreground')
   const [withEmail, setWithEmail] = useState(false)
   const [email, setEmail] = useState('')
@@ -46,6 +50,12 @@ export default function SignIn() {
     const result = await signInWithPasskey()
     setBusy(null)
     if (result === null) return refresh()
+    if (result === 'unavailable') {
+      passkeys.giveUp()
+      return setError(
+        "Passkeys don't work on this phone yet. Continue with Google or your email.",
+      )
+    }
     if (result !== 'cancelled') setError(result)
   }
 
@@ -126,19 +136,21 @@ export default function SignIn() {
             <Icon name="Mail" size={18} />
             <Button.Label>Continue with email</Button.Label>
           </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            onPress={passkey}
-            isDisabled={busy !== null}
-          >
-            {busy === 'passkey' ? (
-              <Spinner />
-            ) : (
-              <Icon name="KeyRound" size={18} />
-            )}
-            <Button.Label>Sign in with a passkey</Button.Label>
-          </Button>
+          {passkeys.usable && (
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={passkey}
+              isDisabled={busy !== null}
+            >
+              {busy === 'passkey' ? (
+                <Spinner />
+              ) : (
+                <Icon name="KeyRound" size={18} />
+              )}
+              <Button.Label>Sign in with a passkey</Button.Label>
+            </Button>
+          )}
           <FormError message={error} />
         </>
       )}

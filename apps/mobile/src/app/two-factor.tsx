@@ -15,7 +15,7 @@ import { View } from 'react-native'
 import { AuthShell, FormError } from '@/auth-shell'
 import { Icon } from '@/icon'
 import { authClient, authError } from '@/lib/auth'
-import { signInWithPasskey } from '@/lib/passkey'
+import { signInWithPasskey, usePasskeys } from '@/lib/passkey'
 import { useSession } from '@/lib/session'
 
 /**
@@ -26,13 +26,18 @@ export default function TwoFactor() {
   const { methods = '' } = useLocalSearchParams<{ methods?: string }>()
   const { refresh } = useSession()
   const onAccent = useThemeColor('accent-foreground')
-  const [backup, setBackup] = useState(false)
+  // no authenticator app (a passkey-only account): backup codes are the way
+  const [backup, setBackup] = useState(
+    () => Boolean(methods) && !methods.includes('totp'),
+  )
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [trustDevice, setTrustDevice] = useState(false)
   const hasTotp = !methods || methods.includes('totp')
-  const hasPasskey = !methods || methods.includes('passkey')
+  const passkeys = usePasskeys()
+  const hasPasskey =
+    passkeys.usable && (!methods || methods.includes('passkey'))
 
   async function passkey() {
     setBusy(true)
@@ -40,6 +45,13 @@ export default function TwoFactor() {
     const result = await signInWithPasskey()
     setBusy(false)
     if (result === null) return refresh()
+    if (result === 'unavailable') {
+      passkeys.giveUp()
+      setBackup(true)
+      return setError(
+        "Passkeys don't work on this phone yet. Use a backup code instead.",
+      )
+    }
     if (result !== 'cancelled') setError(result)
   }
 
@@ -67,7 +79,7 @@ export default function TwoFactor() {
     </Button>
   )
 
-  if (!hasTotp) {
+  if (!hasTotp && hasPasskey) {
     return (
       <AuthShell
         title={['Two-step', 'verification.']}
@@ -152,19 +164,21 @@ export default function TwoFactor() {
         <Label>Trust this device for 30 days</Label>
       </ControlField>
       {hasPasskey && passkeyButton('Use a passkey instead')}
-      <Button
-        variant="ghost"
-        size="sm"
-        onPress={() => {
-          setBackup(!backup)
-          setCode('')
-          setError(null)
-        }}
-      >
-        {backup
-          ? 'Use your authenticator app instead'
-          : 'Use a backup code instead'}
-      </Button>
+      {hasTotp && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onPress={() => {
+            setBackup(!backup)
+            setCode('')
+            setError(null)
+          }}
+        >
+          {backup
+            ? 'Use your authenticator app instead'
+            : 'Use a backup code instead'}
+        </Button>
+      )}
     </AuthShell>
   )
 }
