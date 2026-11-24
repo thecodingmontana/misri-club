@@ -91,6 +91,7 @@ function Gate() {
           options={{ title: 'New competition' }}
         />
         <Stack.Screen name="c/[slug]" options={{ title: '' }} />
+        <Stack.Screen name="p/[username]" options={{ title: '' }} />
         <Stack.Screen name="account" options={{ title: 'Account' }} />
       </Stack>
     </>

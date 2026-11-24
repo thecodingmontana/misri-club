@@ -32,3 +32,15 @@ const dateFormatter = new Intl.DateTimeFormat('en', {
 
 export const formatDate = (input: number | string | Date) =>
   dateFormatter.format(new Date(input))
+
+/** Time left on a deadline: "2d 4h", "3h 12m", "8m", "closed". */
+export function countdown(msRemaining: number): string {
+  if (msRemaining <= 0) return 'closed'
+  const minutes = Math.floor(msRemaining / 60000)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+  if (days > 0) return `${days}d ${hours % 24}h`
+  if (hours > 0) return `${hours}h ${minutes % 60}m`
+  if (minutes > 0) return `${minutes}m`
+  return 'now'
+}
