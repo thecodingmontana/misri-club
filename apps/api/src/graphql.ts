@@ -38,6 +38,8 @@ const typeDefs = /* GraphQL */ `
     id: ID!
     name: String!
     chessUsername: String
+    "finished onboarding: linked chess.com or chose to skip it"
+    onboarded: Boolean!
   }
 
   type CompetitionSummary {
@@ -141,12 +143,16 @@ export const schema = createSchema<Context>({
             id: user.id,
             name: user.name,
             chessUsername: chessAccounts.username,
+            onboardedAt: user.onboardedAt,
           })
           .from(user)
           .leftJoin(chessAccounts, eq(chessAccounts.userId, user.id))
           .where(eq(user.id, context.viewer.id))
           .limit(1)
-        return row ?? null
+        if (!row) return null
+        // the web app's rule (apps/web/src/server/auth.functions.ts)
+        const { onboardedAt, ...me } = row
+        return { ...me, onboarded: Boolean(me.chessUsername || onboardedAt) }
       },
       myCompetitions: (_, __, context) =>
         listMyCompetitions(signedIn(context).id),

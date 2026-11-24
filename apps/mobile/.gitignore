@@ -5,3 +5,4 @@ android
 ios
 expo-env.d.ts
 *.keystore
+dist-web

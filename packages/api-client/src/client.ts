@@ -27,7 +27,12 @@ export type PlayerPage = NonNullable<Awaited<ReturnType<typeof getPlayer>>>
 type Result<F extends (...args: never[]) => unknown> = Awaited<ReturnType<F>>
 export type InboxItem = Result<typeof inbox>[number]
 
-export type Me = { id: string; name: string; chessUsername: string | null }
+export type Me = {
+  id: string
+  name: string
+  chessUsername: string | null
+  onboarded: boolean
+}
 
 export interface ApiClientOptions {
   /** e.g. https://misri-api.vercel.app */
@@ -88,7 +93,11 @@ export function createApiClient(options: ApiClientOptions) {
   }
   return {
     me: async () =>
-      (await query<{ me: Me | null }>('{ me { id name chessUsername } }')).me,
+      (
+        await query<{ me: Me | null }>(
+          '{ me { id name chessUsername onboarded } }',
+        )
+      ).me,
     myCompetitions: async () =>
       (
         await query<{ myCompetitions: CompetitionSummary[] }>(

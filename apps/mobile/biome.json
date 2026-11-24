@@ -11,7 +11,8 @@
       "**/src/**/*",
       "**/scripts/**/*",
       "!**/src/icons.generated.ts",
-      "!**/src/uniwind-types.d.ts"
+      "!**/src/uniwind-types.d.ts",
+      "!**/src/global.css"
     ]
   },
   "formatter": {

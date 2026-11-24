@@ -28,7 +28,8 @@
       "expo-router",
       "expo-web-browser",
       "expo-secure-store",
-      "./plugins/with-release-signing"
+      "./plugins/with-release-signing",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

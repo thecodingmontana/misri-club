@@ -1,4 +1,6 @@
+import '../web-preview'
 import '../global.css'
+import { useFonts } from 'expo-font'
 import { Redirect, Stack, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { HeroUINativeProvider, useThemeColor } from 'heroui-native'
@@ -9,6 +11,14 @@ import { introSeen } from '@/lib/intro'
 import { SessionProvider, useSession } from '@/lib/session'
 
 export default function RootLayout() {
+  const [fontsReady] = useFonts({
+    'Bricolage-Regular': require('../../assets/fonts/Bricolage-Regular.ttf'),
+    'Bricolage-Medium': require('../../assets/fonts/Bricolage-Medium.ttf'),
+    'Bricolage-SemiBold': require('../../assets/fonts/Bricolage-SemiBold.ttf'),
+    'Bricolage-Bold': require('../../assets/fonts/Bricolage-Bold.ttf'),
+    'BricolageCondensed-ExtraBold': require('../../assets/fonts/BricolageCondensed-ExtraBold.ttf'),
+  })
+  if (!fontsReady) return null
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <HeroUINativeProvider>
@@ -21,11 +31,11 @@ export default function RootLayout() {
 }
 
 /**
- * Signed out: the welcome screens (first launch), then sign-in.
- * Signed in: everything else.
+ * Signed out: the welcome screens (first launch), then sign-in. Signed in but
+ * new: onboarding. Otherwise everything else.
  */
 function Gate() {
-  const { token } = useSession()
+  const { token, me } = useSession()
   const segments = useSegments()
   const [seen, setSeen] = useState<boolean | undefined>(undefined)
   useEffect(() => {
@@ -33,18 +43,29 @@ function Gate() {
   }, [])
   const background = useThemeColor('background')
   const foreground = useThemeColor('foreground')
-  if (token === undefined || seen === undefined) {
+  if (
+    token === undefined ||
+    seen === undefined ||
+    (token && me === undefined)
+  ) {
     return (
       <Screen>
         <Loading />
       </Screen>
     )
   }
-  const signedOutPage = segments[0] === 'sign-in' || segments[0] === 'welcome'
-  if (!token && !signedOutPage) {
-    return <Redirect href={seen ? '/sign-in' : '/welcome'} />
+  const page = segments[0] ?? ''
+  const signedOutPage = ['welcome', 'sign-in', 'verify', 'two-factor'].includes(
+    page,
+  )
+  if (!token || !me) {
+    if (!signedOutPage)
+      return <Redirect href={seen ? '/sign-in' : '/welcome'} />
+  } else if (!me.onboarded) {
+    if (page !== 'onboarding') return <Redirect href="/onboarding" />
+  } else if (signedOutPage || page === 'onboarding') {
+    return <Redirect href="/" />
   }
-  if (token && signedOutPage) return <Redirect href="/" />
   return (
     <>
       <StatusBar style="auto" />
@@ -52,12 +73,16 @@ function Gate() {
         screenOptions={{
           headerStyle: { backgroundColor: background },
           headerTintColor: foreground,
+          headerTitleStyle: { fontFamily: 'Bricolage-Bold' },
           headerShadowVisible: false,
           contentStyle: { backgroundColor: background },
         }}
       >
         <Stack.Screen name="welcome" options={{ headerShown: false }} />
         <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+        <Stack.Screen name="verify" options={{ headerShown: false }} />
+        <Stack.Screen name="two-factor" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="index" options={{ title: 'Misri' }} />
         <Stack.Screen name="c/[slug]" options={{ title: '' }} />
         <Stack.Screen name="account" options={{ title: 'Account' }} />

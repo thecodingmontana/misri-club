@@ -4,57 +4,71 @@
 
 /* Misri's palette (the website's apps/web/src/styles.css) on HeroUI's tokens */
 @layer theme {
-  @variant light {
-    --background: #fbf8e6;
-    --foreground: #1f4d3a;
-    --muted: #587463;
-    --surface: #f0f2e1;
-    --surface-foreground: #1f4d3a;
-    --surface-secondary: #e6ebd5;
-    --surface-secondary-foreground: #1f4d3a;
-    --surface-tertiary: #dfe3cc;
-    --surface-tertiary-foreground: #1f4d3a;
-    --overlay: #fffdf2;
-    --overlay-foreground: #1f4d3a;
-    --default: #e6ebd5;
-    --default-foreground: #1f4d3a;
-    --accent: #2b7350;
-    --accent-foreground: #ffffff;
-    --field-background: #fffdf2;
-    --field-foreground: #1f4d3a;
-    --field-placeholder: #587463;
-    --segment: #fffdf2;
-    --segment-foreground: #1f4d3a;
-    --danger: #c2412f;
-    --danger-foreground: #ffffff;
-    --border: #dfe3cc;
-    --link: #2b7350;
-  }
+  /* inside :root like heroui-native's own, or native builds drop them */
+  :root {
+    @variant light {
+      --background: #fbf8e6;
+      --foreground: #1f4d3a;
+      --muted: #587463;
+      --surface: #f0f2e1;
+      --surface-foreground: #1f4d3a;
+      --surface-secondary: #e6ebd5;
+      --surface-secondary-foreground: #1f4d3a;
+      --surface-tertiary: #dfe3cc;
+      --surface-tertiary-foreground: #1f4d3a;
+      --overlay: #fffdf2;
+      --overlay-foreground: #1f4d3a;
+      --default: #e6ebd5;
+      --default-foreground: #1f4d3a;
+      --accent: #2b7350;
+      --accent-foreground: #ffffff;
+      --field-background: #fffdf2;
+      --field-foreground: #1f4d3a;
+      --field-placeholder: #587463;
+      --segment: #fffdf2;
+      --segment-foreground: #1f4d3a;
+      --danger: #c2412f;
+      --danger-foreground: #ffffff;
+      --border: #dfe3cc;
+      --link: #2b7350;
+    }
 
-  @variant dark {
-    --background: #0e100e;
-    --foreground: #eceeea;
-    --muted: #9ba59b;
-    --surface: #191c19;
-    --surface-foreground: #eceeea;
-    --surface-secondary: #232823;
-    --surface-secondary-foreground: #eceeea;
-    --surface-tertiary: #2a2f2a;
-    --surface-tertiary-foreground: #eceeea;
-    --overlay: #1d211d;
-    --overlay-foreground: #eceeea;
-    --default: #232823;
-    --default-foreground: #eceeea;
-    --accent: #5fbf6a;
-    --accent-foreground: #0e100e;
-    --field-background: #191c19;
-    --field-foreground: #eceeea;
-    --field-placeholder: #9ba59b;
-    --segment: #2a2f2a;
-    --segment-foreground: #eceeea;
-    --danger: #f0705e;
-    --danger-foreground: #0e100e;
-    --border: #2a2f2a;
-    --link: #5fbf6a;
+    @variant dark {
+      --background: #0e100e;
+      --foreground: #eceeea;
+      --muted: #9ba59b;
+      --surface: #191c19;
+      --surface-foreground: #eceeea;
+      --surface-secondary: #232823;
+      --surface-secondary-foreground: #eceeea;
+      --surface-tertiary: #2a2f2a;
+      --surface-tertiary-foreground: #eceeea;
+      --overlay: #1d211d;
+      --overlay-foreground: #eceeea;
+      --default: #232823;
+      --default-foreground: #eceeea;
+      --accent: #5fbf6a;
+      --accent-foreground: #0e100e;
+      --field-background: #191c19;
+      --field-foreground: #eceeea;
+      --field-placeholder: #9ba59b;
+      --segment: #2a2f2a;
+      --segment-foreground: #eceeea;
+      --danger: #f0705e;
+      --danger-foreground: #0e100e;
+      --border: #2a2f2a;
+      --link: #5fbf6a;
+    }
   }
+}
+
+/* The website's typeface, Bricolage Grotesque (OFL, assets/fonts), loaded in
+   app/_layout.tsx. HeroUI's components read the four weights; font-display is
+   the site's condensed headline cut. */
+@theme {
+  --font-normal: "Bricolage-Regular";
+  --font-medium: "Bricolage-Medium";
+  --font-semibold: "Bricolage-SemiBold";
+  --font-bold: "Bricolage-Bold";
+  --font-display: "BricolageCondensed-ExtraBold";
 }

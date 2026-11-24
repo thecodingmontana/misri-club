@@ -11,6 +11,7 @@
     "test": "node --test --experimental-strip-types 'src/**/*.test.ts'"
   },
   "dependencies": {
+    "@better-auth/expo": "1.7.18",
     "@better-auth/passkey": "1.7.18",
     "@misri/core": "workspace:*",
     "@misri/db": "workspace:*",

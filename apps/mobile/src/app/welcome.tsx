@@ -1,34 +1,56 @@
+import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
-import { Button } from 'heroui-native'
+import { Button, useThemeColor } from 'heroui-native'
 import { useRef, useState } from 'react'
-import { FlatList, Text, useWindowDimensions, View } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import {
+  FlatList,
+  ImageBackground,
+  type ImageSourcePropType,
+  Pressable,
+  Text,
+  View,
+} from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icon } from '@/icon'
-import type { IconName } from '@/icons.generated'
 import { markIntroSeen } from '@/lib/intro'
 
-const SLIDES: Array<{ icon: IconName; title: string; body: string }> = [
+// Photos from Unsplash (downloaded through its API, credited on each slide).
+const SLIDES: Array<{
+  photo: ImageSourcePropType
+  credit: string
+  title: [string, string]
+  lead: string
+  rest: string
+}> = [
   {
-    icon: 'Trophy',
-    title: 'Run your club’s chess',
-    body: 'Leagues, knockouts, groups and 1v1 challenges. Share an invite link and the fixtures, deadlines and table look after themselves.',
+    photo: require('../../assets/welcome/welcome-1.jpg'),
+    credit: 'Mesh',
+    title: ['Run the', 'league.'],
+    lead: 'Leagues, knockouts and 1v1s',
+    rest: ' for your club. Share one invite code; fixtures, deadlines and the table look after themselves.',
   },
   {
-    icon: 'CheckCircle',
-    title: 'Results without the chasing',
-    body: 'Play on chess.com and Misri finds your games. Playing over the board? Report the result and your opponent confirms it.',
+    photo: require('../../assets/welcome/welcome-2.jpg'),
+    credit: 'Eugene Chystiakov',
+    title: ['We keep', 'the score.'],
+    lead: 'Misri finds your chess.com games.',
+    rest: ' Over the board? Report the result and your opponent confirms it.',
   },
   {
-    icon: 'TrainFilled',
-    title: 'Train between rounds',
-    body: 'Puzzles by theme, opening courses, famous master games and Stockfish, all running on your phone.',
+    photo: require('../../assets/welcome/welcome-3.jpg'),
+    credit: 'Dipesh Shrestha',
+    title: ['Sharpen', 'your game.'],
+    lead: 'Puzzles, openings and master games,',
+    rest: ' with Stockfish running right on your phone.',
   },
 ]
 
-/** First launch: what Misri is, three screens, then sign-in. */
+/** First launch: what Misri is, in three full-screen photos, then sign-in. */
 export default function Welcome() {
-  const { width } = useWindowDimensions()
+  const insets = useSafeAreaInsets()
+  const onAccent = useThemeColor('accent-foreground')
   const list = useRef<FlatList>(null)
+  const [size, setSize] = useState({ width: 0, height: 0 })
   const [page, setPage] = useState(0)
   const last = page === SLIDES.length - 1
 
@@ -38,58 +60,113 @@ export default function Welcome() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-row justify-end px-4 pt-2">
-        {!last && (
-          <Button variant="ghost" size="sm" onPress={done}>
+    <View
+      className="flex-1 bg-black"
+      onLayout={(e) => setSize(e.nativeEvent.layout)}
+    >
+      {size.width > 0 && (
+        <FlatList
+          ref={list}
+          data={SLIDES}
+          keyExtractor={(slide) => slide.credit}
+          horizontal
+          pagingEnabled
+          bounces={false}
+          showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={32}
+          onScroll={(e) =>
+            setPage(Math.round(e.nativeEvent.contentOffset.x / size.width))
+          }
+          renderItem={({ item }) => (
+            <ImageBackground
+              source={item.photo}
+              resizeMode="cover"
+              style={{ width: size.width, height: size.height }}
+              accessibilityIgnoresInvertColors
+            >
+              {/* darker at the top and bottom, so the words read on any photo */}
+              <LinearGradient
+                colors={[
+                  'rgba(0,0,0,0.45)',
+                  'rgba(0,0,0,0.1)',
+                  'rgba(0,0,0,0.6)',
+                  'rgba(0,0,0,0.9)',
+                ]}
+                locations={[0, 0.2, 0.5, 1]}
+                style={{
+                  flex: 1,
+                  paddingTop: insets.top + 44,
+                  paddingBottom: insets.bottom + 132,
+                }}
+                className="justify-end px-6"
+              >
+                <View className="gap-3">
+                  <Text className="font-display text-6xl uppercase leading-[56px] text-white">
+                    {item.title[0]}
+                    {'\n'}
+                    <Text className="text-accent">{item.title[1]}</Text>
+                  </Text>
+                  <Text className="font-normal text-base leading-6 text-white/80">
+                    <Text className="font-bold text-white">{item.lead}</Text>
+                    {item.rest}
+                  </Text>
+                  <Text className="font-normal text-[10px] text-white/50">
+                    Photo: {item.credit} / Unsplash
+                  </Text>
+                </View>
+              </LinearGradient>
+            </ImageBackground>
+          )}
+        />
+      )}
+
+      {/* over the photos: progress and Skip, then the main button */}
+      <View
+        className="absolute right-0 left-0 flex-row items-center gap-2 px-6"
+        style={{ top: insets.top + 12 }}
+      >
+        {SLIDES.map((slide, i) => (
+          <View
+            key={slide.credit}
+            className={`h-1 flex-1 rounded-full ${
+              i <= page ? 'bg-white' : 'bg-white/30'
+            }`}
+          />
+        ))}
+        <Pressable
+          accessibilityRole="button"
+          onPress={done}
+          hitSlop={12}
+          className="ml-3"
+          disabled={last}
+        >
+          <Text
+            className="font-bold text-sm text-white"
+            style={{ opacity: last ? 0 : 1 }}
+          >
             Skip
+          </Text>
+        </Pressable>
+      </View>
+
+      <View
+        className="absolute right-0 left-0 gap-3 px-6"
+        style={{ bottom: insets.bottom + 20 }}
+      >
+        {/* swipe between the screens; the button only on the last */}
+        {last && (
+          <Button size="lg" onPress={done}>
+            <Button.Label>Get started</Button.Label>
+            <Icon name="ChevronRight" color={onAccent} />
           </Button>
         )}
+        <Pressable accessibilityRole="link" onPress={done} hitSlop={8}>
+          <Text className="text-center font-normal text-sm text-white/70">
+            Already a member?{' '}
+            <Text className="font-bold text-white">Sign in</Text>
+          </Text>
+        </Pressable>
       </View>
-      <FlatList
-        ref={list}
-        data={SLIDES}
-        keyExtractor={(slide) => slide.title}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(event) =>
-          setPage(Math.round(event.nativeEvent.contentOffset.x / width))
-        }
-        renderItem={({ item }) => (
-          <View style={{ width }} className="flex-1 justify-center gap-5 px-8">
-            <View className="size-24 items-center justify-center rounded-3xl bg-surface">
-              <Icon name={item.icon} size={52} />
-            </View>
-            <Text className="text-3xl font-bold text-foreground">
-              {item.title}
-            </Text>
-            <Text className="text-base leading-6 text-muted">{item.body}</Text>
-          </View>
-        )}
-      />
-      <View className="gap-6 px-6 pb-6">
-        <View className="flex-row justify-center gap-2">
-          {SLIDES.map((slide, i) => (
-            <View
-              key={slide.title}
-              className={`h-2 rounded-full ${
-                i === page ? 'w-6 bg-accent' : 'w-2 bg-border'
-              }`}
-            />
-          ))}
-        </View>
-        <Button
-          size="lg"
-          onPress={() => {
-            if (last) return void done()
-            list.current?.scrollToIndex({ index: page + 1 })
-            setPage(page + 1)
-          }}
-        >
-          {last ? 'Get started' : 'Next'}
-        </Button>
-      </View>
-    </SafeAreaView>
+    </View>
   )
 }

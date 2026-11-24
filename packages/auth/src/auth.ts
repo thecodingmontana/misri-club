@@ -1,3 +1,4 @@
+import { expo } from '@better-auth/expo'
 import { passkey } from '@better-auth/passkey'
 import { takeAllowance } from '@misri/core/rate-limit'
 import { db } from '@misri/db/client'
@@ -12,13 +13,14 @@ import {
 } from 'better-auth/api'
 import { deleteSessionCookie } from 'better-auth/cookies'
 import { generateRandomString } from 'better-auth/crypto'
-import { bearer, magicLink, twoFactor } from 'better-auth/plugins'
+import { bearer, emailOTP, magicLink, twoFactor } from 'better-auth/plugins'
 import type { BetterAuthPlugin } from 'better-auth/types'
 import { eq } from 'drizzle-orm'
 import { cleanName } from './name.ts'
 
 /**
- * Accounts: Google, an emailed sign-in link and passkeys, with optional
+ * Accounts: Google, an emailed sign-in link (a 6-digit code in the Android
+ * app) and passkeys, with optional
  * two-step verification (authenticator app or passkey, plus backup codes).
  * One setup for every app: the web app signs people in (its pages finish the
  * emailed-link and two-step flows); the API checks the same sessions. Sign-in
@@ -35,6 +37,32 @@ const MAGIC_LINKS_PER_DAY = 100
 const DAY_MS = 24 * 60 * 60 * 1000
 const MAGIC_LINKS_PER_HOUR = 5
 const FRESH_MINUTES = 10
+
+/** Sign-in emails (links and codes) per address and per day, or a refusal. */
+async function limitSignInEmails(email: string) {
+  // per address as well as per IP: nobody floods one inbox or our quota
+  const allowed = await takeAllowance(
+    `magic-link:${email.toLowerCase()}`,
+    1,
+    MAGIC_LINKS_PER_HOUR,
+    60 * 60 * 1000,
+  )
+  if (!allowed) {
+    throw new APIError('TOO_MANY_REQUESTS', {
+      message:
+        'Too many sign-in emails for this address. Use the last one sent, or try again in an hour.',
+    })
+  }
+  // and overall: random addresses from many IPs would still drain the quota
+  if (
+    !(await takeAllowance('magic-link:all', 1, MAGIC_LINKS_PER_DAY, DAY_MS))
+  ) {
+    throw new APIError('TOO_MANY_REQUESTS', {
+      message:
+        'Sign-in emails are paused for today. Try again tomorrow, or continue with Google or a passkey on the website.',
+    })
+  }
+}
 
 function requireEnv(name: string): string {
   const value = process.env[name]
@@ -155,6 +183,12 @@ export interface AuthOptions<P extends BetterAuthPlugin[]> {
     url: string,
     minutes: number,
   ) => Promise<boolean>
+  /** Sends the app's 6-digit sign-in code; false when it couldn't. */
+  sendSignInCode?: (
+    email: string,
+    code: string,
+    minutes: number,
+  ) => Promise<boolean>
   /** Account deletion runs this first; without it, deletion is off here. */
   beforeDeleteUser?: (user: { id: string }) => Promise<void>
   /** The app's own plugins, after the shared ones (a cookie plugin goes last). */
@@ -164,7 +198,7 @@ export interface AuthOptions<P extends BetterAuthPlugin[]> {
 export function createAuth<P extends BetterAuthPlugin[] = []>(
   options: AuthOptions<P> = {},
 ) {
-  const { sendMagicLink, beforeDeleteUser } = options
+  const { sendMagicLink, sendSignInCode, beforeDeleteUser } = options
   return betterAuth({
     appName: SITE_NAME,
     secret: requireEnv('BETTER_AUTH_SECRET'),
@@ -173,6 +207,8 @@ export function createAuth<P extends BetterAuthPlugin[] = []>(
       ? requireEnv('BETTER_AUTH_URL')
       : process.env.BETTER_AUTH_URL,
     database: drizzleAdapter(db, { provider: 'pg', schema }),
+    // the Android app (apps/mobile), through the Expo plugin below
+    trustedOrigins: ['misri://'],
     advanced: {
       database: { generateId: () => generateNanoId() },
       useSecureCookies: production, // HTTPS-only __Secure- cookies
@@ -186,6 +222,8 @@ export function createAuth<P extends BetterAuthPlugin[] = []>(
         '/two-factor/verify-totp': { window: 60, max: 5 },
         '/two-factor/verify-backup-code': { window: 60, max: 5 },
         '/sign-in/magic-link': { window: 60, max: 3 },
+        '/email-otp/send-verification-otp': { window: 60, max: 3 },
+        '/sign-in/email-otp': { window: 60, max: 5 },
       },
     },
     // A Google sign-in joins an email-link account only when Google says the
@@ -250,9 +288,11 @@ export function createAuth<P extends BetterAuthPlugin[] = []>(
       // Better Auth only asks for the second step after a password sign-in; do
       // the same after Google and after an emailed link, so neither skips it.
       after: createAuthMiddleware(async (ctx) => {
+        const inApp = ctx.path === '/sign-in/email-otp'
         if (
           !ctx.path.startsWith('/callback/') &&
-          ctx.path !== '/magic-link/verify'
+          ctx.path !== '/magic-link/verify' &&
+          !inApp
         ) {
           return
         }
@@ -289,6 +329,8 @@ export function createAuth<P extends BetterAuthPlugin[] = []>(
           ctx.context.secret,
           twoFactorCookie.attributes,
         )
+        // the app asks for the code itself; the website has its page
+        if (inApp) return ctx.json({ twoFactorRedirect: true, methods })
         throw ctx.redirect(`/auth/two-factor?methods=${methods.join(',')}`)
       }),
     },
@@ -309,33 +351,7 @@ export function createAuth<P extends BetterAuthPlugin[] = []>(
               message: 'Sign in on the Misri website.',
             })
           }
-          // per address as well as per IP: nobody floods one inbox or our quota
-          const allowed = await takeAllowance(
-            `magic-link:${email.toLowerCase()}`,
-            1,
-            MAGIC_LINKS_PER_HOUR,
-            60 * 60 * 1000,
-          )
-          if (!allowed) {
-            throw new APIError('TOO_MANY_REQUESTS', {
-              message:
-                'Too many sign-in links for this email. Use the last one sent, or try again in an hour.',
-            })
-          }
-          // and overall: random addresses from many IPs would still drain the quota
-          if (
-            !(await takeAllowance(
-              'magic-link:all',
-              1,
-              MAGIC_LINKS_PER_DAY,
-              DAY_MS,
-            ))
-          ) {
-            throw new APIError('TOO_MANY_REQUESTS', {
-              message:
-                'Sign-in links are paused for today. Continue with Google or a passkey.',
-            })
-          }
+          await limitSignInEmails(email)
           if (await sendMagicLink(email, url, MAGIC_LINK_MINUTES)) return
           // local development without Resend: the link goes to the terminal
           if (
@@ -350,6 +366,35 @@ export function createAuth<P extends BetterAuthPlugin[] = []>(
           )
         },
       }),
+      // "Email me a code", for the Android app: 6 digits, stored hashed,
+      // valid 10 minutes, 5 tries; same per-address and daily caps as links
+      emailOTP({
+        otpLength: 6,
+        expiresIn: MAGIC_LINK_MINUTES * 60,
+        allowedAttempts: 5,
+        storeOTP: 'hashed',
+        sendVerificationOTP: async ({ email, otp, type }) => {
+          if (type !== 'sign-in' || !sendSignInCode) {
+            throw new APIError('NOT_FOUND', {
+              message: 'Sign in with a code from the Misri app.',
+            })
+          }
+          await limitSignInEmails(email)
+          if (await sendSignInCode(email, otp, MAGIC_LINK_MINUTES)) return
+          if (
+            !process.env.RESEND_API_KEY &&
+            process.env.NODE_ENV !== 'production'
+          ) {
+            console.info(`[auth] sign-in code for ${email}: ${otp}`)
+            return
+          }
+          throw new Error(
+            "Couldn't send the sign-in email. Try again in a moment.",
+          )
+        },
+      }),
+      // the app's requests: its scheme as their origin, cookies kept on the phone
+      expo(),
       // signed tokens only: a session token alone (say, read from a database
       // backup) isn't enough without BETTER_AUTH_SECRET
       bearer({ requireSignature: true }),

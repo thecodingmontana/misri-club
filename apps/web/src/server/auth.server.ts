@@ -4,6 +4,7 @@ import { jwt } from 'better-auth/plugins'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
 import { createElement } from 'react'
 import MagicLinkEmail from '#/emails/magic-link'
+import SignInCodeEmail from '#/emails/sign-in-code'
 import { SITE_NAME, SITE_URL } from '#/lib/seo'
 import { sendEmail } from './email.server'
 
@@ -21,6 +22,16 @@ export const auth = createAuth({
       createElement(MagicLinkEmail, {
         link: url,
         baseUrl: SITE_URL || new URL(url).origin,
+        minutes,
+      }),
+    ),
+  sendSignInCode: (email, code, minutes) =>
+    sendEmail(
+      email,
+      `${code} is your ${SITE_NAME} sign-in code`,
+      createElement(SignInCodeEmail, {
+        code,
+        baseUrl: SITE_URL || 'https://misri-chess-club.vercel.app',
         minutes,
       }),
     ),
