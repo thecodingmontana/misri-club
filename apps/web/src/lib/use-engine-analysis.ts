@@ -137,10 +137,15 @@ export function useEngineAnalysis() {
           if (engine.current !== current) return
           writeStored(game.chessComUrl, scores)
           queryClient.setQueryData(queryKey(game.chessComUrl), scores)
-          // for the player's other devices; signed out or offline, this browser still has it
-          saveAnalysisFn({ data: { url: game.chessComUrl, scores } }).catch(
-            () => {},
-          )
+          // for the player's other devices: through the synced copy (sent once
+          // online) or straight to the server; either way this browser has it
+          const { chessComUrl: url } = game
+          import('#/lib/sync/powersync')
+            .then((sync) => sync.saveAnalysisOnDevice(url, scores))
+            .then(async (kept) => {
+              if (!kept) await saveAnalysisFn({ data: { url, scores } })
+            })
+            .catch(() => {})
         }
         if (skipped > 0) {
           setError(
