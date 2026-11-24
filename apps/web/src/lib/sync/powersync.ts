@@ -6,6 +6,7 @@ import type {
   UploadMutationsOptions,
 } from '@powersync/web'
 import { PowerSyncDatabase, UpdateType } from '@powersync/web'
+import { saveAnalysisFn } from '#/server/analysis.functions'
 import { markInboxReadFn } from '#/server/inbox.functions'
 import { AppSchema } from './schema'
 
@@ -20,6 +21,8 @@ const ENDPOINT = import.meta.env.VITE_POWERSYNC_URL as string | undefined
 /** Reuses a token until a minute before it expires; the SDK asks again on 401. */
 class BetterAuthAuthenticator implements Authenticator {
   private token: { value: string; expiresAt: number } | null = null
+  /** Whose data this device holds (the token's subject), once known. */
+  userId: string | null = null
 
   async resolveCredentials({ abort }: ResolveCredentialsOptions) {
     if (this.token && this.token.expiresAt - 60_000 > Date.now()) {
@@ -31,10 +34,12 @@ class BetterAuthAuthenticator implements Authenticator {
     })
     if (!res.ok) throw new Error(`No sync token (${res.status})`)
     const { token } = (await res.json()) as { token: string }
-    const { exp } = JSON.parse(atob(token.split('.')[1] ?? '')) as {
+    const { exp, sub } = JSON.parse(atob(token.split('.')[1] ?? '')) as {
       exp: number
+      sub: string
     }
     this.token = { value: token, expiresAt: exp * 1000 }
+    this.userId = sub
     return token
   }
 
@@ -60,7 +65,8 @@ type MutationOutcome =
  * Maps one local change onto Misri's backend, through the app's own actions
  * (the same server functions the pages call, so the same sign-in and checks).
  *
- * Written on the device so far: reading the inbox (read_at on notifications).
+ * Written on the device so far: reading the inbox (read_at on notifications)
+ * and saving a game's engine scores (game_analyses).
  * Anything else queued is a bug, classified fatal so it can't block the queue.
  * `sent` holds the actions already called for this transaction: reading the
  * inbox changes every unread row, but one call reads them all.
@@ -86,6 +92,31 @@ async function callBackendApi(
       // can't be refused for good, so it is always worth another try.
       // shortcut: no retry cap; add one if a write that can be refused lands
       return { status: 'retryable_error', message: String(error) }
+    }
+  }
+  if (
+    mutation.table === 'game_analyses' &&
+    (mutation.op === UpdateType.PUT || mutation.op === UpdateType.PATCH) &&
+    typeof mutation.opData?.scores === 'string'
+  ) {
+    // ids are `${user_id}:${game_url}`, and user ids have no colon
+    const url = mutation.id.slice(mutation.id.indexOf(':') + 1)
+    try {
+      await saveAnalysisFn({
+        data: { url, scores: JSON.parse(mutation.opData.scores) },
+      })
+      return { status: 'success' }
+    } catch (error) {
+      // can't reach the server: try again later. Anything else is the server
+      // refusing it; this device keeps its own copy, so it's safe to drop.
+      if (error instanceof TypeError || !navigator.onLine) {
+        return { status: 'retryable_error', message: String(error) }
+      }
+      return {
+        status: 'fatal_error',
+        errorCode: 'analysis_refused',
+        message: String(error),
+      }
     }
   }
   return {
@@ -173,6 +204,31 @@ export function startSync(): PowerSyncDatabase | null {
     })
   }
   return db
+}
+
+/**
+ * Keeps a game's engine scores in the synced copy, sent to the account when
+ * the server can be reached. False before this device's first sync: the caller
+ * then saves straight to the server.
+ */
+export async function saveAnalysisOnDevice(url: string, scores: unknown[]) {
+  const userId = authenticator.userId
+  if (!db?.currentStatus.hasSynced || !userId) return false
+  const id = `${userId}:${url}`
+  const json = JSON.stringify(scores)
+  await db.writeTransaction(async (tx) => {
+    const { rowsAffected } = await tx.execute(
+      'UPDATE game_analyses SET scores = ? WHERE id = ?',
+      [json, id],
+    )
+    if (!rowsAffected) {
+      await tx.execute(
+        'INSERT INTO game_analyses (id, user_id, game_url, scores) VALUES (?, ?, ?, ?)',
+        [id, userId, url, json],
+      )
+    }
+  })
+  return true
 }
 
 /** Signing out: stop syncing and wipe this device's copy, queue included. */

@@ -17,7 +17,7 @@ import { Toaster } from '#/components/toast/toaster'
 import { TopBar } from '#/components/top-bar'
 import { ScrollArea } from '#/components/ui/scroll-area'
 import { DataTips, TooltipProvider } from '#/components/ui/tooltip'
-import { startPwa } from '#/lib/pwa'
+import { keepPage, startPwa } from '#/lib/pwa'
 import { CLUB_URL, HOME_DESCRIPTION, SITE_NAME, SITE_URL, seo } from '#/lib/seo'
 import { useInterfaceSounds } from '#/lib/sound'
 import { useAutoSync } from '#/lib/use-auto-sync'
@@ -142,6 +142,8 @@ function NotFound() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   useEffect(startPwa, [])
+  const href = useRouterState({ select: (s) => s.location.href })
+  useEffect(() => keepPage(href), [href])
   return (
     <html lang="en" suppressHydrationWarning>
       <head>

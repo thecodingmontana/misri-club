@@ -33,6 +33,26 @@ self.addEventListener('message', (event) => {
   event.waitUntil(caches.open(FILES).then((cache) => cache.addAll(urls)).catch(() => {}))
 })
 
+// A page opened inside the app (no full load, so never fetched here): keep a
+// copy if there isn't one yet, so reloading it offline still works.
+self.addEventListener('message', (event) => {
+  if (event.data?.type !== 'keep-page') return
+  const url = new URL(event.data.url, self.location.origin)
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return
+  event.waitUntil(
+    caches
+      .open(PAGES)
+      .then(async (cache) => {
+        if (await cache.match(url.href)) return
+        const response = await fetch(url.href, { credentials: 'same-origin' })
+        if (response.ok && response.type === 'basic' && !response.redirected) {
+          await cache.put(url.href, response)
+        }
+      })
+      .catch(() => {}),
+  )
+})
+
 const isFile = (href) => {
   const url = new URL(href, self.location.origin)
   return (
