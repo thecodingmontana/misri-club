@@ -158,6 +158,14 @@ function isAllowedPicture(value: string) {
   }
 }
 
+/**
+ * The Android app, as a passkey ceremony reports its origin: the SHA-256 of
+ * the APK's release signing certificate (also in the website's
+ * /.well-known/assetlinks.json). Changes only if the signing key does.
+ */
+export const ANDROID_APP_ORIGIN =
+  'android:apk-key-hash:cYz07RxTJU01JA4SGc-CdkXH8RHfJXFWygz4qkSM6ck'
+
 export const google =
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
     ? {
@@ -208,7 +216,7 @@ export function createAuth<P extends BetterAuthPlugin[] = []>(
       : process.env.BETTER_AUTH_URL,
     database: drizzleAdapter(db, { provider: 'pg', schema }),
     // the Android app (apps/mobile), through the Expo plugin below
-    trustedOrigins: ['misri://'],
+    trustedOrigins: ['misri://', ANDROID_APP_ORIGIN],
     advanced: {
       database: { generateId: () => generateNanoId() },
       useSecureCookies: production, // HTTPS-only __Secure- cookies
@@ -331,6 +339,15 @@ export function createAuth<P extends BetterAuthPlugin[] = []>(
         )
         // the app asks for the code itself; the website has its page
         if (inApp) return ctx.json({ twoFactorRedirect: true, methods })
+        // Google or a link opened for the app: back to the app, which sees the
+        // two_factor cookie (the Expo plugin's hook adds it to this address)
+        const location = ctx.context.responseHeaders?.get('location')
+        if (location?.startsWith('misri:')) {
+          const back = new URL(location)
+          back.searchParams.set('two_factor', methods.join(','))
+          ctx.setHeader('location', back.toString())
+          return
+        }
         throw ctx.redirect(`/auth/two-factor?methods=${methods.join(',')}`)
       }),
     },

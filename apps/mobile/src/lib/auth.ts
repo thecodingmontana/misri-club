@@ -33,3 +33,20 @@ export async function sessionToken(): Promise<string | null> {
 export function authError(error: { message?: string } | null | undefined) {
   return error?.message || 'Something went wrong. Try again.'
 }
+
+/**
+ * "Continue with Google": Google's page in an in-app browser, then back here.
+ * 'signed-in', 'two-factor' (the account has a second step), 'cancelled', or an
+ * error sentence.
+ */
+export async function signInWithGoogle(): Promise<string> {
+  const { error } = await authClient.signIn.social({
+    provider: 'google',
+    callbackURL: '/',
+  })
+  if (error) return authError(error)
+  const cookie = await authClient.getCookie()
+  if (/session_token=/.test(cookie)) return 'signed-in'
+  if (/two_factor=/.test(cookie)) return 'two-factor'
+  return 'cancelled'
+}
