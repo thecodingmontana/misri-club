@@ -273,9 +273,10 @@ export function UpdateButton() {
       >
         <Icon name="ArrowUp" size={19} color={accent} />
       </Button>
+      {/* like the bell's badge: on the corner, ringed so it reads on any bar */}
       <View
         pointerEvents="none"
-        className="absolute top-1 right-1 size-2 rounded-full bg-accent"
+        className="absolute top-0.5 right-0.5 size-3 rounded-full border-2 border-background bg-accent"
       />
     </View>
   )
