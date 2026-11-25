@@ -255,7 +255,7 @@ export function UpdateButton() {
             />
           </Svg>
           <View className="absolute">
-            <Icon name="ArrowUp" size={14} color={accent} />
+            <Icon name="Download" size={14} color={accent} />
           </View>
         </View>
       </Button>
@@ -271,7 +271,7 @@ export function UpdateButton() {
         accessibilityLabel={`Update available: version ${update.version}`}
         onPress={() => updateStore.set({ open: true })}
       >
-        <Icon name="ArrowUp" size={19} color={accent} />
+        <Icon name="Download" size={19} color={accent} />
       </Button>
       {/* like the bell's badge: on the corner, ringed so it reads on any bar */}
       <View
