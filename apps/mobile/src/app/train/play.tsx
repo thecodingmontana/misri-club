@@ -4,7 +4,6 @@ import {
   loadGame,
   type Outcome,
   outcomeFor,
-  PLAY_KEY,
   type SavedGame,
   savedGame,
   takeBack,
@@ -20,6 +19,7 @@ import { Screen } from '@/components'
 import { useEngine } from '@/engine-host'
 import { Icon } from '@/icon'
 import { play, type Sound } from '@/lib/sound'
+import { PHONE_PLAY_KEY } from '@/lib/progress'
 import * as Store from '@/lib/storage'
 
 const FRESH: SavedGame = { pgn: '', colour: 'white', level: 1, record: {} }
@@ -59,7 +59,7 @@ export default function Play() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    Store.getItemAsync(PLAY_KEY)
+    Store.getItemAsync(PHONE_PLAY_KEY)
       .then((text) => {
         const stored = savedGame.safeParse(JSON.parse(text ?? 'null'))
         if (stored.success) setGame(stored.data)
@@ -70,7 +70,7 @@ export default function Play() {
   useEffect(() => {
     if (!loaded) return
     // shortcut: SecureStore suits small values; a very long game's PGN may pass its 2 KB comfort size, move to a file if that bites.
-    Store.setItemAsync(PLAY_KEY, JSON.stringify(game)).catch(() => {})
+    Store.setItemAsync(PHONE_PLAY_KEY, JSON.stringify(game)).catch(() => {})
   }, [game, loaded])
 
   const level = LEVELS[game.level]

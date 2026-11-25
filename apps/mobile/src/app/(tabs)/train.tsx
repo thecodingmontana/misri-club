@@ -1,9 +1,9 @@
 import { router } from 'expo-router'
-import { Card, Chip, PressableFeedback } from 'heroui-native'
+import { Card, Chip, PressableFeedback, useThemeColor } from 'heroui-native'
 import { ScrollView, Text, View } from 'react-native'
 import { IconBadge, Kicker, PageTitle } from '@/competitions'
 import { Screen } from '@/components'
-import type { IconName } from '@/icon'
+import { Icon, type IconName } from '@/icon'
 
 // The website's Train modes (apps/web/src/routes/train.index.tsx).
 const MODES: Array<{
@@ -55,11 +55,9 @@ const MODES: Array<{
   },
 ]
 
-/**
- * Train, laid out like the website's. Modes arrive one by one (MIS-80); until
- * one has its page it says "Soon" rather than going nowhere.
- */
+/** Train, laid out like the website's: progress first, then the modes. */
 export default function Train() {
+  const onAccent = useThemeColor('accent-foreground')
   return (
     <Screen>
       <ScrollView contentContainerClassName="gap-5 p-4">
@@ -67,6 +65,16 @@ export default function Train() {
           <Kicker>Practice</Kicker>
           <PageTitle title="Train" lead="How do you want to train today?" />
         </View>
+        <PressableFeedback
+          onPress={() => router.push('/train/progress')}
+          className="flex-row items-center gap-3 rounded-2xl bg-accent px-4 py-3"
+        >
+          <Icon name="Target" size={20} color={onAccent} />
+          <Text className="flex-1 font-semibold text-sm text-accent-foreground">
+            Your progress: streak, themes and records
+          </Text>
+          <Icon name="ChevronRight" size={16} color={onAccent} />
+        </PressableFeedback>
         <View className="gap-3">
           {MODES.map((mode) => (
             <Card key={mode.title} className="p-0">

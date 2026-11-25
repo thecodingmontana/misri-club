@@ -8,6 +8,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native'
 import { Board } from '@/board'
 import { Problem, Screen } from '@/components'
 import { Icon } from '@/icon'
+import { recordGuess } from '@/lib/progress'
 import { play } from '@/lib/sound'
 
 const AUTOPLAY_MS = 1200
@@ -77,6 +78,13 @@ function Replay({ game, startAt }: { game: MasterGame; startAt: number }) {
     const timer = setTimeout(() => go(ply + 1), 700)
     return () => clearTimeout(timer)
   }, [guess, last, yourTurn, ply])
+
+  // keep the score once the game is guessed through
+  const finished = guess !== null && last
+  useEffect(() => {
+    if (finished && guess.tried > 0)
+      recordGuess(game.slug, guess.right, guess.tried)
+  }, [finished, guess, game.slug])
 
   const onGuess = (from: string, to: string) => {
     if (!guess || !yourTurn) return

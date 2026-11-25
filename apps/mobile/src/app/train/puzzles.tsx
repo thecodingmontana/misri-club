@@ -18,6 +18,7 @@ import { Board } from '@/board'
 import { Kicker } from '@/competitions'
 import { Problem, Screen } from '@/components'
 import { Icon } from '@/icon'
+import { recordPuzzle } from '@/lib/progress'
 import { play } from '@/lib/sound'
 import { useLoad } from '@/lib/use-load'
 
@@ -142,6 +143,8 @@ function Puzzle({
   const [step, setStep] = useState(0)
   const [status, setStatus] = useState<Status>('solving')
   const [hint, setHint] = useState(false)
+  // a wrong move or a hint: the puzzle still counts, just not as clean
+  const [helped, setHelped] = useState(false)
 
   // replies and the solution play out on timers; none may outlive the puzzle
   const timers = useRef<Array<ReturnType<typeof setTimeout>>>([])
@@ -166,6 +169,7 @@ function Puzzle({
     if (verdict.kind === 'wrong') {
       play('error')
       setStatus('wrong')
+      setHelped(true)
       return
     }
     play('tap')
@@ -176,6 +180,7 @@ function Puzzle({
       play('success')
       setStatus('solved')
       onSolved()
+      recordPuzzle(data.puzzle.themes, !helped)
       return
     }
     const reply = verdict.reply
@@ -190,6 +195,7 @@ function Puzzle({
 
   const reveal = () => {
     setStatus('revealed')
+    recordPuzzle(data.puzzle.themes, false)
     setHint(false)
     let position = fen
     solution.slice(step).forEach((uci, index) => {
@@ -256,6 +262,7 @@ function Puzzle({
           isDisabled={finished || !playersTurn || hint}
           onPress={() => {
             setHint(true)
+            setHelped(true)
             setStatus('solving')
           }}
         >

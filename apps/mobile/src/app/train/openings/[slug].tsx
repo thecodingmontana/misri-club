@@ -12,6 +12,7 @@ import { ScrollView, Text, View } from 'react-native'
 import { Board } from '@/board'
 import { Problem, Screen } from '@/components'
 import { Icon } from '@/icon'
+import { recordDrill } from '@/lib/progress'
 import { play } from '@/lib/sound'
 
 /** One opening course: Learn the line move by move, or Drill it from memory. */
@@ -229,9 +230,12 @@ function Drill({
     return () => clearTimeout(timer)
   }, [done, yourTurn, ply])
 
+  // count the run once, when the line is finished
   useEffect(() => {
-    if (done) play('success')
-  }, [done])
+    if (!done) return
+    play('success')
+    recordDrill(course.slug, !slipped)
+  }, [done, course.slug, slipped])
 
   const onMove = (from: string, to: string) => {
     const book = moves[ply]
