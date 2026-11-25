@@ -31,6 +31,7 @@ const MODES: Array<{
     title: 'Analyse your games',
     description:
       'Stockfish checks your latest chess.com games for blunders and accuracy.',
+    href: '/train/analysis',
   },
   {
     icon: 'Cpu',
