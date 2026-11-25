@@ -664,3 +664,56 @@ export async function notifyResults(competitionId: string, matchIds: string[]) {
   }
   await bestEffort(resultPushes(settled, competition, placeOf), 'results')
 }
+
+/**
+ * The day before a scheduled start: everyone in it, once. The daily cron
+ * starts it the next morning (startScheduled), so "tomorrow" is the next run.
+ */
+export async function remindStarts(now = new Date()) {
+  const soon = await db
+    .update(competitions)
+    .set({ startRemindedAt: now })
+    .where(
+      and(
+        eq(competitions.status, 'open'),
+        isNull(competitions.startRemindedAt),
+        gt(competitions.startsAt, now),
+        lte(
+          competitions.startsAt,
+          new Date(now.getTime() + DAY + REMINDER_SLACK_MS),
+        ),
+      ),
+    )
+    .returning({
+      id: competitions.id,
+      name: competitions.name,
+      slug: competitions.slug,
+    })
+  if (soon.length === 0) return 0
+  const members = await db
+    .select({
+      competitionId: competitionMembers.competitionId,
+      userId: competitionMembers.userId,
+    })
+    .from(competitionMembers)
+    .where(
+      inArray(
+        competitionMembers.competitionId,
+        soon.map((c) => c.id),
+      ),
+    )
+  await bestEffort(
+    soon.flatMap((c) => {
+      const players = members.filter((m) => m.competitionId === c.id)
+      return players.map((m) => ({
+        userId: m.userId,
+        title: `${c.name} starts tomorrow`,
+        body: `${players.length} ${players.length === 1 ? 'player is' : 'players are'} in. Your first games come out in the morning.`,
+        url: `/c/${c.slug}`,
+        tag: `starts-${c.slug}`,
+      }))
+    }),
+    'news',
+  )
+  return soon.length
+}

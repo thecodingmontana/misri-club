@@ -8,7 +8,7 @@ import {
   reconcileAllFixtures,
   startScheduled,
 } from '#/server/competitions.server'
-import { remindDeadlines } from '#/server/notifications.server'
+import { remindDeadlines, remindStarts } from '#/server/notifications.server'
 import { syncResults } from '#/server/results.server'
 
 const SYNC_BATCH = 5
@@ -66,6 +66,13 @@ export const Route = createFileRoute('/api/cron/deadlines')({
           )
         }
         const reminded = await remindDeadlines()
+        const starting = await remindStarts().catch((error) => {
+          console.error(
+            '[cron] start reminders failed',
+            (error as Error).message,
+          )
+          return 0
+        })
         await pruneAllowances().catch((error) =>
           console.error('[cron] prune failed', (error as Error).message),
         )
@@ -74,6 +81,7 @@ export const Route = createFileRoute('/api/cron/deadlines')({
           added,
           synced: running.length,
           reminded,
+          starting,
         })
       },
     },

@@ -300,6 +300,8 @@ export const competitions = pgTable('competitions', {
     .default(['wins', 'forfeits', 'headToHead']),
   /** Optional: the daily cron starts it on this morning if the organiser hasn't. */
   startsAt: ts('starts_at'),
+  /** When the day-before "starts tomorrow" push went out; null until then (sent once). */
+  startRemindedAt: ts('start_reminded_at'),
   /** "any", a speed or an exact clock (lib/time-control); only fitting games count. */
   timeControl: text('time_control').notNull().default('any'),
   /** Leagues: open the next round early when everyone has played. */

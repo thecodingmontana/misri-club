@@ -35,7 +35,7 @@ import {
   refuseIfOwner,
   removePlayer,
 } from '#/server/membership.server'
-import { remindDeadlines } from '#/server/notifications.server'
+import { remindDeadlines, remindStarts } from '#/server/notifications.server'
 import {
   concedeMatch,
   decideMatch,
@@ -675,6 +675,21 @@ test('reminders: a deadline just past 24 hours away is still reminded, once', as
   const [m] = await c.rows()
   assert.ok(m.remindedAt, 'reminded')
   assert.equal(await remindDeadlines(new Date(now)), 0, 'not twice')
+})
+
+test('reminders: everyone hears the day before a scheduled start, once', async () => {
+  const now = Date.now()
+  const later = await competition('league', ['o', 'x'], { startsAt: new Date(now + 3 * 86_400_000) })
+  const c = await competition('league', ['o', 'a', 'b'], { startsAt: new Date(now + 20 * 3_600_000) })
+  assert.ok((await remindStarts(new Date(now))) >= 1)
+  const told = await db.select().from(notifications).where(inArray(notifications.userId, [...c.ids, ...later.ids]))
+  const starts = told.filter((n) => n.title === `${c.row.name} starts tomorrow`)
+  assert.equal(starts.length, 3, 'every member, organiser too')
+  assert.equal(starts[0].body, '3 players are in. Your first games come out in the morning.')
+  assert.ok(!told.some((n) => n.title.startsWith(later.row.name)), 'three days out: not yet')
+  await remindStarts(new Date(now))
+  const again = await db.select().from(notifications).where(inArray(notifications.userId, c.ids))
+  assert.equal(again.filter((n) => n.title.endsWith('starts tomorrow')).length, 3, 'not twice')
 })
 
 test('knockout: the next round opens when the last game ended, not at the sync', async () => {
