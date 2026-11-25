@@ -145,15 +145,21 @@ export function UpdateButton() {
   const accent = useThemeColor('accent')
   if (!update) return null
   return (
-    <Button
-      size="sm"
-      variant="secondary"
-      isIconOnly
-      accessibilityLabel={`Update available: version ${update.version}`}
-      onPress={() => updateStore.set({ open: true })}
-    >
-      <Icon name="ArrowUp" size={17} color={accent} />
-      <View className="absolute top-0.5 right-0.5 size-2 rounded-full bg-accent" />
-    </Button>
+    // the dot sits beside the button, which clips what overflows it
+    <View>
+      <Button
+        size="sm"
+        variant="ghost"
+        isIconOnly
+        accessibilityLabel={`Update available: version ${update.version}`}
+        onPress={() => updateStore.set({ open: true })}
+      >
+        <Icon name="ArrowUp" size={19} color={accent} />
+      </Button>
+      <View
+        pointerEvents="none"
+        className="absolute top-1 right-1 size-2 rounded-full bg-accent"
+      />
+    </View>
   )
 }

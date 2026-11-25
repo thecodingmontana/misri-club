@@ -101,7 +101,16 @@ function TopBar() {
       className="flex-row items-center bg-background px-3 pb-2"
       style={{ paddingTop: insets.top + 8 }}
     >
-      <View className="flex-1 flex-row items-center gap-1">
+      {/* centred on the screen, whatever sits either side of it */}
+      <View
+        pointerEvents="none"
+        className="absolute inset-x-0 bottom-2 items-center"
+      >
+        <Text className="font-display text-2xl uppercase text-foreground">
+          Misri
+        </Text>
+      </View>
+      <View className="flex-row items-center gap-1">
         <Button
           variant="ghost"
           size="sm"
@@ -128,12 +137,9 @@ function TopBar() {
         >
           <Icon name={sound ? 'Volume' : 'VolumeOff'} size={19} />
         </Button>
-        <UpdateButton />
       </View>
-      <Text className="font-display text-2xl uppercase text-foreground">
-        Misri
-      </Text>
       <View className="flex-1 flex-row items-center justify-end gap-1">
+        <UpdateButton />
         {/* the badge sits beside the button, which clips what overflows it */}
         <View>
           <Button
