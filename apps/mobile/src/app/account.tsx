@@ -247,12 +247,34 @@ function ChessAccount() {
   if (!data) return <Spinner />
   if (data.status === 'verified') {
     return (
-      <View className="flex-row items-center gap-2">
-        <Icon name="ShieldCheck" size={18} color={accent} />
-        <Text className="flex-1 font-normal text-sm text-foreground">
-          Linked to <Text className="font-semibold">{data.username}</Text> on
-          chess.com since {formatDate(new Date(data.verifiedAt).toISOString())}.
-        </Text>
+      <View className="flex-row items-center gap-3">
+        <View className="size-10 items-center justify-center rounded-full bg-accent/15">
+          <Icon name="ShieldCheck" size={20} color={accent} />
+        </View>
+        <View className="min-w-0 flex-1">
+          <Text
+            numberOfLines={1}
+            className="font-semibold text-sm text-foreground"
+          >
+            {data.username}
+          </Text>
+          <Text className="font-normal text-xs text-muted">
+            Linked on chess.com since{' '}
+            {formatDate(new Date(data.verifiedAt).toISOString())}
+          </Text>
+        </View>
+        <Button
+          variant="ghost"
+          size="sm"
+          onPress={() =>
+            Linking.openURL(
+              `https://www.chess.com/member/${encodeURIComponent(data.username)}`,
+            )
+          }
+        >
+          <Button.Label>Profile</Button.Label>
+          <Icon name="ExternalLink" size={14} />
+        </Button>
       </View>
     )
   }
