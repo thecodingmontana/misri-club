@@ -107,6 +107,7 @@ export function NumberField({
   help,
   optional,
   compact,
+  live,
 }: {
   label: string
   value: number | null
@@ -117,6 +118,8 @@ export function NumberField({
   help?: ReactNode
   optional?: boolean
   compact?: boolean
+  /** report each valid number as it's typed (a form that submits later) */
+  live?: boolean
 }) {
   const [draft, setDraft] = useState<string | null>(null)
   const commit = () => {
@@ -136,7 +139,15 @@ export function NumberField({
         keyboardType="numbers-and-punctuation"
         value={draft ?? (value === null ? '' : String(value))}
         placeholder={placeholder}
-        onChangeText={setDraft}
+        onChangeText={(text) => {
+          setDraft(text)
+          const n = Number(text)
+          // what Create saves is what blur would show: rounded into range
+          if (live && text.trim() && Number.isFinite(n)) {
+            onChange(Math.min(max, Math.max(min, Math.round(n))))
+          }
+          if (live && optional && text.trim() === '') onChange(null)
+        }}
         onBlur={commit}
         onSubmitEditing={commit}
         className={compact ? 'text-center' : undefined}

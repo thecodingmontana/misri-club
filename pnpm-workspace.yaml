@@ -10,6 +10,10 @@ allowBuilds:
   lightningcss: true
   # its install script would set up git hooks; the root prepare script does that instead
   simple-git-hooks: false
+  # React Native Firebase pulls in the Firebase JS SDK; neither script is needed
+  # natively (@firebase/util writes web config defaults, protobufjs a version note)
+  '@firebase/util': false
+  protobufjs: false
 # seroval < 1.6.11 has injection advisories (GHSA-9wx9-5pv9-3349 and the
 # typed-array constructor one); TanStack allows ^1.6.7, so force the patch.
 overrides:

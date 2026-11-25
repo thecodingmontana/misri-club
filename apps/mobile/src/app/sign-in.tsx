@@ -37,7 +37,9 @@ export default function SignIn() {
   async function google() {
     setBusy('google')
     setError(null)
-    const result = await signInWithGoogle()
+    const result = await signInWithGoogle().catch(
+      (cause: Error) => cause.message || "Couldn't reach Google. Try again.",
+    )
     setBusy(null)
     if (result === 'signed-in') return refresh()
     if (result === 'two-factor') return router.push('/two-factor')

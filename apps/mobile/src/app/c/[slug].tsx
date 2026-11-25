@@ -382,6 +382,11 @@ function byRound(matches: MatchView[]) {
   return [...rounds.entries()]
 }
 
+/** Ties in a round: home & away legs and a decider share one position. */
+// shortcut: a two-leg tie isn't marked with a winner here; the website's bracket has the full tie
+const tieCount = (matches: MatchView[]) =>
+  new Set(matches.map((m) => m.position)).size
+
 function knockoutRoundName(count: number, round: number) {
   if (count === 1) return 'Final'
   if (count === 2) return 'Semi-finals'
@@ -395,38 +400,46 @@ function Bracket({ matches }: { matches: MatchView[] }) {
     <View className="gap-4">
       {byRound(matches).map(([round, ties]) => (
         <View key={round} className="gap-2">
-          <Kicker>{knockoutRoundName(ties.length, round)}</Kicker>
+          <Kicker>{knockoutRoundName(tieCount(ties), round)}</Kicker>
           <Card className="p-0">
-            {ties.map((m, i) => (
-              <View
-                key={m.id}
-                className={`gap-1 px-3 py-2 ${i < ties.length - 1 ? 'border-b border-border/60' : ''}`}
-              >
-                {m.bye ? (
-                  <Text className="font-medium text-sm text-foreground">
-                    {displayName(m.bye)}{' '}
-                    <Text className="text-muted">· bye</Text>
-                  </Text>
-                ) : (
-                  [m.home, m.away].map((p, k) => (
-                    <Text
-                      key={p?.id ?? k}
-                      className={`text-sm ${
-                        p &&
-                        (
-                          m.winnerId === p.id ||
-                            (m.homeWon !== null && (k === 0) === m.homeWon)
-                        )
-                          ? 'font-bold text-foreground'
-                          : 'font-normal text-muted'
-                      }`}
-                    >
-                      {p ? displayName(p) : 'To be decided'}
+            {ties
+              .filter(
+                (m, i) =>
+                  ties.findIndex((t) => t.position === m.position) === i,
+              )
+              .map((m, i, rows) => (
+                <View
+                  key={m.id}
+                  className={`gap-1 px-3 py-2 ${i < rows.length - 1 ? 'border-b border-border/60' : ''}`}
+                >
+                  {m.bye ? (
+                    <Text className="font-medium text-sm text-foreground">
+                      {displayName(m.bye)}{' '}
+                      <Text className="text-muted">· bye</Text>
                     </Text>
-                  ))
-                )}
-              </View>
-            ))}
+                  ) : (
+                    [m.home, m.away].map((p, k) => (
+                      <Text
+                        key={p?.id ?? k}
+                        className={`text-sm ${
+                          p &&
+                          // a two-leg tie's winner is the aggregate, not one leg's
+                          ties.filter((t) => t.position === m.position)
+                            .length === 1 &&
+                          (
+                            m.winnerId === p.id ||
+                              (m.homeWon !== null && (k === 0) === m.homeWon)
+                          )
+                            ? 'font-bold text-foreground'
+                            : 'font-normal text-muted'
+                        }`}
+                      >
+                        {p ? displayName(p) : 'To be decided'}
+                      </Text>
+                    ))
+                  )}
+                </View>
+              ))}
           </Card>
         </View>
       ))}
@@ -476,7 +489,7 @@ function Fixtures({
     <View className="gap-5">
       {lateFirst(data).map(([round, matches]) => (
         <View key={round} className="gap-3">
-          <Kicker>{roundLabel(data, round, matches.length)}</Kicker>
+          <Kicker>{roundLabel(data, round, tieCount(matches))}</Kicker>
           {matches.map((match) => (
             <FixtureCard key={match.id} match={match} now={now}>
               {competition.format === 'groups' && match.groupNo !== null && (

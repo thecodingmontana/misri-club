@@ -26,10 +26,7 @@ export default function TwoFactor() {
   const { methods = '' } = useLocalSearchParams<{ methods?: string }>()
   const { refresh } = useSession()
   const onAccent = useThemeColor('accent-foreground')
-  // no authenticator app (a passkey-only account): backup codes are the way
-  const [backup, setBackup] = useState(
-    () => Boolean(methods) && !methods.includes('totp'),
-  )
+  const [backup, setBackup] = useState(false)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -47,9 +44,10 @@ export default function TwoFactor() {
     if (result === null) return refresh()
     if (result === 'unavailable') {
       passkeys.giveUp()
-      setBackup(true)
       return setError(
-        "Passkeys don't work on this phone yet. Use a backup code instead.",
+        hasTotp
+          ? "Passkeys don't work on this phone yet. Use your authenticator app or a backup code."
+          : "Passkeys don't work on this phone yet.",
       )
     }
     if (result !== 'cancelled') setError(result)
@@ -79,13 +77,19 @@ export default function TwoFactor() {
     </Button>
   )
 
-  if (!hasTotp && hasPasskey) {
+  // a passkey is this account's only second step: backup codes come only
+  // with an authenticator app, so there is nothing else to offer here
+  if (!hasTotp) {
     return (
       <AuthShell
         title={['Two-step', 'verification.']}
-        lead="Confirm it's you with the passkey you set up."
+        lead={
+          hasPasskey
+            ? "Confirm it's you with the passkey you set up."
+            : "Your second step is a passkey, which this phone can't use. Sign in on the website, or add an authenticator app under Account there."
+        }
       >
-        {passkeyButton('Continue with your passkey')}
+        {hasPasskey && passkeyButton('Continue with your passkey')}
         <FormError message={error} />
       </AuthShell>
     )

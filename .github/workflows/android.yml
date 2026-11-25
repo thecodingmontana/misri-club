@@ -44,6 +44,14 @@ jobs:
           java-version: 17
       - run: pnpm install --frozen-lockfile
 
+      # Firebase (push notifications); without the secret the APK has none
+      - name: Firebase config
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then echo "No Firebase: no push"; exit 0; fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > apps/mobile/google-services.json
+
       - name: Generate the Android project
         working-directory: apps/mobile
         env:
@@ -99,9 +107,23 @@ jobs:
     permissions:
       contents: write # publish the release
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0 # the history since the last app release, for its notes
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: misri-apk
+
+      # "What's new", from the feat and fix commits that touched the app since
+      # the previous app release; the app shows these when it offers the update
+      - name: Release notes
+        run: |
+          # the last release before this commit (a pushed tag isn't its own predecessor)
+          previous=$(git describe --tags --abbrev=0 --match 'mobile-v*' HEAD^ 2>/dev/null || true)
+          python3 .github/scripts/release-notes.py "$previous" > notes.md
+          # the APK's versionCode, which the app compares against its own
+          echo "<!-- build: ${{ github.run_number }} -->" >> notes.md
+          cat notes.md
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: misri.apk
@@ -110,4 +132,4 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: Misri ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('mobile-v0.1.{0}', github.run_number) }}
           make_latest: true
-          body: Install misri.apk on Android (allow installing from your browser when asked).
+          body_path: notes.md

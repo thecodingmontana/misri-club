@@ -6,3 +6,4 @@ ios
 expo-env.d.ts
 *.keystore
 dist-web
+google-services.json

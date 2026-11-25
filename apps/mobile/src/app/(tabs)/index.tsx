@@ -20,7 +20,10 @@ import { Icon } from '@/icon'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
 
-/** Home, as on the website: your competitions, ways to start, open ones. */
+/**
+ * Home: your competitions first. Only someone in none gets the ways to start
+ * (the Create tab always has them), then the open competitions.
+ */
 export default function Home() {
   const { api, me } = useSession()
   const accent = useThemeColor('accent')
@@ -76,33 +79,6 @@ export default function Home() {
         )}
         <PageTitle title="Your competitions" />
 
-        <View className="gap-3">
-          {CREATE_CHOICES.map((choice) => (
-            <Button
-              key={choice.format}
-              variant="secondary"
-              className="justify-start"
-              onPress={() =>
-                router.push({
-                  pathname: '/competitions/new',
-                  params: { format: choice.format },
-                })
-              }
-            >
-              <Icon name="Plus" size={20} color={accent} />
-              <Button.Label>{choice.title}</Button.Label>
-            </Button>
-          ))}
-          <Button
-            variant="secondary"
-            className="justify-start"
-            onPress={() => router.push('/join')}
-          >
-            <Icon name="UserPlus" size={20} color={accent} />
-            <Button.Label>Join with a code</Button.Label>
-          </Button>
-        </View>
-
         {!data ? (
           <View className="gap-3">
             <Skeleton className="h-[72px] rounded-3xl" />
@@ -112,10 +88,38 @@ export default function Home() {
           <>
             <View className="gap-3">
               {data.mine.length === 0 ? (
-                <EmptyCard>
-                  You're not in any competitions yet. Create one or join with a
-                  code.
-                </EmptyCard>
+                <>
+                  <EmptyCard>
+                    You're not in any competitions yet. Create one or join with
+                    a code.
+                  </EmptyCard>
+                  <View className="gap-3">
+                    {CREATE_CHOICES.map((choice) => (
+                      <Button
+                        key={choice.format}
+                        variant="secondary"
+                        className="justify-start"
+                        onPress={() =>
+                          router.push({
+                            pathname: '/competitions/new',
+                            params: { format: choice.format },
+                          })
+                        }
+                      >
+                        <Icon name="Plus" size={20} color={accent} />
+                        <Button.Label>{choice.title}</Button.Label>
+                      </Button>
+                    ))}
+                    <Button
+                      variant="secondary"
+                      className="justify-start"
+                      onPress={() => router.push('/join')}
+                    >
+                      <Icon name="UserPlus" size={20} color={accent} />
+                      <Button.Label>Join with a code</Button.Label>
+                    </Button>
+                  </View>
+                </>
               ) : (
                 data.mine.map((competition) => (
                   <CompetitionCard

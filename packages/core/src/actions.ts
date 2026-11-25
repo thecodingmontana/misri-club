@@ -21,6 +21,7 @@ import {
   updateCompetitionSettings,
 } from './competitions.ts'
 import { UserError } from './errors.ts'
+import { FCM_PREFIX } from './fcm.ts'
 import {
   answerRequest,
   deleteCompetition,
@@ -393,6 +394,23 @@ export const actions = {
       auth: z.string().min(1).max(100),
     }),
     (viewer, data) => savePush(viewer.id, data, viewer.sessionId),
+  ),
+
+  /** Remembers this Android app install for notifications (its FCM token). */
+  saveAppPush: define(
+    z.object({
+      token: z
+        .string()
+        .min(20)
+        .max(400)
+        .regex(/^[\w:.-]+$/),
+    }),
+    (viewer, data) =>
+      savePush(
+        viewer.id,
+        { endpoint: `${FCM_PREFIX}${data.token}`, p256dh: 'fcm', auth: 'fcm' },
+        viewer.sessionId,
+      ),
   ),
 
   removePush: define(

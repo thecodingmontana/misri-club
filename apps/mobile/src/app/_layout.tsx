@@ -7,10 +7,13 @@ import { useEffect, useState } from 'react'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useUniwind } from 'uniwind'
 import { Loading, Screen } from '@/components'
+import { trackScreen, trackUser } from '@/lib/analytics'
 import { introSeen } from '@/lib/intro'
+import { openTappedNotifications, registerForPush } from '@/lib/notifications'
 import { SessionProvider, useSession } from '@/lib/session'
 import { loadSoundSetting } from '@/lib/sound'
 import { loadTheme } from '@/lib/theme'
+import { UpdatePrompt } from '@/update-prompt'
 
 export default function RootLayout() {
   const [fontsReady] = useFonts({
@@ -37,8 +40,20 @@ export default function RootLayout() {
  * new: onboarding. Otherwise everything else.
  */
 function Gate() {
-  const { token, me } = useSession()
+  const { token, me, api } = useSession()
+  const ready = Boolean(api && me?.onboarded)
+  // signed in and set up: this phone gets pushes, and tapping one opens it
+  useEffect(() => {
+    if (!ready || !api) return
+    void registerForPush(api).catch(() => {})
+    return openTappedNotifications()
+  }, [ready, api])
   const segments = useSegments()
+  // the route pattern, e.g. /c/[slug]: which pages get used, not whose
+  const route = `/${segments.join('/')}`
+  useEffect(() => trackScreen(route), [route])
+  const userId = me?.id ?? null
+  useEffect(() => trackUser(userId), [userId])
   const [seen, setSeen] = useState<boolean | undefined>(undefined)
   useEffect(() => {
     void Promise.all([loadTheme(), loadSoundSetting()]).finally(() =>
@@ -73,6 +88,7 @@ function Gate() {
   }
   return (
     <>
+      <UpdatePrompt />
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{

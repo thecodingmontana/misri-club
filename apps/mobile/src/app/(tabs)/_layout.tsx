@@ -8,6 +8,7 @@ import { Icon, type IconName } from '@/icon'
 import { useSession } from '@/lib/session'
 import { play, saveSoundOn, soundOn } from '@/lib/sound'
 import { saveTheme } from '@/lib/theme'
+import { UpdateButton } from '@/update-prompt'
 
 // The website's MAIN_NAV (apps/web/src/components/nav.ts), same order and icons.
 const TABS: Array<{
@@ -118,6 +119,7 @@ function TopBar() {
         >
           <Icon name={sound ? 'Volume' : 'VolumeOff'} size={19} />
         </Button>
+        <UpdateButton />
       </View>
       <Text className="font-display text-2xl uppercase text-foreground">
         Misri

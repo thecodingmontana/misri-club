@@ -21,20 +21,21 @@ export default function Invite() {
   const {
     data: invite,
     error,
+    loading,
     reload,
   } = useLoad(
     () => (api ? api.invite(code) : Promise.resolve(undefined)),
     `${Boolean(api)}:${code}`,
   )
 
-  if (error && invite === undefined) {
+  if (error && !invite) {
     return (
       <Screen>
         <Problem message={error} onRetry={reload} />
       </Screen>
     )
   }
-  if (invite === undefined) {
+  if (loading && !invite) {
     return (
       <Screen>
         <Loading />

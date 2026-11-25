@@ -13,7 +13,7 @@
       "backgroundColor": "#fbf8e6"
     },
     "android": {
-      "package": "club.misri.app",
+      "package": "misri.thecodingmontana.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#fbf8e6",
@@ -22,7 +22,7 @@
       "predictiveBackGestureEnabled": false
     },
     "ios": {
-      "bundleIdentifier": "club.misri.app"
+      "bundleIdentifier": "misri.thecodingmontana.app"
     },
     "plugins": [
       "expo-router",
@@ -35,6 +35,13 @@
         {
           "recordAudioAndroid": false,
           "enableBackgroundPlayback": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#2b7350",
+          "defaultChannel": "default"
         }
       ]
     ],
