@@ -12,6 +12,7 @@ import {
 import { and, asc, count, eq, inArray, or, sql } from 'drizzle-orm'
 import { can, roleOf, type Viewer } from './access.ts'
 import { challengeScore } from './challenge.ts'
+import { awaitsDecision } from './decisions.ts'
 import { earlyRound } from './early-rounds.ts'
 import { groupName } from './groups.ts'
 import { canJoin } from './join-policy.ts'
@@ -302,30 +303,8 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
     report: m.report,
   }))
 
-  // Matches waiting on the organiser: expired under "I decide" (any expired
-  // tie in a knockout), or a drawn knockout tie that still needs a winner.
   const awaiting = matchRows
-    .filter((m) => {
-      if (!m.homeUserId || !m.awayUserId || m.voided || m.winnerUserId) {
-        return false
-      }
-      const knockout =
-        competition.format === 'knockout' ||
-        (competition.format === 'groups' && m.groupNo === null)
-      // a drawn leg is fine (the aggregate decides); a drawn tie or decider needs a winner
-      if (knockout && m.result === 'draw') {
-        return (
-          competition.format === 'groups' ||
-          competition.legs === 1 ||
-          m.leg >= 3
-        )
-      }
-      if (m.result) return false
-      return (
-        m.dueAt.getTime() <= now &&
-        (knockout || competition.unplayedRule === 'organiser')
-      )
-    })
+    .filter((m) => awaitsDecision(m, competition, now))
     .map((m) => m.id)
 
   // Rounds past the original schedule were added for late joiners.

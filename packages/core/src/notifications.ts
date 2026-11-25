@@ -9,6 +9,7 @@ import {
 } from '@misri/db/schema'
 import { and, eq, gt, inArray, isNull, lte, ne, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
+import { awaitsDecision } from './decisions.ts'
 import { type PushMessage, sendPushes } from './push.ts'
 import type { PushKind } from './push-kinds.ts'
 import { reminderPushes } from './reminders.ts'
@@ -716,4 +717,42 @@ export async function remindStarts(now = new Date()) {
     'news',
   )
   return soon.length
+}
+
+/**
+ * Once a day, organisers with games waiting on their decision hear how many.
+ * The tag replaces yesterday's nudge instead of stacking another.
+ */
+export async function remindOrganisers(now = new Date()) {
+  const running = await db
+    .select()
+    .from(competitions)
+    .where(eq(competitions.status, 'running'))
+  if (running.length === 0) return 0
+  const rows = await db
+    .select()
+    .from(matches)
+    .where(
+      inArray(
+        matches.competitionId,
+        running.map((c) => c.id),
+      ),
+    )
+  const nudges = running.flatMap((c) => {
+    const waiting = rows.filter(
+      (m) => m.competitionId === c.id && awaitsDecision(m, c, now.getTime()),
+    ).length
+    if (waiting === 0) return []
+    return [
+      {
+        userId: c.ownerId,
+        title: `${waiting} ${waiting === 1 ? 'game is' : 'games are'} waiting for your decision`,
+        body: `In ${c.name}. Decide each one from the competition page.`,
+        url: `/c/${c.slug}`,
+        tag: `decide-${c.slug}`,
+      },
+    ]
+  })
+  await bestEffort(nudges, 'results')
+  return nudges.length
 }

@@ -8,7 +8,11 @@ import {
   reconcileAllFixtures,
   startScheduled,
 } from '#/server/competitions.server'
-import { remindDeadlines, remindStarts } from '#/server/notifications.server'
+import {
+  remindDeadlines,
+  remindOrganisers,
+  remindStarts,
+} from '#/server/notifications.server'
 import { syncResults } from '#/server/results.server'
 
 const SYNC_BATCH = 5
@@ -66,6 +70,13 @@ export const Route = createFileRoute('/api/cron/deadlines')({
           )
         }
         const reminded = await remindDeadlines()
+        const nudged = await remindOrganisers().catch((error) => {
+          console.error(
+            '[cron] organiser nudges failed',
+            (error as Error).message,
+          )
+          return 0
+        })
         const starting = await remindStarts().catch((error) => {
           console.error(
             '[cron] start reminders failed',
@@ -82,6 +93,7 @@ export const Route = createFileRoute('/api/cron/deadlines')({
           synced: running.length,
           reminded,
           starting,
+          nudged,
         })
       },
     },
