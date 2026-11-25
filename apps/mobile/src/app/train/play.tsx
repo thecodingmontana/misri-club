@@ -105,6 +105,15 @@ export default function Play() {
     }
   }, [engine, loaded, chess, outcome, yourTurn, level, game.colour])
 
+  // a new game also recovers from an engine that failed to load
+  const newGame = (colour: 'white' | 'black') => {
+    if (error) {
+      setError(null)
+      restart()
+    }
+    setGame({ ...game, pgn: '', colour })
+  }
+
   const onMove = (from: string, to: string) => {
     const next = loadGame(game.pgn)
     try {
@@ -206,14 +215,14 @@ export default function Play() {
           <Button
             variant="secondary"
             className="flex-1"
-            onPress={() => setGame({ ...game, pgn: '', colour: 'white' })}
+            onPress={() => newGame('white')}
           >
             Play White
           </Button>
           <Button
             variant="secondary"
             className="flex-1"
-            onPress={() => setGame({ ...game, pgn: '', colour: 'black' })}
+            onPress={() => newGame('black')}
           >
             Play Black
           </Button>
