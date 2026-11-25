@@ -9,7 +9,7 @@ import {
   useThemeColor,
 } from 'heroui-native'
 import { useState } from 'react'
-import { KeyboardAvoidingView, Platform, ScrollView, Text } from 'react-native'
+import { KeyboardAvoidingView, ScrollView, Text } from 'react-native'
 import { FormError } from '@/auth-shell'
 import { PageTitle } from '@/competitions'
 import { Screen } from '@/components'
@@ -40,10 +40,7 @@ export default function Join() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView className="flex-1" behavior="padding">
         <ScrollView
           contentContainerClassName="grow justify-center gap-5 p-4"
           keyboardShouldPersistTaps="handled"

@@ -31,13 +31,7 @@ import {
   useThemeColor,
 } from 'heroui-native'
 import { useEffect, useState } from 'react'
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native'
+import { KeyboardAvoidingView, ScrollView, Text, View } from 'react-native'
 import { FormError } from '@/auth-shell'
 import { FormatExplainer, PageTitle } from '@/competitions'
 import { CheckField, Choice, Hint, NumberField } from '@/form'
@@ -159,10 +153,7 @@ export default function NewCompetition() {
   return (
     <View className="flex-1 bg-background">
       <Stack.Screen options={{ title: '' }} />
-      <KeyboardAvoidingView
-        className="flex-1"
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView className="flex-1" behavior="padding">
         <ScrollView
           contentContainerClassName="gap-5 p-4 pb-10"
           keyboardShouldPersistTaps="handled"

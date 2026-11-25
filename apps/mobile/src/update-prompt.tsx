@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking'
-import { Button, Dialog } from 'heroui-native'
+import { Button, Card } from 'heroui-native'
 import { useEffect, useState } from 'react'
-import { AppState, ScrollView, Text, View } from 'react-native'
+import { AppState, Modal, ScrollView, Text, View } from 'react-native'
 import { IconBadge } from '@/competitions'
 import { play } from '@/lib/sound'
 import { checkForUpdate, putOff, type Update } from '@/lib/update'
@@ -11,7 +11,8 @@ const EVERY = 6 * 60 * 60 * 1000
 /**
  * Offers a newer app as soon as one is released: checked when the app opens
  * and when it comes back to the front (at most every few hours), with what's
- * new and a button that downloads it.
+ * new and a button that downloads it. A plain centred modal, so it sits the
+ * same on every screen size.
  */
 export function UpdatePrompt() {
   const [update, setUpdate] = useState<Update | null>(null)
@@ -43,49 +44,52 @@ export function UpdatePrompt() {
     setUpdate(null)
   }
   return (
-    <Dialog isOpen onOpenChange={(open) => !open && later()}>
-      <Dialog.Portal>
-        <Dialog.Overlay />
-        <Dialog.Content>
-          <View className="mb-4 items-center gap-3">
-            <IconBadge name="Smartphone" size={52} />
-            <Dialog.Title className="text-center">
-              A new Misri is ready
-            </Dialog.Title>
-            <Dialog.Description className="text-center">
-              {`Version ${update.version}. It installs over this one; your account and settings stay.`}
-            </Dialog.Description>
-          </View>
-          <Text className="font-semibold mb-2 text-xs uppercase tracking-widest text-muted">
-            What's new
-          </Text>
-          <ScrollView className="max-h-56">
-            <View className="gap-2">
-              {update.notes.map((note) => (
-                <View key={note} className="flex-row gap-2">
-                  <Text className="font-bold text-accent">•</Text>
-                  <Text className="font-normal flex-1 text-sm text-foreground">
-                    {note}
-                  </Text>
-                </View>
-              ))}
+    <Modal transparent animationType="fade" onRequestClose={later}>
+      <View className="flex-1 items-center justify-center bg-black/60 p-5">
+        <Card className="w-full max-w-sm">
+          <Card.Body className="gap-4">
+            <View className="items-center gap-2">
+              <IconBadge name="Smartphone" size={52} />
+              <Text className="font-display text-center text-3xl uppercase text-foreground">
+                A new Misri is ready
+              </Text>
+              <Text className="font-normal text-center text-sm text-muted">
+                {`Version ${update.version}. It installs over this one; your account and settings stay.`}
+              </Text>
             </View>
-          </ScrollView>
-          <View className="mt-5 gap-2">
-            <Button
-              onPress={() => {
-                void Linking.openURL(update.apk)
-                setUpdate(null)
-              }}
-            >
-              Update now
-            </Button>
-            <Button variant="ghost" onPress={later}>
-              Later
-            </Button>
-          </View>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog>
+            <View className="gap-2">
+              <Text className="font-semibold text-xs uppercase tracking-widest text-muted">
+                What's new
+              </Text>
+              <ScrollView style={{ maxHeight: 180 }}>
+                <View className="gap-2">
+                  {update.notes.map((note) => (
+                    <View key={note} className="flex-row gap-2">
+                      <Text className="font-bold text-accent">•</Text>
+                      <Text className="font-normal flex-1 text-sm text-foreground">
+                        {note}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+            <View className="gap-2">
+              <Button
+                onPress={() => {
+                  void Linking.openURL(update.apk)
+                  setUpdate(null)
+                }}
+              >
+                Update now
+              </Button>
+              <Button variant="ghost" onPress={later}>
+                Later
+              </Button>
+            </View>
+          </Card.Body>
+        </Card>
+      </View>
+    </Modal>
   )
 }

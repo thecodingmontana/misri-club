@@ -4,7 +4,6 @@ import { type ReactNode, useEffect } from 'react'
 import {
   ImageBackground,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Text,
   View,
@@ -37,10 +36,7 @@ export function AuthShell({
         colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.85)']}
         style={{ flex: 1 }}
       >
-        <KeyboardAvoidingView
-          className="flex-1"
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
+        <KeyboardAvoidingView className="flex-1" behavior="padding">
           <ScrollView
             contentContainerClassName="grow justify-end"
             keyboardShouldPersistTaps="handled"
