@@ -6,11 +6,14 @@ const LATEST =
   'https://api.github.com/repos/thecodingmontana/misri-club/releases/latest'
 const LATER_KEY = 'misri.update-later'
 
+export type Note = { kind: 'new' | 'fix'; text: string }
+
 export type Update = {
   /** the release tag, e.g. mobile-v0.1.16 */
   tag: string
   version: string
-  notes: string[]
+  /** what's new and what's fixed, from the release's "## New" and "## Fixes" */
+  notes: Note[]
   apk: string
   /** the APK's download size in bytes */
   size: number
@@ -46,14 +49,20 @@ export async function checkForUpdate(): Promise<Update | null> {
   }
   const apk = release.assets?.find((a) => a.name.endsWith('.apk'))
   if (!apk) return null
-  const notes = (release.body ?? '')
-    .split('\n')
-    .filter((line) => line.startsWith('- '))
-    .map((line) => line.slice(2).trim())
+  const notes: Note[] = []
+  let kind: Note['kind'] = 'new'
+  for (const line of (release.body ?? '').split('\n')) {
+    if (/^##\s*fix/i.test(line)) kind = 'fix'
+    else if (/^##/.test(line)) kind = 'new'
+    else if (line.startsWith('- '))
+      notes.push({ kind, text: line.slice(2).trim() })
+  }
   return {
     tag,
     version: tag.replace('mobile-v', ''),
-    notes: notes.length ? notes : ['Improvements and fixes.'],
+    notes: notes.length
+      ? notes
+      : [{ kind: 'fix', text: 'Improvements and fixes.' }],
     apk: apk.browser_download_url,
     size: apk.size,
     date: release.published_at ?? null,

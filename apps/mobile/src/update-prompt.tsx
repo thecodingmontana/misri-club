@@ -10,6 +10,11 @@ import { checkForUpdate, putOff, type Update } from '@/lib/update'
 
 const EVERY = 6 * 60 * 60 * 1000
 
+const SECTIONS = [
+  { kind: 'new', title: "What's new", icon: 'Stars' },
+  { kind: 'fix', title: 'Bug fixes', icon: 'Bug' },
+] as const
+
 const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
 
 /**
@@ -69,21 +74,30 @@ export function UpdatePrompt() {
               {facts.join(' · ')}
             </Text>
           </View>
-          <View className="gap-3">
-            <Kicker>What's new</Kicker>
-            <Card>
-              <Card.Body className="gap-3">
-                {update.notes.map((note) => (
-                  <View key={note} className="flex-row gap-3">
-                    <Text className="font-bold text-accent">•</Text>
-                    <Text className="font-normal flex-1 text-base text-foreground">
-                      {note}
-                    </Text>
-                  </View>
-                ))}
-              </Card.Body>
-            </Card>
-          </View>
+          {SECTIONS.map(({ kind, title, icon }) => {
+            const notes = update.notes.filter((n) => n.kind === kind)
+            if (!notes.length) return null
+            return (
+              <View key={kind} className="gap-3">
+                <View className="flex-row items-center gap-2">
+                  <IconBadge name={icon} size={32} />
+                  <Kicker>{title}</Kicker>
+                </View>
+                <Card>
+                  <Card.Body className="gap-3">
+                    {notes.map((note) => (
+                      <View key={note.text} className="flex-row gap-3">
+                        <View className="mt-2 size-1.5 rounded-full bg-accent" />
+                        <Text className="font-normal flex-1 text-base text-foreground">
+                          {note.text}
+                        </Text>
+                      </View>
+                    ))}
+                  </Card.Body>
+                </Card>
+              </View>
+            )
+          })}
           <Text className="font-normal text-center text-xs text-muted">
             It installs over this one; your account and settings stay. Android
             may ask you to allow installing from your browser.
