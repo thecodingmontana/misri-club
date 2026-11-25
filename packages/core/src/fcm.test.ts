@@ -24,7 +24,12 @@ test('sends a signed-in FCM message, and reports a gone install', async () => {
   }) as typeof fetch
 
   assert.equal(fcmReady(), true)
-  const message = { title: 'Round 3 is open', url: '/c/rapid', tag: 'r3' }
+  const message = {
+    title: 'Round 3 is open',
+    url: '/c/rapid',
+    tag: 'r3',
+    kind: 'games',
+  }
   assert.equal(await sendFcm('device-token', message), 'sent')
   assert.match(calls[0].body, /grant_type=urn/)
   assert.equal(
@@ -34,6 +39,7 @@ test('sends a signed-in FCM message, and reports a gone install', async () => {
   const sent = JSON.parse(calls[1].body).message
   assert.equal(sent.token, 'device-token')
   assert.equal(sent.data.url, '/c/rapid')
+  assert.equal(sent.android.notification.channel_id, 'games')
   answer = 404
   assert.equal(await sendFcm('old-token', message), 'gone')
   // the access token is reused while valid

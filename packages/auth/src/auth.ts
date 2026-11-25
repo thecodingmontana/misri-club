@@ -171,8 +171,9 @@ export const google =
     ? {
         clientId: process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        // ID-token sign-in skips the /callback hook below, and with it two-step.
-        disableIdTokenSignIn: true,
+        // the Android app signs in with Google's ID token (no browser, so the
+        // installed website can't catch the return); the hook below still
+        // asks for the second step
       }
     : undefined
 
@@ -295,8 +296,11 @@ export function createAuth<P extends BetterAuthPlugin[] = []>(
       }),
       // Better Auth only asks for the second step after a password sign-in; do
       // the same after Google and after an emailed link, so neither skips it.
+      // In the app (an emailed code, or Google's ID token: the only way
+      // /sign-in/social makes a session) the answer is JSON, not a redirect.
       after: createAuthMiddleware(async (ctx) => {
-        const inApp = ctx.path === '/sign-in/email-otp'
+        const inApp =
+          ctx.path === '/sign-in/email-otp' || ctx.path === '/sign-in/social'
         if (
           !ctx.path.startsWith('/callback/') &&
           ctx.path !== '/magic-link/verify' &&

@@ -60,3 +60,66 @@ export async function signInWithPasskey(): Promise<string | null> {
     ? verified.error.message || "That passkey didn't work. Try again."
     : null
 }
+
+/**
+ * Save a new passkey for this account on this phone: the server's options,
+ * the phone's create prompt, then the server stores it. Returns null when
+ * saved, 'cancelled', 'unavailable', or an error sentence.
+ */
+export async function addPasskey(): Promise<string | null> {
+  if (!Passkey.isSupported()) return 'unavailable'
+  const { data: options, error } = await authClient.$fetch<
+    Parameters<typeof Passkey.create>[0]
+  >('/passkey/generate-register-options', { method: 'GET' })
+  if (error || !options) return error?.message || "Couldn't start. Try again."
+  let response: Awaited<ReturnType<typeof Passkey.create>>
+  try {
+    response = await Passkey.create({
+      ...options,
+      rp: { ...options.rp, id: options.rp?.id || new URL(SITE_URL).hostname },
+    })
+  } catch (cause) {
+    const text = String((cause as { error?: string })?.error ?? cause)
+    if (/cancel/i.test(text)) return 'cancelled'
+    // only a confirmed "can't" hides the button; anything else can be retried
+    if (/NotSupported|not supported/i.test(text)) return 'unavailable'
+    return "Couldn't make a passkey. Try again."
+  }
+  const saved = await authClient.$fetch('/passkey/verify-registration', {
+    method: 'POST',
+    body: {
+      response: {
+        ...response,
+        rawId: response.rawId ?? response.id,
+        type: response.type ?? 'public-key',
+        clientExtensionResults: response.clientExtensionResults ?? {},
+      },
+    },
+  })
+  return saved.error
+    ? saved.error.message || "Couldn't save the passkey. Try again."
+    : null
+}
+
+export type SavedPasskey = {
+  id: string
+  name?: string | null
+  createdAt: string
+}
+
+export async function listPasskeys(): Promise<SavedPasskey[]> {
+  const { data, error } = await authClient.$fetch<SavedPasskey[]>(
+    '/passkey/list-user-passkeys',
+    { method: 'GET' },
+  )
+  if (error) throw new Error(error.message || "Couldn't load your passkeys")
+  return data ?? []
+}
+
+export async function removePasskey(id: string) {
+  const { error } = await authClient.$fetch('/passkey/delete-passkey', {
+    method: 'POST',
+    body: { id },
+  })
+  if (error) throw new Error(error.message || "Couldn't remove it")
+}

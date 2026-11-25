@@ -13,6 +13,7 @@ import { ChessAccount } from '#/components/chess-account'
 import { GetTheApp } from '#/components/get-the-app'
 import { KeyRound, LogOut, ShieldCheck, Trash } from '#/components/icons'
 import { PushDevice } from '#/components/push-device'
+import { LinesSkeleton } from '#/components/skeletons.tsx'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -296,7 +297,7 @@ function Passkeys() {
   return (
     <>
       {keys === null ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <LinesSkeleton />
       ) : keys.length === 0 ? (
         <p className="text-sm text-muted-foreground">No passkeys yet.</p>
       ) : (

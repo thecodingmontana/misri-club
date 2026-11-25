@@ -3,7 +3,8 @@ import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 import { Spinner } from '#/components/auth'
 import { CopyIcon } from '#/components/copy-icon'
-import { ShieldCheck } from '#/components/icons'
+import { ExternalLink, ShieldCheck } from '#/components/icons'
+import { LinesSkeleton } from '#/components/skeletons.tsx'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { formatDate } from '#/lib/format'
@@ -59,16 +60,33 @@ export function ChessAccount({
   })
 
   const data = account.data
-  if (!data) return <p className="text-sm text-muted-foreground">Loading…</p>
+  if (!data) return <LinesSkeleton />
 
   if (data.status === 'verified') {
     return (
       <div className="flex flex-col gap-3">
-        <p className="flex items-center gap-2 text-sm">
-          <ShieldCheck className="size-4 shrink-0 text-primary" aria-hidden />
-          Linked to <b>{data.username}</b> on chess.com since{' '}
-          {formatDate(data.verifiedAt)}.
-        </p>
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/12 text-primary">
+            <ShieldCheck className="size-5" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-semibold">
+              {data.username}
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              Linked on chess.com since {formatDate(data.verifiedAt)}
+            </span>
+          </span>
+          <a
+            href={`https://www.chess.com/member/${encodeURIComponent(data.username)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-primary hover:underline"
+          >
+            Profile
+            <ExternalLink className="size-3" aria-hidden />
+          </a>
+        </div>
         {/* Onboarding moves on from here, even if the link was made earlier. */}
         {onLinked && (
           <Button size="lg" onClick={() => onLinked(data.username)}>

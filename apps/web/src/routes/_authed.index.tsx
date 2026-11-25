@@ -1,12 +1,11 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
-  CHOICES,
   CompetitionCard,
   OpenCompetitions,
+  StartButtons,
 } from '#/components/competitions'
-import { Plus, UserPlus } from '#/components/icons'
 import { InstallCard } from '#/components/install-card'
-import { Button } from '#/components/ui/button'
+import { HomeSkeleton } from '#/components/skeletons.tsx'
 import { seo } from '#/lib/seo'
 import { useAdmin } from '#/lib/use-admin'
 import {
@@ -16,6 +15,7 @@ import {
 
 /** Home: signed-out visitors are sent to sign in by the `_authed` layout. */
 export const Route = createFileRoute('/_authed/')({
+  pendingComponent: HomeSkeleton,
   head: () =>
     seo({
       title: 'Your competitions',
@@ -54,31 +54,7 @@ function Home() {
         <h1 className="display text-3xl">Your competitions</h1>
       </header>
 
-      <div className="grid gap-2 sm:grid-cols-3">
-        {CHOICES.map((choice) => (
-          <Button
-            key={choice.title}
-            asChild
-            variant="secondary"
-            className="h-auto justify-start py-3 sm:flex-col sm:justify-center"
-          >
-            <Link to={choice.to} search={choice.search}>
-              <Plus className="size-5 text-primary" />
-              {choice.title}
-            </Link>
-          </Button>
-        ))}
-        <Button
-          asChild
-          variant="secondary"
-          className="h-auto justify-start py-3 sm:flex-col sm:justify-center"
-        >
-          <Link to="/join">
-            <UserPlus className="size-5 text-primary" />
-            Join with a code
-          </Link>
-        </Button>
-      </div>
+      <StartButtons />
 
       <section className="space-y-3" aria-label="Your competitions">
         {mine.length === 0 ? (

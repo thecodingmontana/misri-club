@@ -35,13 +35,22 @@ export default function TabsLayout() {
     'accent',
     'muted',
   ])
+  // the icon sits in a pill and Android's own buttons or gesture bar sit
+  // under the tabs: size the bar for both, or the labels get cut off
+  const { bottom } = useSafeAreaInsets()
   return (
     <Tabs
       screenOptions={{
         header: () => <TopBar />,
         tabBarActiveTintColor: accent,
         tabBarInactiveTintColor: muted,
-        tabBarStyle: { backgroundColor: background, borderTopColor: border },
+        tabBarStyle: {
+          backgroundColor: background,
+          borderTopColor: border,
+          height: 64 + bottom,
+          paddingTop: 6,
+          paddingBottom: bottom + 6,
+        },
         tabBarLabelStyle: { fontFamily: 'Bricolage-SemiBold', fontSize: 11 },
         sceneStyle: { backgroundColor: background },
       }}
@@ -74,7 +83,7 @@ export default function TabsLayout() {
 /** The website's top bar: theme and sound on the left, Misri, then the inbox and you. */
 function TopBar() {
   const insets = useSafeAreaInsets()
-  const { api, me } = useSession()
+  const { api } = useSession()
   const [unread, setUnread] = useState(0)
   useFocusEffect(
     useCallback(() => {
@@ -125,32 +134,36 @@ function TopBar() {
         Misri
       </Text>
       <View className="flex-1 flex-row items-center justify-end gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          isIconOnly
-          accessibilityLabel={label}
-          onPress={() => router.push('/inbox')}
-        >
-          <Icon name="Bell" size={19} />
+        {/* the badge sits beside the button, which clips what overflows it */}
+        <View>
+          <Button
+            variant="ghost"
+            size="sm"
+            isIconOnly
+            accessibilityLabel={label}
+            onPress={() => router.push('/inbox')}
+          >
+            <Icon name="Bell" size={19} />
+          </Button>
           {unread > 0 && (
-            <View className="absolute top-0.5 right-0.5 min-w-4 items-center rounded-full bg-accent px-1">
-              <Text className="font-semibold text-[10px] leading-4 text-accent-foreground">
+            <View
+              pointerEvents="none"
+              className="absolute top-0 right-0 h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1"
+            >
+              <Text className="font-semibold text-[10px] text-accent-foreground">
                 {unread > 9 ? '9+' : unread}
               </Text>
             </View>
           )}
-        </Button>
+        </View>
         <Button
           variant="ghost"
           size="sm"
+          isIconOnly
           accessibilityLabel="Your account"
           onPress={() => router.push('/account')}
         >
-          <Icon name="UserRound" size={18} />
-          <Button.Label numberOfLines={1} className="max-w-24">
-            {me?.name.split(' ')[0] ?? ''}
-          </Button.Label>
+          <Icon name="UserRound" size={19} />
         </Button>
       </View>
     </View>

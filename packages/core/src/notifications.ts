@@ -7,10 +7,24 @@ import {
   notifications,
   user,
 } from '@misri/db/schema'
-import { and, eq, gt, inArray, isNull, lte, ne, sql } from 'drizzle-orm'
+import {
+  and,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  ne,
+  sql,
+} from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
+import { awaitsDecision } from './decisions.ts'
 import { type PushMessage, sendPushes } from './push.ts'
+import type { PushKind } from './push-kinds.ts'
 import { reminderPushes } from './reminders.ts'
+import { resultPushes } from './result-pushes.ts'
+import { rankStandings } from './standings.ts'
 
 // What reaches people's phones. Each sender is best-effort: a push that fails
 // never fails the action that caused it.
@@ -18,8 +32,9 @@ import { reminderPushes } from './reminders.ts'
 const DAY = 24 * 60 * 60 * 1000
 const REMINDER_SLACK_MS = 2 * 60 * 60 * 1000
 
-async function bestEffort(messages: PushMessage[]) {
-  if (messages.length === 0) return
+async function bestEffort(list: PushMessage[], kind: PushKind) {
+  if (list.length === 0) return
+  const messages = list.map((m) => ({ ...m, kind }))
   // the inbox keeps a copy, so people without push still see it
   try {
     await db.insert(notifications).values(
@@ -67,6 +82,7 @@ export async function notifyStarted(competitionId: string) {
       url: `/c/${r.slug}`,
       tag: `start-${r.slug}`,
     })),
+    'games',
   )
 }
 
@@ -99,28 +115,34 @@ async function playerName(userId: string) {
 export async function notifyLeft(competitionId: string, leaverId: string) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
-  await bestEffort([
-    {
-      userId: competition.ownerId,
-      title: `${await playerName(leaverId)} left ${competition.name}`,
-      body: 'Their games were settled by your leave rule.',
-      url: `/c/${competition.slug}`,
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId: competition.ownerId,
+        title: `${await playerName(leaverId)} left ${competition.name}`,
+        body: 'Their games were settled by your leave rule.',
+        url: `/c/${competition.slug}`,
+      },
+    ],
+    'news',
+  )
 }
 
 /** Tells the organiser someone is waiting for their yes. */
 export async function notifyRequested(competitionId: string, userId: string) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
-  await bestEffort([
-    {
-      userId: competition.ownerId,
-      title: `${await playerName(userId)} asked to join ${competition.name}`,
-      body: 'Approve or decline them on the competition page.',
-      url: `/c/${competition.slug}`,
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId: competition.ownerId,
+        title: `${await playerName(userId)} asked to join ${competition.name}`,
+        body: 'Approve or decline them on the competition page.',
+        url: `/c/${competition.slug}`,
+      },
+    ],
+    'requests',
+  )
 }
 
 /** Tells a player whether the organiser let them in. */
@@ -131,29 +153,35 @@ export async function notifyAnswered(
 ) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
-  await bestEffort([
-    {
-      userId,
-      title: approved
-        ? `You're in ${competition.name}`
-        : `${competition.name} declined your request`,
-      url: approved ? `/c/${competition.slug}` : '/',
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId,
+        title: approved
+          ? `You're in ${competition.name}`
+          : `${competition.name} declined your request`,
+        url: approved ? `/c/${competition.slug}` : '/',
+      },
+    ],
+    'requests',
+  )
 }
 
 /** Tells a player the organiser took them out. */
 export async function notifyRemoved(competitionId: string, userId: string) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
-  await bestEffort([
-    {
-      userId,
-      title: `You were removed from ${competition.name}`,
-      body: 'The organiser took you out of this competition.',
-      url: '/',
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId,
+        title: `You were removed from ${competition.name}`,
+        body: 'The organiser took you out of this competition.',
+        url: '/',
+      },
+    ],
+    'news',
+  )
 }
 
 /** Tells the new organiser it's theirs now. */
@@ -163,14 +191,17 @@ export async function notifyHandedOver(
 ) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
-  await bestEffort([
-    {
-      userId: toUserId,
-      title: `You now run ${competition.name}`,
-      body: 'The organiser handed it over to you.',
-      url: `/c/${competition.slug}`,
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId: toUserId,
+        title: `You now run ${competition.name}`,
+        body: 'The organiser handed it over to you.',
+        url: `/c/${competition.slug}`,
+      },
+    ],
+    'news',
+  )
 }
 
 /** Tells the members their competition is gone. */
@@ -182,6 +213,7 @@ export async function notifyDeleted(name: string, memberIds: string[]) {
       body: 'The organiser deleted this competition.',
       url: '/',
     })),
+    'news',
   )
 }
 
@@ -206,6 +238,7 @@ export async function notifyFinished(
         url: `/c/${competition.slug}`,
         tag: `finish-${competition.slug}`,
       })),
+      'results',
     )
     return
   }
@@ -231,6 +264,7 @@ export async function notifyFinished(
             tag: `finish-${competition.slug}`,
           },
     ),
+    'results',
   )
 }
 
@@ -257,6 +291,7 @@ export async function notifyRoundOpened(competitionId: string, round: number) {
       url: `/c/${competition.slug}`,
       tag: `round-${competition.slug}-${round}`,
     })),
+    'games',
   )
 }
 
@@ -270,18 +305,21 @@ export async function notifyScheduledStart(
 ) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
-  await bestEffort([
-    {
-      userId: competition.ownerId,
-      title: failure
-        ? `${competition.name} couldn't start`
-        : `${competition.name} has started`,
-      body: failure
-        ? `${failure} Start it yourself once it's ready.`
-        : 'It started on its scheduled day. Fixtures are out.',
-      url: `/c/${competition.slug}`,
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId: competition.ownerId,
+        title: failure
+          ? `${competition.name} couldn't start`
+          : `${competition.name} has started`,
+        body: failure
+          ? `${failure} Start it yourself once it's ready.`
+          : 'It started on its scheduled day. Fixtures are out.',
+        url: `/c/${competition.slug}`,
+      },
+    ],
+    'news',
+  )
 }
 
 /** Catch-up games moved into the league's rounds: both players hear where and when. */
@@ -310,7 +348,7 @@ export async function notifyGamesMoved(
       })
     }
   }
-  await bestEffort(messages)
+  await bestEffort(messages, 'games')
 }
 
 /**
@@ -364,7 +402,7 @@ export async function notifyNewGames(
       url: `/c/${competition.slug}`,
     })
   }
-  await bestEffort(messages)
+  await bestEffort(messages, 'games')
 }
 
 /** A rematch was asked for: the opponent gets the invite. */
@@ -377,14 +415,17 @@ export async function notifyRematch(
   const competition = await competitionPush(competitionId)
   if (!competition) return
   const by = await playerName(byUserId)
-  await bestEffort([
-    {
-      userId: opponentId,
-      title: `${by} wants a rematch`,
-      body: `${competition.name}: same settings. Join to start it.`,
-      url: `/join/${inviteCode}`,
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId: opponentId,
+        title: `${by} wants a rematch`,
+        body: `${competition.name}: same settings. Join to start it.`,
+        url: `/join/${inviteCode}`,
+      },
+    ],
+    'games',
+  )
 }
 
 /** A player reported a result: their opponent is asked to confirm it. */
@@ -396,14 +437,17 @@ export async function notifyReported(
   const competition = await competitionPush(competitionId)
   if (!competition) return
   const by = await playerName(byUserId)
-  await bestEffort([
-    {
-      userId: opponentId,
-      title: `${by} reported your result`,
-      body: `In ${competition.name}. Confirm it, or dispute it if it's wrong.`,
-      url: `/c/${competition.slug}`,
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId: opponentId,
+        title: `${by} reported your result`,
+        body: `In ${competition.name}. Confirm it, or dispute it if it's wrong.`,
+        url: `/c/${competition.slug}`,
+      },
+    ],
+    'results',
+  )
 }
 
 /** The opponent confirmed or disputed a report; a dispute goes to the organiser. */
@@ -418,30 +462,33 @@ export async function notifyReportAnswered(
   const by = await playerName(byUserId)
   const reporter = await playerName(reporterId)
   const url = `/c/${competition.slug}`
-  await bestEffort([
-    {
-      userId: reporterId,
-      title: accepted
-        ? `${by} confirmed your result`
-        : `${by} disputed your result`,
-      body: accepted
-        ? `It counts in ${competition.name}.`
-        : `In ${competition.name}. The organiser will settle it.`,
-      url,
-    },
-    ...(!accepted &&
-    competition.ownerId !== byUserId &&
-    competition.ownerId !== reporterId
-      ? [
-          {
-            userId: competition.ownerId,
-            title: `${reporter} and ${by} disagree on a result`,
-            body: `In ${competition.name}. Enter the result yourself.`,
-            url,
-          },
-        ]
-      : []),
-  ])
+  await bestEffort(
+    [
+      {
+        userId: reporterId,
+        title: accepted
+          ? `${by} confirmed your result`
+          : `${by} disputed your result`,
+        body: accepted
+          ? `It counts in ${competition.name}.`
+          : `In ${competition.name}. The organiser will settle it.`,
+        url,
+      },
+      ...(!accepted &&
+      competition.ownerId !== byUserId &&
+      competition.ownerId !== reporterId
+        ? [
+            {
+              userId: competition.ownerId,
+              title: `${reporter} and ${by} disagree on a result`,
+              body: `In ${competition.name}. Enter the result yourself.`,
+              url,
+            },
+          ]
+        : []),
+    ],
+    'results',
+  )
 }
 
 /** A player conceded: their opponent gets the win, and the organiser hears of it. */
@@ -455,24 +502,27 @@ export async function notifyConceded(
   const by = await playerName(byUserId)
   const to = await playerName(toUserId)
   const url = `/c/${competition.slug}`
-  await bestEffort([
-    {
-      userId: toUserId,
-      title: `${by} gave you a walkover`,
-      body: `They can't play your ${competition.name} match. The win is yours.`,
-      url,
-    },
-    ...(competition.ownerId !== byUserId && competition.ownerId !== toUserId
-      ? [
-          {
-            userId: competition.ownerId,
-            title: `${by} conceded to ${to}`,
-            body: `In ${competition.name}. You can reopen the match if it was a mistake.`,
-            url,
-          },
-        ]
-      : []),
-  ])
+  await bestEffort(
+    [
+      {
+        userId: toUserId,
+        title: `${by} gave you a walkover`,
+        body: `They can't play your ${competition.name} match. The win is yours.`,
+        url,
+      },
+      ...(competition.ownerId !== byUserId && competition.ownerId !== toUserId
+        ? [
+            {
+              userId: competition.ownerId,
+              title: `${by} conceded to ${to}`,
+              body: `In ${competition.name}. You can reopen the match if it was a mistake.`,
+              url,
+            },
+          ]
+        : []),
+    ],
+    'results',
+  )
 }
 
 /** Tells the organiser who joined. */
@@ -490,13 +540,16 @@ export async function notifyJoined(competitionId: string, joinerId: string) {
     .where(eq(competitions.id, competitionId))
     .limit(1)
   if (!row || row.ownerId === joinerId) return
-  await bestEffort([
-    {
-      userId: row.ownerId,
-      title: `${row.joiner} joined ${row.name}`,
-      url: `/c/${row.slug}`,
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId: row.ownerId,
+        title: `${row.joiner} joined ${row.name}`,
+        url: `/c/${row.slug}`,
+      },
+    ],
+    'news',
+  )
 }
 
 /**
@@ -554,6 +607,176 @@ export async function remindDeadlines(now = new Date()) {
         sql`, `,
       )})`,
     )
-  await bestEffort(reminderPushes(due))
+  await bestEffort(reminderPushes(due), 'games')
   return due.length
+}
+
+/** Results chess.com just settled: both players, with their place in a league. */
+export async function notifyResults(competitionId: string, matchIds: string[]) {
+  if (matchIds.length === 0) return
+  const [competition] = await db
+    .select()
+    .from(competitions)
+    .where(eq(competitions.id, competitionId))
+  if (!competition) return
+  const home = alias(chessAccounts, 'home')
+  const away = alias(chessAccounts, 'away')
+  const homeUser = alias(user, 'home_user')
+  const awayUser = alias(user, 'away_user')
+  const settled = await db
+    .select({
+      matchId: matches.id,
+      homeUserId: sql<string>`${matches.homeUserId}`,
+      awayUserId: sql<string>`${matches.awayUserId}`,
+      homeName: sql<string>`coalesce(${home.username}, ${homeUser.name})`,
+      awayName: sql<string>`coalesce(${away.username}, ${awayUser.name})`,
+      result: sql<'white' | 'black' | 'draw'>`${matches.result}`,
+      whiteUserId: sql<string>`${matches.whiteUserId}`,
+    })
+    .from(matches)
+    .innerJoin(homeUser, eq(homeUser.id, matches.homeUserId))
+    .innerJoin(awayUser, eq(awayUser.id, matches.awayUserId))
+    .leftJoin(home, eq(home.userId, matches.homeUserId))
+    .leftJoin(away, eq(away.userId, matches.awayUserId))
+    // reopened since it was settled: nothing to tell
+    .where(and(inArray(matches.id, matchIds), isNotNull(matches.result)))
+
+  let placeOf: (userId: string) => number | null = () => null
+  if (competition.format === 'league') {
+    const [all, members] = await Promise.all([
+      db.select().from(matches).where(eq(matches.competitionId, competitionId)),
+      db
+        .select({
+          id: competitionMembers.userId,
+          name: sql<string>`coalesce(${chessAccounts.username}, ${user.name})`,
+        })
+        .from(competitionMembers)
+        .innerJoin(user, eq(user.id, competitionMembers.userId))
+        .leftJoin(chessAccounts, eq(chessAccounts.userId, user.id))
+        .where(eq(competitionMembers.competitionId, competitionId)),
+    ])
+    const names = new Map(members.map((m) => [m.id, m.name]))
+    // ranked exactly as the competition page ranks it
+    const table = rankStandings(
+      all,
+      members.map((m) => m.id),
+      new Date(),
+      {
+        unplayed: competition.unplayedRule,
+        points: competition.points,
+        walkoverWinsBreakTies: competition.walkoverWinsBreakTies,
+      },
+      competition.tieBreaks,
+      (id) => names.get(id) ?? id,
+    )
+    placeOf = (id) => {
+      const i = table.findIndex((row) => row.id === id)
+      return i < 0 ? null : i + 1
+    }
+  }
+  await bestEffort(resultPushes(settled, competition, placeOf), 'results')
+}
+
+/**
+ * The day before a scheduled start: everyone in it, once. The daily cron
+ * starts it the next morning (startScheduled), so "tomorrow" is the next run.
+ */
+export async function remindStarts(now = new Date()) {
+  const soon = await db
+    .update(competitions)
+    .set({ startRemindedAt: now })
+    .where(
+      and(
+        eq(competitions.status, 'open'),
+        isNull(competitions.startRemindedAt),
+        gt(competitions.startsAt, now),
+        lte(
+          competitions.startsAt,
+          new Date(now.getTime() + DAY + REMINDER_SLACK_MS),
+        ),
+      ),
+    )
+    .returning({
+      id: competitions.id,
+      name: competitions.name,
+      slug: competitions.slug,
+    })
+  if (soon.length === 0) return 0
+  const members = await db
+    .select({
+      competitionId: competitionMembers.competitionId,
+      userId: competitionMembers.userId,
+    })
+    .from(competitionMembers)
+    .where(
+      inArray(
+        competitionMembers.competitionId,
+        soon.map((c) => c.id),
+      ),
+    )
+    .catch(async (error) => {
+      // nothing sent yet: let the next run claim them again
+      await db
+        .update(competitions)
+        .set({ startRemindedAt: null })
+        .where(
+          inArray(
+            competitions.id,
+            soon.map((c) => c.id),
+          ),
+        )
+      throw error
+    })
+  await bestEffort(
+    soon.flatMap((c) => {
+      const players = members.filter((m) => m.competitionId === c.id)
+      return players.map((m) => ({
+        userId: m.userId,
+        title: `${c.name} starts tomorrow`,
+        body: `${players.length} ${players.length === 1 ? 'player is' : 'players are'} in. Your first games come out in the morning.`,
+        url: `/c/${c.slug}`,
+        tag: `starts-${c.slug}`,
+      }))
+    }),
+    'news',
+  )
+  return soon.length
+}
+
+/**
+ * Once a day, organisers with games waiting on their decision hear how many.
+ * The tag replaces yesterday's nudge instead of stacking another.
+ */
+export async function remindOrganisers(now = new Date()) {
+  const running = await db
+    .select()
+    .from(competitions)
+    .where(eq(competitions.status, 'running'))
+  if (running.length === 0) return 0
+  const rows = await db
+    .select()
+    .from(matches)
+    .where(
+      inArray(
+        matches.competitionId,
+        running.map((c) => c.id),
+      ),
+    )
+  const nudges = running.flatMap((c) => {
+    const waiting = rows.filter(
+      (m) => m.competitionId === c.id && awaitsDecision(m, c, now.getTime()),
+    ).length
+    if (waiting === 0) return []
+    return [
+      {
+        userId: c.ownerId,
+        title: `${waiting} ${waiting === 1 ? 'game is' : 'games are'} waiting for your decision`,
+        body: `In ${c.name}. Decide each one from the competition page.`,
+        url: `/c/${c.slug}`,
+        tag: `decide-${c.slug}`,
+      },
+    ]
+  })
+  await bestEffort(nudges, 'results')
+  return nudges.length
 }

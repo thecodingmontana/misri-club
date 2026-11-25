@@ -43,6 +43,7 @@ import {
   notifyFinished,
   notifyReportAnswered,
   notifyReported,
+  notifyResults,
   notifyRoundOpened,
 } from './notifications.ts'
 import { rankStandings } from './standings.ts'
@@ -169,6 +170,7 @@ export async function syncResults(competitionId: string, now = new Date()) {
       { groupNo: 0 },
     ))
   let changed = 0
+  const settled: string[] = []
   for (const m of open) {
     // a late group result can't redraw a bracket already played from the tables
     if (groupsClosed && m.groupNo !== null) continue
@@ -220,7 +222,11 @@ export async function syncResults(competitionId: string, now = new Date()) {
       )
       .returning({ id: matches.id })
     changed += written.length
+    settled.push(...written.map((w) => w.id))
   }
+  await notifyResults(competitionId, settled).catch((error) =>
+    console.error('[push] results failed', (error as Error).message),
+  )
   // a game chess.com couldn't tell us about may be the one that settles it
   if (!fetchFailed) {
     await db

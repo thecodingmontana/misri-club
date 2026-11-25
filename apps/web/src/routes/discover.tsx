@@ -2,21 +2,22 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { z } from 'zod'
 import {
   CompetitionCard,
+  DISCOVER_FILTERS,
+  DiscoverHeader,
   FORMAT_LABEL,
   JoinButton,
 } from '#/components/competitions'
+import { DiscoverSkeleton } from '#/components/skeletons.tsx'
 import { Button } from '#/components/ui/button'
 import { seo } from '#/lib/seo'
 import { useAdmin } from '#/lib/use-admin'
-import { cn } from '#/lib/utils'
 import { getOpenCompetitionsFn } from '#/server/competitions.functions'
-
-const FILTERS = ['all', 'league', 'knockout', 'groups'] as const
 
 /** Every public competition taking players, for anyone to browse. */
 export const Route = createFileRoute('/discover')({
+  pendingComponent: DiscoverSkeleton,
   validateSearch: z.object({
-    format: z.enum(FILTERS).catch('all').default('all'),
+    format: z.enum(DISCOVER_FILTERS).catch('all').default('all'),
   }),
   head: () =>
     seo({
@@ -37,34 +38,7 @@ function Discover() {
 
   return (
     <div className="space-y-5 pt-2">
-      <header className="text-center">
-        <h1 className="display text-3xl">Open competitions</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Public leagues and tournaments taking players right now.
-        </p>
-      </header>
-
-      <nav
-        aria-label="Filter by format"
-        className="flex flex-wrap justify-center gap-2"
-      >
-        {FILTERS.map((value) => (
-          <Link
-            key={value}
-            to="/discover"
-            search={{ format: value }}
-            aria-current={format === value ? 'page' : undefined}
-            className={cn(
-              'rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors duration-150',
-              format === value
-                ? 'border-primary bg-primary/12 text-primary'
-                : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground',
-            )}
-          >
-            {value === 'all' ? 'All' : FORMAT_LABEL[value]}
-          </Link>
-        ))}
-      </nav>
+      <DiscoverHeader format={format} />
 
       {shown.length === 0 ? (
         <div className="space-y-3 rounded-2xl bg-card px-4 py-6 text-center shadow-card">

@@ -1,7 +1,8 @@
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { FORMAT_LABEL, STATUS_LABEL } from '#/components/competitions'
 import { ExternalLink, Trophy } from '#/components/icons'
-import { PlayerAvatar, PlayerChip } from '#/components/player-chip'
+import { PlayerAvatar } from '#/components/player-chip'
+import { PlayerSkeleton } from '#/components/skeletons.tsx'
 import { relativeTime } from '#/lib/format'
 import { seo } from '#/lib/seo'
 import { cn } from '#/lib/utils'
@@ -12,6 +13,7 @@ type Page = NonNullable<Awaited<ReturnType<typeof getPlayer>>>
 
 /** A player: their record, their results, and how you do against them. */
 export const Route = createFileRoute('/_authed/p/$username')({
+  pendingComponent: PlayerSkeleton,
   head: () =>
     seo({ title: 'Player', description: 'A player on Misri.', noindex: true }),
   loader: async ({ params }) => {
@@ -162,13 +164,17 @@ function ResultRow({ result }: { result: PlayerResult }) {
         >
           {look.label}
         </span>
+        <PlayerAvatar
+          username={result.opponent}
+          image={result.opponentImage}
+          className="size-9"
+        />
+        {/* beside the avatar: who, then which competition */}
         <span className="min-w-0 flex-1">
-          <PlayerChip
-            username={result.opponent}
-            image={result.opponentImage}
-            size="sm"
-          />
-          <span className="mt-0.5 block truncate text-[0.68rem] text-muted-foreground">
+          <span className="block truncate text-sm font-medium">
+            {result.opponent}
+          </span>
+          <span className="block truncate text-[0.68rem] text-muted-foreground">
             {result.competition}
           </span>
         </span>

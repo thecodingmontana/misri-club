@@ -1,10 +1,11 @@
+import { deviceName } from '@misri/core/device-name'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
+import { RowsSkeleton } from '#/components/skeletons.tsx'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { authClient } from '#/lib/auth-client'
-import { deviceName } from '#/lib/device-name'
 import { formatDate } from '#/lib/format'
 import { toast } from '#/lib/toast'
 
@@ -71,7 +72,7 @@ export function DeviceList() {
   const [busy, setBusy] = useState<string | null>(null)
 
   if (sessions.isPending) {
-    return <p className="text-sm text-muted-foreground">Loading devices…</p>
+    return <RowsSkeleton count={2} />
   }
   if (sessions.isError) {
     return (

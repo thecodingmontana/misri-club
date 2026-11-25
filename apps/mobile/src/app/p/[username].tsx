@@ -9,14 +9,16 @@ import {
   PressableFeedback,
   useThemeColor,
 } from 'heroui-native'
-import { RefreshControl, ScrollView, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import { EmptyCard } from '@/competitions'
-import { Loading, Problem, Screen } from '@/components'
+import { Problem, Screen } from '@/components'
 import { Icon } from '@/icon'
 import { relativeTime } from '@/lib/format'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
 import { avatarUrl, PlayerAvatar } from '@/match'
+import { RefreshScroll } from '@/refresh'
+import { PlayerSkeleton } from '@/skeletons'
 
 type Record = PlayerPage['record']
 type Result = PlayerPage['recent'][number]
@@ -50,7 +52,8 @@ export default function Player() {
   if (loading && !data) {
     return (
       <Screen>
-        <Loading />
+        <Stack.Screen options={{ title: '' }} />
+        <PlayerSkeleton />
       </Screen>
     )
   }
@@ -67,11 +70,9 @@ export default function Player() {
   return (
     <Screen>
       <Stack.Screen options={{ title: '' }} />
-      <ScrollView
+      <RefreshScroll
         contentContainerClassName="gap-5 p-4 pb-10"
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={reload} />
-        }
+        onRefresh={reload}
       >
         <View className="items-center gap-2">
           <PlayerAvatar
@@ -156,7 +157,7 @@ export default function Player() {
             ))
           )}
         </View>
-      </ScrollView>
+      </RefreshScroll>
     </Screen>
   )
 }
@@ -200,29 +201,25 @@ function ResultRow({ result }: { result: Result }) {
             {look.label}
           </Text>
         </View>
+        <Avatar size="sm" alt={result.opponent}>
+          <Avatar.Image
+            source={{
+              uri: avatarUrl(result.opponent, result.opponentImage),
+            }}
+          />
+          <Avatar.Fallback>
+            {result.opponent.slice(0, 2).toUpperCase()}
+          </Avatar.Fallback>
+        </Avatar>
+        {/* beside the avatar: who, then which competition */}
         <View className="min-w-0 flex-1">
-          <View className="flex-row items-center gap-2">
-            <Avatar size="sm" alt={result.opponent}>
-              <Avatar.Image
-                source={{
-                  uri: avatarUrl(result.opponent, result.opponentImage),
-                }}
-              />
-              <Avatar.Fallback>
-                {result.opponent.slice(0, 2).toUpperCase()}
-              </Avatar.Fallback>
-            </Avatar>
-            <Text
-              numberOfLines={1}
-              className="flex-1 font-medium text-sm text-foreground"
-            >
-              {result.opponent}
-            </Text>
-          </View>
           <Text
             numberOfLines={1}
-            className="font-normal mt-0.5 text-[11px] text-muted"
+            className="font-medium text-sm text-foreground"
           >
+            {result.opponent}
+          </Text>
+          <Text numberOfLines={1} className="font-normal text-xs text-muted">
             {result.competition}
           </Text>
         </View>

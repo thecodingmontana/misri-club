@@ -2,8 +2,18 @@ import {
   createRouter as createTanStackRouter,
   type ErrorComponentProps,
   useRouter,
+  useRouterState,
 } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
+import {
+  BoardSkeleton,
+  CompetitionSkeleton,
+  DiscoverSkeleton,
+  HomeSkeleton,
+  InboxSkeleton,
+  InviteSkeleton,
+  PlayerSkeleton,
+} from './components/skeletons'
 import { Skeleton } from './components/ui/skeleton'
 import { getContext } from './integrations/tanstack-query/root-provider'
 import { routeTree } from './routeTree.gen'
@@ -54,7 +64,22 @@ function PageError({ reset }: ErrorComponentProps) {
   )
 }
 
+// A parent (the sign-in check) can be what's slow: still show the shape of
+// the page being opened, read from where we're going.
+const SHAPES: Array<[RegExp, () => React.JSX.Element]> = [
+  [/^\/$/, HomeSkeleton],
+  [/^\/inbox/, InboxSkeleton],
+  [/^\/discover/, DiscoverSkeleton],
+  [/^\/c\//, CompetitionSkeleton],
+  [/^\/p\//, PlayerSkeleton],
+  [/^\/join\/./, InviteSkeleton],
+  [/^\/(train\/(openings|masters)\/.|analysis\/game)/, BoardSkeleton],
+]
+
 function PageSkeleton() {
+  const path = useRouterState({ select: (s) => s.location.pathname })
+  const Shape = SHAPES.find(([pattern]) => pattern.test(path))?.[1]
+  if (Shape) return <Shape />
   return (
     <div className="space-y-4 pt-2" role="status" aria-label="Loading">
       <Skeleton className="mx-auto h-8 w-48 rounded-lg" />

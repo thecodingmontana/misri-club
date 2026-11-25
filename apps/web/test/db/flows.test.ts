@@ -35,7 +35,7 @@ import {
   refuseIfOwner,
   removePlayer,
 } from '#/server/membership.server'
-import { remindDeadlines } from '#/server/notifications.server'
+import { remindDeadlines, remindOrganisers, remindStarts } from '#/server/notifications.server'
 import {
   concedeMatch,
   decideMatch,
@@ -530,6 +530,11 @@ test('sync: chess.com failing never finishes a league; the late result then coun
   const end = await c.state()
   assert.equal(end.status, 'finished')
   assert.equal(end.championUserId, m.homeUserId)
+  // both players hear the result, with their place in the table
+  const told = await db.select().from(notifications).where(inArray(notifications.userId, c.ids))
+  const winner = told.find((n) => n.userId === m.homeUserId && n.title.startsWith('You beat'))
+  assert.equal(winner?.body, `You're now 1st in ${c.row.name}.`)
+  assert.ok(told.some((n) => n.userId === m.awayUserId && n.title.startsWith('You lost to')))
 })
 
 test('sync: a concede after the deadline waits for chess.com before finishing', async () => {
@@ -670,6 +675,38 @@ test('reminders: a deadline just past 24 hours away is still reminded, once', as
   const [m] = await c.rows()
   assert.ok(m.remindedAt, 'reminded')
   assert.equal(await remindDeadlines(new Date(now)), 0, 'not twice')
+})
+
+test('reminders: everyone hears the day before a scheduled start, once', async () => {
+  const now = Date.now()
+  const later = await competition('league', ['o', 'x'], { startsAt: new Date(now + 3 * 86_400_000) })
+  const c = await competition('league', ['o', 'a', 'b'], { startsAt: new Date(now + 20 * 3_600_000) })
+  assert.ok((await remindStarts(new Date(now))) >= 1)
+  const told = await db.select().from(notifications).where(inArray(notifications.userId, [...c.ids, ...later.ids]))
+  const starts = told.filter((n) => n.title === `${c.row.name} starts tomorrow`)
+  assert.equal(starts.length, 3, 'every member, organiser too')
+  assert.equal(starts[0].body, '3 players are in. Your first games come out in the morning.')
+  assert.ok(!told.some((n) => n.title.startsWith(later.row.name)), 'three days out: not yet')
+  await remindStarts(new Date(now))
+  const again = await db.select().from(notifications).where(inArray(notifications.userId, c.ids))
+  assert.equal(again.filter((n) => n.title.endsWith('starts tomorrow')).length, 3, 'not twice')
+})
+
+test('reminders: the organiser hears how many games wait on them', async () => {
+  const c = await competition('league', ['o', 'a', 'b'], { legs: 1, unplayedRule: 'organiser' })
+  await startCompetition(c.slug, c.organiser)
+  // a bye has no opponent: only real games
+  const games = (await c.rows()).filter((m) => m.homeUserId && m.awayUserId)
+  // two expired unplayed, one still open
+  for (const [i, m] of games.entries()) {
+    await db.update(matches).set({ dueAt: new Date(Date.now() + (i < 2 ? -3_600_000 : 86_400_000)) }).where(eq(matches.id, m.id))
+  }
+  await remindOrganisers()
+  const told = await db.select().from(notifications).where(inArray(notifications.userId, c.ids))
+  const nudge = told.filter((n) => n.title.includes('waiting for your decision'))
+  assert.equal(nudge.length, 1, 'the organiser only')
+  assert.equal(nudge[0].userId, c.ids[0])
+  assert.equal(nudge[0].title, '2 games are waiting for your decision')
 })
 
 test('knockout: the next round opens when the last game ended, not at the sync', async () => {
