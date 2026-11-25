@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useUniwind } from 'uniwind'
 import { Loading, Screen } from '@/components'
+import { trackScreen, trackUser } from '@/lib/analytics'
 import { introSeen } from '@/lib/intro'
 import { openTappedNotifications, registerForPush } from '@/lib/notifications'
 import { SessionProvider, useSession } from '@/lib/session'
@@ -48,6 +49,11 @@ function Gate() {
     return openTappedNotifications()
   }, [ready, api])
   const segments = useSegments()
+  // the route pattern, e.g. /c/[slug]: which pages get used, not whose
+  const route = `/${segments.join('/')}`
+  useEffect(() => trackScreen(route), [route])
+  const userId = me?.id ?? null
+  useEffect(() => trackUser(userId), [userId])
   const [seen, setSeen] = useState<boolean | undefined>(undefined)
   useEffect(() => {
     void Promise.all([loadTheme(), loadSoundSetting()]).finally(() =>
