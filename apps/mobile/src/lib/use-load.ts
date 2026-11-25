@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { readCached, writeCached } from './cache'
+import { cacheGeneration, readCached, writeCached } from './cache'
 import { useSession } from './session'
 
 /**
@@ -8,8 +8,8 @@ import { useSession } from './session'
  * elsewhere) signs this app out.
  *
  * With `keep`, the last good answer is kept on the phone: shown at once on the
- * next visit, and offline in place of an error, with `savedAt` saying when it
- * was fetched.
+ * next visit, and offline in place of an error. `savedAt` is when the shown
+ * answer was fetched; `fromCache` says it came from the phone, not this visit.
  */
 export function useLoad<T>(load: () => Promise<T>, key: string, keep?: string) {
   const { signOut, me } = useSession()
@@ -19,33 +19,43 @@ export function useLoad<T>(load: () => Promise<T>, key: string, keep?: string) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [savedAt, setSavedAt] = useState<number | null>(null)
+  const [fromCache, setFromCache] = useState(false)
   const fresh = useRef(false)
+  // which load this is: an answer for an earlier key is dropped
+  const run = useRef(0)
   // one account's pages are never shown to another
   const name = keep && me ? `${me.id}.${keep}` : null
 
   const reload = useCallback(async () => {
+    const mine = run.current
+    const since = cacheGeneration()
     setLoading(true)
     try {
       const answer = await latest.current()
+      if (mine !== run.current) return false
+      const at = Date.now()
       fresh.current = true
       setData(answer)
       setError(null)
-      setSavedAt(null)
-      if (name && answer) writeCached(name, answer)
+      setSavedAt(at)
+      setFromCache(false)
+      if (name && answer) writeCached(name, answer, since, at)
       return true
     } catch (e) {
+      if (mine !== run.current) return false
       const message = (e as Error).message
       if (/sign in first/i.test(message)) await signOut()
       setError(message)
       return false
     } finally {
-      setLoading(false)
+      if (mine === run.current) setLoading(false)
     }
   }, [signOut, name])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: key decides when to reload
   useEffect(() => {
     let live = true
+    run.current++
     fresh.current = false
     // the kept copy first, so the page shows while the fresh one comes
     if (name)
@@ -54,6 +64,7 @@ export function useLoad<T>(load: () => Promise<T>, key: string, keep?: string) {
         if (!live || !kept || fresh.current) return
         setData(kept.data)
         setSavedAt(kept.at)
+        setFromCache(true)
       })
     void reload()
     return () => {
@@ -61,5 +72,5 @@ export function useLoad<T>(load: () => Promise<T>, key: string, keep?: string) {
     }
   }, [key, reload])
 
-  return { data, error, loading, reload, savedAt }
+  return { data, error, loading, reload, savedAt, fromCache }
 }

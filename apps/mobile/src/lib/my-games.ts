@@ -11,6 +11,8 @@ import * as Store from '@/lib/storage'
 
 export interface Games {
   signedIn: boolean
+  /** no answer at all: offline with nothing kept */
+  unavailable?: boolean
   next: NextGame | null
   standing: Standing | null
 }
@@ -44,6 +46,11 @@ export async function games(): Promise<Games> {
     const kept = await Store.getItemAsync(GAMES_KEY).catch(() => null)
     return kept
       ? (JSON.parse(kept) as Games)
-      : { signedIn: true, next: null, standing: null }
+      : { signedIn: true, next: null, standing: null, unavailable: true }
   }
+}
+
+/** Signing out: the kept answer belongs to the account that fetched it. */
+export function clearGames() {
+  return Store.deleteItemAsync(GAMES_KEY).catch(() => {})
 }

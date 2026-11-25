@@ -1,5 +1,6 @@
 import { db } from '@misri/db/client'
 import {
+  allowance,
   appMeta,
   chessAccounts,
   competitionMembers,
@@ -854,9 +855,21 @@ export async function remindOrganisers(now = new Date()) {
  */
 export async function sendWeeklySummaries(now = new Date()) {
   if (now.getUTCDay() !== 1) return 0
-  const day = now.toISOString().slice(0, 10)
-  if (!(await takeAllowance(`weekly-summary:${day}`, 1, 1, 6 * 86_400_000)))
-    return 0
+  const claim = `weekly-summary:${now.toISOString().slice(0, 10)}`
+  if (!(await takeAllowance(claim, 1, 1, 6 * 86_400_000))) return 0
+  let messages: PushMessage[]
+  try {
+    messages = await weeklyMessages(now)
+  } catch (error) {
+    // nothing sent yet: let a rerun this Monday try again
+    await db.delete(allowance).where(eq(allowance.key, claim))
+    throw error
+  }
+  await bestEffort(messages, 'weekly')
+  return messages.length
+}
+
+async function weeklyMessages(now: Date) {
   const running = await db
     .select()
     .from(competitions)
@@ -907,8 +920,7 @@ export async function sendWeeklySummaries(now = new Date()) {
       if (message) messages.push(message)
     }
   }
-  await bestEffort(messages, 'weekly')
-  return messages.length
+  return messages
 }
 
 const LATEST_APP =

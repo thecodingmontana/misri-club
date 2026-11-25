@@ -6,6 +6,10 @@ import { Directory, File, Paths } from 'expo-file-system'
  * a keychain value, and nothing here is secret beyond the account's own view.
  */
 
+// Signing out moves this on; a request that started before then can't write.
+let generation = 0
+export const cacheGeneration = () => generation
+
 const dir = () => new Directory(Paths.document, 'page-cache')
 const file = (name: string) =>
   new File(dir(), `${name.replace(/[^\w.-]/g, '_')}.json`)
@@ -21,10 +25,16 @@ export async function readCached<T>(
   }
 }
 
-export function writeCached(name: string, data: unknown) {
+export function writeCached(
+  name: string,
+  data: unknown,
+  since: number,
+  at = Date.now(),
+) {
+  if (since !== generation) return
   try {
     if (!dir().exists) dir().create()
-    file(name).writeSync(JSON.stringify({ data, at: Date.now() }))
+    file(name).writeSync(JSON.stringify({ data, at }))
   } catch {
     // a full disk only costs the offline copy
   }
@@ -32,6 +42,7 @@ export function writeCached(name: string, data: unknown) {
 
 /** Signing out: nobody else on this phone sees this account's pages. */
 export function clearCached() {
+  generation++
   try {
     if (dir().exists) dir().delete()
   } catch {

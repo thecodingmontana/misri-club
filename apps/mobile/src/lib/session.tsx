@@ -9,8 +9,9 @@ import {
   useState,
 } from 'react'
 import { authClient, sessionToken } from './auth'
-import { clearCached, readCached, writeCached } from './cache'
+import { cacheGeneration, clearCached, readCached, writeCached } from './cache'
 import { API_URL } from './config'
+import { clearGames } from './my-games'
 
 type Session = {
   /** null: signed out; undefined: still reading the stored one */
@@ -39,11 +40,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setToken(next)
     if (!next) return setMe(null)
     const client = createApiClient({ url: API_URL, token: next })
+    const since = cacheGeneration()
     try {
       // null: a token the server no longer knows (signed out elsewhere)
       const fresh = await client.me()
       setMe(fresh)
-      if (fresh) writeCached('me', fresh)
+      // null too: a refused session can't come back from the copy offline
+      writeCached('me', fresh, since)
     } catch {
       // unreachable (offline): still signed in, as last seen
       setMe((await readCached<Me>('me'))?.data ?? null)
@@ -58,6 +61,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     await authClient.signOut().catch(() => {})
     // pages kept for offline belong to this account only
     clearCached()
+    await clearGames()
     setToken(null)
     setMe(null)
   }, [])

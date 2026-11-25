@@ -15,17 +15,18 @@ import { InboxSkeleton } from '@/skeletons'
 /** Everything Misri told you, newest first; opening it reads them all. */
 export default function Inbox() {
   const { api } = useSession()
-  const { data, error, reload, savedAt } = useLoad(
+  const { data, error, reload, savedAt, fromCache } = useLoad(
     () => (api ? api.inbox() : Promise.resolve(null)),
     String(Boolean(api)),
     'inbox',
   )
 
   useEffect(() => {
-    if (api && data?.some((n) => !n.readAt)) {
+    // only what this visit fetched: a kept copy may miss newer ones
+    if (api && !fromCache && data?.some((n) => !n.readAt)) {
       void api.act('markInboxRead', {}).catch(() => {})
     }
-  }, [api, data])
+  }, [api, data, fromCache])
 
   if (error && !data) {
     return (
