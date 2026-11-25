@@ -1,7 +1,16 @@
+import { useRouterState } from '@tanstack/react-router'
+import {
+  DISCOVER_FILTERS,
+  type DiscoverFilter,
+  DiscoverHeader,
+  StartButtons,
+} from '#/components/competitions'
 import { Skeleton } from '#/components/ui/skeleton.tsx'
 import { cn } from '#/lib/utils.ts'
 
 // Placeholders shaped like the real pages, so nothing jumps when data lands.
+// What never changes (titles, buttons, filters) is shown as it is; only the
+// data being fetched is a placeholder.
 // Shown by the router only when a page takes over a second (see router.tsx).
 
 const times = (n: number) => Array.from({ length: n }, (_, i) => i)
@@ -59,31 +68,30 @@ function CompetitionList({
   )
 }
 
-/** Home: title, the create buttons, your competitions. */
+/** Home: the title and create buttons as they are; your competitions loading. */
 export function HomeSkeleton() {
   return (
     <Loading className="space-y-6 pt-2">
-      <Title />
-      <div className="grid gap-2 sm:grid-cols-3">
-        {times(3).map((i) => (
-          <Skeleton key={i} className="h-12 rounded-xl sm:h-20" />
-        ))}
-      </div>
+      <header className="text-center">
+        <h1 className="display text-3xl">Your competitions</h1>
+      </header>
+      <StartButtons />
       <CompetitionList count={3} />
     </Loading>
   )
 }
 
-/** Discover: title, format chips, open competitions with Join. */
+/** Discover: the title and filters as they are; the open competitions loading. */
 export function DiscoverSkeleton() {
+  const search = useRouterState({ select: (s) => s.location.search }) as {
+    format?: string
+  }
+  const format = DISCOVER_FILTERS.includes(search.format as DiscoverFilter)
+    ? (search.format as DiscoverFilter)
+    : 'all'
   return (
     <Loading className="space-y-5 pt-2">
-      <Title className="w-64" />
-      <div className="flex flex-wrap justify-center gap-2">
-        {times(5).map((i) => (
-          <Skeleton key={i} className="h-8 w-20 rounded-full" />
-        ))}
-      </div>
+      <DiscoverHeader format={format} />
       <CompetitionList count={4} action />
     </Loading>
   )
@@ -93,7 +101,7 @@ export function DiscoverSkeleton() {
 export function InboxSkeleton() {
   return (
     <Loading className="space-y-4 pt-2">
-      <Title className="w-32" />
+      <h1 className="display text-center text-3xl">Inbox</h1>
       <div className="space-y-2">
         {times(6).map((i) => (
           <div key={i} className={cn(card, 'flex gap-3 px-4 py-3')}>

@@ -8,7 +8,13 @@ import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
 import { Spinner } from '#/components/auth'
-import { ChevronRight, Trophy, UserPlus, UsersFilled } from '#/components/icons'
+import {
+  ChevronRight,
+  Plus,
+  Trophy,
+  UserPlus,
+  UsersFilled,
+} from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { timeControlLabel } from '#/lib/time-control'
 import { toast } from '#/lib/toast'
@@ -254,5 +260,74 @@ export function Choice<T extends string | number>({
         ))}
       </div>
     </fieldset>
+  )
+}
+
+/** Ways to start: create each format, or join with a code. Same on home and its skeleton. */
+export function StartButtons() {
+  return (
+    <div className="grid gap-2 sm:grid-cols-3">
+      {CHOICES.map((choice) => (
+        <Button
+          key={choice.title}
+          asChild
+          variant="secondary"
+          className="h-auto justify-start py-3 sm:flex-col sm:justify-center"
+        >
+          <Link to={choice.to} search={choice.search}>
+            <Plus className="size-5 text-primary" />
+            {choice.title}
+          </Link>
+        </Button>
+      ))}
+      <Button
+        asChild
+        variant="secondary"
+        className="h-auto justify-start py-3 sm:flex-col sm:justify-center"
+      >
+        <Link to="/join">
+          <UserPlus className="size-5 text-primary" />
+          Join with a code
+        </Link>
+      </Button>
+    </div>
+  )
+}
+
+export const DISCOVER_FILTERS = ['all', 'league', 'knockout', 'groups'] as const
+export type DiscoverFilter = (typeof DISCOVER_FILTERS)[number]
+
+/** Discover's title and format filters: shown at once, while the list loads. */
+export function DiscoverHeader({ format }: { format: DiscoverFilter }) {
+  return (
+    <>
+      <header className="text-center">
+        <h1 className="display text-3xl">Open competitions</h1>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Public leagues and tournaments taking players right now.
+        </p>
+      </header>
+      <nav
+        aria-label="Filter by format"
+        className="flex flex-wrap justify-center gap-2"
+      >
+        {DISCOVER_FILTERS.map((value) => (
+          <Link
+            key={value}
+            to="/discover"
+            search={{ format: value }}
+            aria-current={format === value ? 'page' : undefined}
+            className={cn(
+              'rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors duration-150',
+              format === value
+                ? 'border-primary bg-primary/12 text-primary'
+                : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground',
+            )}
+          >
+            {value === 'all' ? 'All' : FORMAT_LABEL[value]}
+          </Link>
+        ))}
+      </nav>
+    </>
   )
 }

@@ -1,4 +1,5 @@
 import { deviceName } from '@misri/core/device-name'
+import * as Application from 'expo-application'
 import * as Clipboard from 'expo-clipboard'
 import { router, Stack } from 'expo-router'
 import {
@@ -127,6 +128,7 @@ export default function Account() {
           <Devices />
         </Section>
         <DeleteAccount />
+        <About />
       </ScrollView>
     </Screen>
   )
@@ -907,6 +909,65 @@ function DeleteAccount() {
           <Button.Label>Delete my account</Button.Label>
         </Busy>
       </Button>
+    </View>
+  )
+}
+
+const CREDITS: Array<[string, string, string]> = [
+  ['Puzzles and openings', 'Lichess', 'https://lichess.org'],
+  ['Chess engine', 'Stockfish', 'https://stockfishchess.org'],
+  ['Photos', 'Unsplash', 'https://unsplash.com'],
+  ['Sounds', 'cuelume', 'https://www.npmjs.com/package/cuelume'],
+  ['Icons', 'Solar', 'https://icon-sets.iconify.design/solar/'],
+  ['Interface', 'HeroUI Native', 'https://heroui.com'],
+]
+
+/** The version (as the release names it), who made it, and whose work it uses. */
+function About() {
+  const build = Application.nativeBuildVersion
+  const open = (url: string) => Linking.openURL(url).catch(() => {})
+  const link = 'font-medium text-xs text-accent'
+  return (
+    <View className="items-center gap-3 pt-4">
+      <Text className="font-display text-xl uppercase text-foreground">
+        Misri
+      </Text>
+      <Text className="font-normal -mt-2 text-xs text-muted">
+        {build ? `Version 0.1.${build}` : 'Version 0.1'} · Made by{' '}
+        <Text
+          className={link}
+          onPress={() => open('https://github.com/thecodingmontana')}
+        >
+          thecodingmontana
+        </Text>
+      </Text>
+      <View className="w-full gap-1.5 rounded-2xl bg-surface px-4 py-3">
+        {CREDITS.map(([what, who, url]) => (
+          <View key={what} className="flex-row justify-between gap-3">
+            <Text className="font-normal text-xs text-muted">{what}</Text>
+            <Text className={link} onPress={() => open(url)}>
+              {who}
+            </Text>
+          </View>
+        ))}
+      </View>
+      <Text className="font-normal text-center text-[11px] text-muted">
+        Misri isn't made by or connected to chess.com.
+      </Text>
+      <View className="flex-row gap-4">
+        <Text className={link} onPress={() => open(`${SITE_URL}/privacy`)}>
+          Privacy
+        </Text>
+        <Text className={link} onPress={() => open(`${SITE_URL}/terms`)}>
+          Terms
+        </Text>
+        <Text
+          className={link}
+          onPress={() => open('https://github.com/thecodingmontana/misri-club')}
+        >
+          Source code
+        </Text>
+      </View>
     </View>
   )
 }
