@@ -9,7 +9,7 @@ import {
   OpenCompetitions,
   PageTitle,
 } from '@/competitions'
-import { Problem, Screen } from '@/components'
+import { Problem, SavedNote, Screen } from '@/components'
 import { Icon } from '@/icon'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
@@ -23,7 +23,7 @@ import { CompetitionListSkeleton } from '@/skeletons'
 export default function Home() {
   const { api, me } = useSession()
   const accent = useThemeColor('accent')
-  const { data, error, reload } = useLoad(
+  const { data, error, reload, savedAt } = useLoad(
     async () => {
       if (!api) return null
       const [mine, open] = await Promise.all([
@@ -36,6 +36,7 @@ export default function Home() {
       }
     },
     String(Boolean(api)),
+    'home',
   )
 
   if (error && !data) {
@@ -49,6 +50,7 @@ export default function Home() {
   return (
     <Screen>
       <RefreshScroll contentContainerClassName="gap-5 p-4" onRefresh={reload}>
+        <SavedNote savedAt={savedAt} error={error} />
         {me && !me.chessUsername && (
           <Card className="p-0">
             <PressableFeedback

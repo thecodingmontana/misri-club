@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react'
 import { authClient, sessionToken } from './auth'
+import { clearCached, readCached, writeCached } from './cache'
 import { API_URL } from './config'
 
 type Session = {
@@ -38,8 +39,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setToken(next)
     if (!next) return setMe(null)
     const client = createApiClient({ url: API_URL, token: next })
-    // a token the server no longer knows (signed out elsewhere) signs out here
-    setMe(await client.me().catch(() => null))
+    try {
+      // null: a token the server no longer knows (signed out elsewhere)
+      const fresh = await client.me()
+      setMe(fresh)
+      if (fresh) writeCached('me', fresh)
+    } catch {
+      // unreachable (offline): still signed in, as last seen
+      setMe((await readCached<Me>('me'))?.data ?? null)
+    }
   }, [])
 
   useEffect(() => {
@@ -48,6 +56,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await authClient.signOut().catch(() => {})
+    // pages kept for offline belong to this account only
+    clearCached()
     setToken(null)
     setMe(null)
   }, [])

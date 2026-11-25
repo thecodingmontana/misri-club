@@ -4,7 +4,7 @@ import { Card, PressableFeedback } from 'heroui-native'
 import { useEffect } from 'react'
 import { Text, View } from 'react-native'
 import { EmptyCard, PageTitle } from '@/competitions'
-import { Problem, Screen } from '@/components'
+import { Problem, SavedNote, Screen } from '@/components'
 import { relativeTime } from '@/lib/format'
 import { appRoute } from '@/lib/notifications'
 import { useSession } from '@/lib/session'
@@ -15,9 +15,10 @@ import { InboxSkeleton } from '@/skeletons'
 /** Everything Misri told you, newest first; opening it reads them all. */
 export default function Inbox() {
   const { api } = useSession()
-  const { data, error, reload } = useLoad(
+  const { data, error, reload, savedAt } = useLoad(
     () => (api ? api.inbox() : Promise.resolve(null)),
     String(Boolean(api)),
+    'inbox',
   )
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function Inbox() {
   return (
     <Screen>
       <RefreshScroll contentContainerClassName="gap-5 p-4" onRefresh={reload}>
+        <SavedNote savedAt={savedAt} error={error} />
         <PageTitle title="Inbox" />
         {!data ? (
           <InboxSkeleton />

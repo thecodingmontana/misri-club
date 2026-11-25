@@ -19,7 +19,7 @@ import {
   JoinButton,
   Kicker,
 } from '@/competitions'
-import { Problem, Screen } from '@/components'
+import { Problem, SavedNote, Screen } from '@/components'
 import { formatDate } from '@/lib/format'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
@@ -44,9 +44,10 @@ type StandingRow = NonNullable<Data['standings']>[number]
 export default function Competition() {
   const { slug } = useLocalSearchParams<{ slug: string }>()
   const { api, me } = useSession()
-  const { data, error, reload } = useLoad(
+  const { data, error, reload, savedAt } = useLoad(
     () => (api ? api.competition(slug) : Promise.resolve(null)),
     `${Boolean(api)}:${slug}`,
+    `c.${slug}`,
   )
 
   if (error && !data) {
@@ -80,6 +81,7 @@ export default function Competition() {
         contentContainerClassName="gap-5 p-4 pb-10"
         onRefresh={reload}
       >
+        <SavedNote savedAt={savedAt} error={error} />
         <View className="items-center gap-1">
           <Text className="font-semibold text-center text-xs uppercase tracking-widest text-muted">
             {FORMAT_LABEL[competition.format]} ·{' '}
