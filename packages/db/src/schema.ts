@@ -367,6 +367,25 @@ export const competitionRequests = pgTable(
 ).enableRLS()
 
 /**
+ * Signed-in players who opened a public competition without joining, so they
+ * hear once when it's nearly full. `notifiedAt` makes that once.
+ */
+export const competitionViews = pgTable(
+  'competition_views',
+  {
+    competitionId: varchar('competition_id', { length: 16 })
+      .notNull()
+      .references(() => competitions.id, { onDelete: 'cascade' }),
+    userId: varchar('user_id', { length: 16 })
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+    notifiedAt: timestamp('notified_at', { withTimezone: true }),
+  },
+  (t) => [primaryKey({ columns: [t.competitionId, t.userId] })],
+).enableRLS()
+
+/**
  * Who can't come back: players who left after the start (leaving settles
  * their games) and anyone the organiser took out. Leaving on your own before
  * the start leaves no record.

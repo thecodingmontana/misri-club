@@ -3,6 +3,7 @@ import { PUSH_KINDS } from '@misri/core/push-kinds'
 import * as Notifications from 'expo-notifications'
 import { router } from 'expo-router'
 import { Platform } from 'react-native'
+import { installUpdate, updateStore } from '@/lib/update'
 
 // shown even while the app is open, as on the website
 Notifications.setNotificationHandler({
@@ -22,7 +23,8 @@ export function appRoute(url: string): string | null {
   if (invite) return `/join/${invite}`
   const player = /^\/p\/([^/?#]+)/.exec(url)?.[1]
   if (player) return `/p/${player}`
-  return url === '/inbox' ? '/inbox' : null
+  if (url === '/inbox' || url.startsWith('/train')) return url
+  return null
 }
 
 // Whether this phone's token reached the server this session: until it has,
@@ -76,7 +78,14 @@ export async function pushStatus(): Promise<'on' | 'off' | 'blocked'> {
 /** Tapping a notification opens its page (also when it started the app). */
 export function openTappedNotifications() {
   const open = (response: Notifications.NotificationResponse | null) => {
-    const url = response?.notification.request.content.data?.url
+    const data = response?.notification.request.content.data
+    // "ready to install": straight to Android's installer
+    if (data?.install) {
+      updateStore.set({ open: true })
+      void installUpdate().catch(() => {})
+      return
+    }
+    const url = data?.url
     const route = typeof url === 'string' ? appRoute(url) : null
     router.push((route ?? '/inbox') as never)
   }

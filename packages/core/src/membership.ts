@@ -26,6 +26,7 @@ import {
   notifyDeleted,
   notifyHandedOver,
   notifyLeft,
+  notifyNearlyFull,
   notifyNewGames,
   notifyRemoved,
 } from './notifications.ts'
@@ -274,6 +275,7 @@ export async function answerRequest(
     return competition.id
   })
   await notifyAnswered(competitionId, userId, approve)
+  if (approve) await notifyNearlyFull(competitionId)
   await notifyNewGames(competitionId, newGames)
 }
 

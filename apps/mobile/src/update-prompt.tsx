@@ -1,13 +1,23 @@
-import * as Linking from 'expo-linking'
 import { Button, Card, CloseButton, useThemeColor } from 'heroui-native'
 import { useEffect, useSyncExternalStore } from 'react'
 import { AppState, Modal, ScrollView, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import Svg, { Circle } from 'react-native-svg'
 import { IconBadge, Kicker } from '@/competitions'
 import { Icon } from '@/icon'
 import { formatDate } from '@/lib/format'
 import { play } from '@/lib/sound'
-import { checkForUpdate, putOff, updateStore, wasPutOff } from '@/lib/update'
+import {
+  checkForUpdate,
+  clearOldDownloads,
+  type Download,
+  downloaded,
+  installUpdate,
+  putOff,
+  startDownload,
+  updateStore,
+  wasPutOff,
+} from '@/lib/update'
 
 const EVERY = 6 * 60 * 60 * 1000
 // survives the page remounting on sign-in or navigation
@@ -27,7 +37,7 @@ const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
  */
 export function UpdatePrompt() {
   const insets = useSafeAreaInsets()
-  const { update, open } = useUpdate()
+  const { update, open, download } = useUpdate()
 
   useEffect(() => {
     let active = true
@@ -37,12 +47,20 @@ export function UpdatePrompt() {
       checkForUpdate()
         .then(async (found) => {
           if (!active) return
-          if (!found) return updateStore.set({ update: null, open: false })
+          if (!found) {
+            clearOldDownloads()
+            return updateStore.set({ update: null, open: false })
+          }
           // the page opens by itself once per version; the top bar keeps it after
           const opens = !(await wasPutOff(found.tag))
           if (!active) return
           if (opens) play('navigate')
-          updateStore.set({ update: found, open: opens })
+          updateStore.set({
+            update: found,
+            open: opens,
+            // downloaded before the app was closed: ready to install
+            ...(downloaded(found) ? { download: { status: 'ready' } } : {}),
+          })
         })
         .catch(() => {})
     }
@@ -57,12 +75,16 @@ export function UpdatePrompt() {
   }, [])
 
   if (!update || !open) return null
+  const busy = download.status === 'downloading' || download.status === 'ready'
+  // while downloading, closing just minimises: the top bar shows the progress
   const later = () => {
-    void putOff(update.tag)
+    if (!busy) void putOff(update.tag)
     updateStore.set({ open: false })
   }
   const facts = [
     `Version ${update.version}`,
+    // versions skipped: one install brings them all
+    ...(update.releases > 1 ? [`${update.releases} updates in one`] : []),
     megabytes(update.size),
     ...(update.date ? [formatDate(update.date)] : []),
   ]
@@ -108,29 +130,86 @@ export function UpdatePrompt() {
             )
           })}
           <Text className="font-normal text-center text-xs text-muted">
-            It installs over this one; your account and settings stay. Android
-            may ask you to allow installing from your browser.
+            It downloads here and installs over this one; your account and
+            settings stay. The first time, Android asks you to allow Misri to
+            install updates.
           </Text>
         </ScrollView>
         <View
           className="gap-2 border-t border-border bg-background px-5 pt-3"
           style={{ paddingBottom: insets.bottom + 12 }}
         >
-          <Button
-            size="lg"
-            onPress={() => {
-              void Linking.openURL(update.apk)
-              updateStore.set({ open: false })
-            }}
-          >
-            {`Update now · ${megabytes(update.size)}`}
-          </Button>
-          <Button variant="ghost" onPress={later}>
-            Update later
-          </Button>
+          <Actions download={download} size={update.size} later={later} />
         </View>
       </View>
     </Modal>
+  )
+}
+
+/** The page's buttons, following the download. */
+function Actions({
+  download,
+  size,
+  later,
+}: {
+  download: Download
+  size: number
+  later: () => void
+}) {
+  const { update } = useUpdate()
+  if (!update) return null
+  if (download.status === 'downloading') {
+    const share = download.total ? download.written / download.total : 0
+    return (
+      <>
+        <View className="gap-1.5">
+          <View className="h-2 overflow-hidden rounded-full bg-default">
+            <View
+              className="h-full rounded-full bg-accent"
+              style={{ width: `${Math.round(share * 100)}%` }}
+            />
+          </View>
+          <Text
+            className="font-normal text-center text-xs text-muted"
+            accessibilityLiveRegion="polite"
+          >
+            {`Downloading · ${megabytes(download.written)} of ${megabytes(download.total)} · ${Math.round(share * 100)}%`}
+          </Text>
+        </View>
+        <Button variant="secondary" onPress={later}>
+          Keep using Misri
+        </Button>
+      </>
+    )
+  }
+  if (download.status === 'ready') {
+    return (
+      <>
+        <Button size="lg" onPress={() => void installUpdate()}>
+          Install update
+        </Button>
+        <Button variant="ghost" onPress={later}>
+          Install later
+        </Button>
+      </>
+    )
+  }
+  return (
+    <>
+      {download.status === 'failed' && (
+        <Text className="font-normal text-center text-xs text-danger">
+          {download.error}
+        </Text>
+      )}
+      <Button size="lg" onPress={() => void startDownload(update)}>
+        {download.status === 'failed'
+          ? 'Try again'
+          : `Update now · ${megabytes(size)}`}
+      </Button>
+      <Button variant="ghost" onPress={later}>
+        Update later
+      </Button>
+    </>
   )
 }
 
@@ -141,19 +220,66 @@ export function useUpdate() {
 
 /** The top bar's reminder: shown while a newer app waits; opens its page. */
 export function UpdateButton() {
-  const { update } = useUpdate()
-  const accent = useThemeColor('accent')
+  const { update, download } = useUpdate()
+  const [accent, track] = useThemeColor(['accent', 'border'])
   if (!update) return null
+  if (download.status === 'downloading') {
+    const share = download.total ? download.written / download.total : 0
+    const around = 2 * Math.PI * 13
+    return (
+      <Button
+        size="sm"
+        variant="ghost"
+        isIconOnly
+        accessibilityLabel={`Downloading the update, ${Math.round(share * 100)}%`}
+        onPress={() => updateStore.set({ open: true })}
+      >
+        <View className="items-center justify-center">
+          <Svg width={30} height={30} viewBox="0 0 30 30">
+            <Circle
+              cx={15}
+              cy={15}
+              r={13}
+              stroke={track}
+              strokeWidth={2.5}
+              fill="none"
+            />
+            <Circle
+              cx={15}
+              cy={15}
+              r={13}
+              stroke={accent}
+              strokeWidth={2.5}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={`${around * share} ${around}`}
+              transform="rotate(-90 15 15)"
+            />
+          </Svg>
+          <View className="absolute">
+            <Icon name="Download" size={14} color={accent} />
+          </View>
+        </View>
+      </Button>
+    )
+  }
   return (
-    <Button
-      size="sm"
-      variant="secondary"
-      isIconOnly
-      accessibilityLabel={`Update available: version ${update.version}`}
-      onPress={() => updateStore.set({ open: true })}
-    >
-      <Icon name="ArrowUp" size={17} color={accent} />
-      <View className="absolute top-0.5 right-0.5 size-2 rounded-full bg-accent" />
-    </Button>
+    // the dot sits beside the button, which clips what overflows it
+    <View>
+      <Button
+        size="sm"
+        variant="ghost"
+        isIconOnly
+        accessibilityLabel={`Update available: version ${update.version}`}
+        onPress={() => updateStore.set({ open: true })}
+      >
+        <Icon name="Download" size={19} color={accent} />
+      </Button>
+      {/* like the bell's badge: on the corner, ringed so it reads on any bar */}
+      <View
+        pointerEvents="none"
+        className="absolute top-0.5 right-0.5 size-3 rounded-full border-2 border-background bg-accent"
+      />
+    </View>
   )
 }

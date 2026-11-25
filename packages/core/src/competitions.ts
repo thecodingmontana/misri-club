@@ -34,6 +34,7 @@ import type { LeaveRule } from './leave.ts'
 import {
   notifyGamesMoved,
   notifyJoined,
+  notifyNearlyFull,
   notifyNewGames,
   notifyRematch,
   notifyRequested,
@@ -797,6 +798,7 @@ export async function joinCompetition(
       ? notifyRequested(done.id, userId)
       : notifyJoined(done.id, userId))
     await notifyNewGames(done.id, newGames)
+    if (!done.pending) await notifyNearlyFull(done.id)
   }
   const ready = challengeReady as { slug: string; ownerId: string } | null
   if (ready) {

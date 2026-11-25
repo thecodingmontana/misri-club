@@ -25,6 +25,7 @@ import {
 } from 'react-native'
 import { FormError } from '@/auth-shell'
 import { Screen } from '@/components'
+import { Choice } from '@/form'
 import { Icon } from '@/icon'
 import { authClient, authError } from '@/lib/auth'
 import { SITE_URL } from '@/lib/config'
@@ -36,6 +37,7 @@ import {
   removePasskey,
   usePasskeys,
 } from '@/lib/passkey'
+import { type Reminders, readReminders, saveReminders } from '@/lib/reminders'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
 import { AccountSkeleton } from '@/skeletons'
@@ -103,6 +105,12 @@ export default function Account() {
           lead="Push notifications on this phone. No emails."
         >
           <Notifications />
+        </Section>
+        <Section
+          title="Training reminders"
+          lead="Set on this phone, so they work offline too."
+        >
+          <TrainingReminders />
         </Section>
         <Section
           title="Calendar"
@@ -493,6 +501,59 @@ function Notifications() {
           Choose which
         </Button>
       </View>
+    </>
+  )
+}
+
+const PUZZLE_TIMES = [
+  { value: -1, label: 'Off' },
+  { value: 7, label: '7am' },
+  { value: 12, label: 'Noon' },
+  { value: 18, label: '6pm' },
+  { value: 21, label: '9pm' },
+]
+
+function TrainingReminders() {
+  const {
+    data: saved,
+    error: loadError,
+    reload,
+  } = useLoad(readReminders, 'reminders')
+  const [error, setError] = useState<string | null>(null)
+  if (!saved) return <Waiting error={loadError} retry={reload} />
+  const change = async (next: Reminders) => {
+    setError(null)
+    try {
+      if (!(await saveReminders(next))) {
+        setError(
+          "Notifications are off for Misri in your phone's settings, so reminders can't show.",
+        )
+      }
+    } catch (e) {
+      setError((e as Error).message)
+    }
+    await reload()
+  }
+  return (
+    <>
+      <Choice
+        label="Daily puzzle"
+        value={saved.puzzleAt ?? -1}
+        options={PUZZLE_TIMES}
+        onChange={(hour) =>
+          change({ ...saved, puzzleAt: hour === -1 ? null : hour })
+        }
+      />
+      <Choice
+        label="Streak warning at 8pm if you haven't trained"
+        value={saved.streak ? 'on' : 'off'}
+        options={[
+          { value: 'off', label: 'Off' },
+          { value: 'on', label: 'On' },
+        ]}
+        onChange={(on) => change({ ...saved, streak: on === 'on' })}
+      />
+      <FormError message={error} />
     </>
   )
 }

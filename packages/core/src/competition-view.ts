@@ -16,6 +16,7 @@ import { awaitsDecision } from './decisions.ts'
 import { earlyRound } from './early-rounds.ts'
 import { groupName } from './groups.ts'
 import { canJoin } from './join-policy.ts'
+import { recordView } from './notifications.ts'
 import { matchdayCount } from './round-robin.ts'
 import { rankStandings, type Tally } from './standings.ts'
 
@@ -373,6 +374,17 @@ export async function getCompetition(slug: string, viewer: Viewer | null) {
   }
   // Invite-only details stay with the people in it (and admins).
   const details = can('viewDetails', access)
+  // a look without joining: they may want to hear when it's nearly full
+  if (
+    viewerId &&
+    competition.visibility === 'public' &&
+    competition.status === 'open' &&
+    !players.has(viewerId) &&
+    competition.ownerId !== viewerId
+  ) {
+    await recordView(competition.id, viewerId).catch(() => {})
+  }
+
   return {
     competition: {
       slug: competition.slug,

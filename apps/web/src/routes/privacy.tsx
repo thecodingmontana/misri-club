@@ -40,7 +40,9 @@ function Privacy() {
         </li>
         <li>
           <strong>Competitions:</strong> the ones you create or join, your
-          fixtures, results, reports and any decisions on them.
+          fixtures, results, reports and any decisions on them, and the public
+          ones you open while signed in, so we can tell you once when one is
+          nearly full.
         </li>
         <li>
           <strong>Notifications:</strong> your inbox, and the address your
