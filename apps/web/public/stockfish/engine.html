@@ -1,0 +1,24 @@
+<!doctype html>
+<!--
+  Stockfish for the Android app: the app opens this page in a hidden web view,
+  sends UCI commands to window.uci(...), and gets each engine line back
+  through ReactNativeWebView.postMessage. Framed (the app's web preview), it
+  talks to the parent window instead.
+-->
+<meta charset="utf-8" />
+<title>Misri engine</title>
+<script>
+  const engine = new Worker('/stockfish/stockfish-19-lite-single.js')
+  const send = (line) =>
+    window.ReactNativeWebView
+      ? window.ReactNativeWebView.postMessage(line)
+      : window.parent.postMessage({ engine: line }, '*')
+  engine.onmessage = (event) => send(String(event.data))
+  engine.onerror = (event) =>
+    send(`error The chess engine failed to load${event.message ? `: ${event.message}` : '.'}`)
+  window.uci = (command) => engine.postMessage(command)
+  window.addEventListener('message', (event) => {
+    if (typeof event.data?.uci === 'string') engine.postMessage(event.data.uci)
+  })
+  send('loaded')
+</script>

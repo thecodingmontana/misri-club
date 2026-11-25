@@ -36,6 +36,7 @@ const MODES: Array<{
     icon: 'Cpu',
     title: 'Play Stockfish',
     description: 'A full game against the engine, from Beginner to Max.',
+    href: '/train/play',
   },
   {
     icon: 'Book',
