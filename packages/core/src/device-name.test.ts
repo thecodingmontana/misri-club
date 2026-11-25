@@ -33,3 +33,7 @@ test('missing or odd user agents still read sensibly', () => {
   assert.equal(deviceName(null), 'Unknown device')
   assert.equal(deviceName('curl/8.0'), 'A browser')
 })
+
+test('the Android app reads as the app', () => {
+  assert.equal(deviceName('okhttp/4.12.0'), 'Misri app on Android')
+})

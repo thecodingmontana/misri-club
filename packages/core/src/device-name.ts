@@ -2,6 +2,8 @@
 export function deviceName(userAgent: string | null | undefined): string {
   if (!userAgent) return 'Unknown device'
   const ua = userAgent
+  // the Android app's requests go out through OkHttp, with no browser named
+  if (/okhttp|Expo\//i.test(ua)) return 'Misri app on Android'
   const browser = /Edg\//.test(ua)
     ? 'Edge'
     : /OPR\/|Opera/.test(ua)

@@ -7,3 +7,6 @@ export async function registerForPush() {}
 export function openTappedNotifications() {
   return () => {}
 }
+export async function pushStatus(): Promise<'on' | 'off' | 'blocked'> {
+  return 'on'
+}

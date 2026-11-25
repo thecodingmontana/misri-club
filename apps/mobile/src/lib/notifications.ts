@@ -40,6 +40,13 @@ export async function registerForPush(api: ApiClient) {
   if (typeof token === 'string') await api.act('saveAppPush', { token })
 }
 
+/** 'on', 'off' (we can ask), or 'blocked' (only the phone's settings can turn it on). */
+export async function pushStatus(): Promise<'on' | 'off' | 'blocked'> {
+  if (Platform.OS !== 'android') return 'off'
+  const { granted, canAskAgain } = await Notifications.getPermissionsAsync()
+  return granted ? 'on' : canAskAgain ? 'off' : 'blocked'
+}
+
 /** Tapping a notification opens its page (also when it started the app). */
 export function openTappedNotifications() {
   const open = (response: Notifications.NotificationResponse | null) => {
