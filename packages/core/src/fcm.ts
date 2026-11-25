@@ -66,6 +66,8 @@ export type FcmMessage = {
   body?: string
   url: string
   tag?: string
+  /** the app's channel; 'news' when not said */
+  kind?: string
 }
 
 /** Sends to one app install; 'gone' when FCM no longer knows the token. */
@@ -91,7 +93,10 @@ export async function sendFcm(
           android: {
             priority: 'high',
             ttl: '86400s',
-            notification: { channel_id: 'default', tag: message.tag },
+            notification: {
+              channel_id: message.kind ?? 'news',
+              tag: message.tag,
+            },
           },
         },
       }),

@@ -10,6 +10,7 @@ import {
 import { and, eq, gt, inArray, isNull, lte, ne, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { type PushMessage, sendPushes } from './push.ts'
+import type { PushKind } from './push-kinds.ts'
 import { reminderPushes } from './reminders.ts'
 
 // What reaches people's phones. Each sender is best-effort: a push that fails
@@ -18,8 +19,9 @@ import { reminderPushes } from './reminders.ts'
 const DAY = 24 * 60 * 60 * 1000
 const REMINDER_SLACK_MS = 2 * 60 * 60 * 1000
 
-async function bestEffort(messages: PushMessage[]) {
-  if (messages.length === 0) return
+async function bestEffort(list: PushMessage[], kind: PushKind) {
+  if (list.length === 0) return
+  const messages = list.map((m) => ({ ...m, kind }))
   // the inbox keeps a copy, so people without push still see it
   try {
     await db.insert(notifications).values(
@@ -67,6 +69,7 @@ export async function notifyStarted(competitionId: string) {
       url: `/c/${r.slug}`,
       tag: `start-${r.slug}`,
     })),
+    'games',
   )
 }
 
@@ -99,28 +102,34 @@ async function playerName(userId: string) {
 export async function notifyLeft(competitionId: string, leaverId: string) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
-  await bestEffort([
-    {
-      userId: competition.ownerId,
-      title: `${await playerName(leaverId)} left ${competition.name}`,
-      body: 'Their games were settled by your leave rule.',
-      url: `/c/${competition.slug}`,
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId: competition.ownerId,
+        title: `${await playerName(leaverId)} left ${competition.name}`,
+        body: 'Their games were settled by your leave rule.',
+        url: `/c/${competition.slug}`,
+      },
+    ],
+    'news',
+  )
 }
 
 /** Tells the organiser someone is waiting for their yes. */
 export async function notifyRequested(competitionId: string, userId: string) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
-  await bestEffort([
-    {
-      userId: competition.ownerId,
-      title: `${await playerName(userId)} asked to join ${competition.name}`,
-      body: 'Approve or decline them on the competition page.',
-      url: `/c/${competition.slug}`,
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId: competition.ownerId,
+        title: `${await playerName(userId)} asked to join ${competition.name}`,
+        body: 'Approve or decline them on the competition page.',
+        url: `/c/${competition.slug}`,
+      },
+    ],
+    'requests',
+  )
 }
 
 /** Tells a player whether the organiser let them in. */
@@ -131,29 +140,35 @@ export async function notifyAnswered(
 ) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
-  await bestEffort([
-    {
-      userId,
-      title: approved
-        ? `You're in ${competition.name}`
-        : `${competition.name} declined your request`,
-      url: approved ? `/c/${competition.slug}` : '/',
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId,
+        title: approved
+          ? `You're in ${competition.name}`
+          : `${competition.name} declined your request`,
+        url: approved ? `/c/${competition.slug}` : '/',
+      },
+    ],
+    'requests',
+  )
 }
 
 /** Tells a player the organiser took them out. */
 export async function notifyRemoved(competitionId: string, userId: string) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
-  await bestEffort([
-    {
-      userId,
-      title: `You were removed from ${competition.name}`,
-      body: 'The organiser took you out of this competition.',
-      url: '/',
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId,
+        title: `You were removed from ${competition.name}`,
+        body: 'The organiser took you out of this competition.',
+        url: '/',
+      },
+    ],
+    'news',
+  )
 }
 
 /** Tells the new organiser it's theirs now. */
@@ -163,14 +178,17 @@ export async function notifyHandedOver(
 ) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
-  await bestEffort([
-    {
-      userId: toUserId,
-      title: `You now run ${competition.name}`,
-      body: 'The organiser handed it over to you.',
-      url: `/c/${competition.slug}`,
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId: toUserId,
+        title: `You now run ${competition.name}`,
+        body: 'The organiser handed it over to you.',
+        url: `/c/${competition.slug}`,
+      },
+    ],
+    'news',
+  )
 }
 
 /** Tells the members their competition is gone. */
@@ -182,6 +200,7 @@ export async function notifyDeleted(name: string, memberIds: string[]) {
       body: 'The organiser deleted this competition.',
       url: '/',
     })),
+    'news',
   )
 }
 
@@ -206,6 +225,7 @@ export async function notifyFinished(
         url: `/c/${competition.slug}`,
         tag: `finish-${competition.slug}`,
       })),
+      'results',
     )
     return
   }
@@ -231,6 +251,7 @@ export async function notifyFinished(
             tag: `finish-${competition.slug}`,
           },
     ),
+    'results',
   )
 }
 
@@ -257,6 +278,7 @@ export async function notifyRoundOpened(competitionId: string, round: number) {
       url: `/c/${competition.slug}`,
       tag: `round-${competition.slug}-${round}`,
     })),
+    'games',
   )
 }
 
@@ -270,18 +292,21 @@ export async function notifyScheduledStart(
 ) {
   const competition = await competitionPush(competitionId)
   if (!competition) return
-  await bestEffort([
-    {
-      userId: competition.ownerId,
-      title: failure
-        ? `${competition.name} couldn't start`
-        : `${competition.name} has started`,
-      body: failure
-        ? `${failure} Start it yourself once it's ready.`
-        : 'It started on its scheduled day. Fixtures are out.',
-      url: `/c/${competition.slug}`,
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId: competition.ownerId,
+        title: failure
+          ? `${competition.name} couldn't start`
+          : `${competition.name} has started`,
+        body: failure
+          ? `${failure} Start it yourself once it's ready.`
+          : 'It started on its scheduled day. Fixtures are out.',
+        url: `/c/${competition.slug}`,
+      },
+    ],
+    'news',
+  )
 }
 
 /** Catch-up games moved into the league's rounds: both players hear where and when. */
@@ -310,7 +335,7 @@ export async function notifyGamesMoved(
       })
     }
   }
-  await bestEffort(messages)
+  await bestEffort(messages, 'games')
 }
 
 /**
@@ -364,7 +389,7 @@ export async function notifyNewGames(
       url: `/c/${competition.slug}`,
     })
   }
-  await bestEffort(messages)
+  await bestEffort(messages, 'games')
 }
 
 /** A rematch was asked for: the opponent gets the invite. */
@@ -377,14 +402,17 @@ export async function notifyRematch(
   const competition = await competitionPush(competitionId)
   if (!competition) return
   const by = await playerName(byUserId)
-  await bestEffort([
-    {
-      userId: opponentId,
-      title: `${by} wants a rematch`,
-      body: `${competition.name}: same settings. Join to start it.`,
-      url: `/join/${inviteCode}`,
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId: opponentId,
+        title: `${by} wants a rematch`,
+        body: `${competition.name}: same settings. Join to start it.`,
+        url: `/join/${inviteCode}`,
+      },
+    ],
+    'games',
+  )
 }
 
 /** A player reported a result: their opponent is asked to confirm it. */
@@ -396,14 +424,17 @@ export async function notifyReported(
   const competition = await competitionPush(competitionId)
   if (!competition) return
   const by = await playerName(byUserId)
-  await bestEffort([
-    {
-      userId: opponentId,
-      title: `${by} reported your result`,
-      body: `In ${competition.name}. Confirm it, or dispute it if it's wrong.`,
-      url: `/c/${competition.slug}`,
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId: opponentId,
+        title: `${by} reported your result`,
+        body: `In ${competition.name}. Confirm it, or dispute it if it's wrong.`,
+        url: `/c/${competition.slug}`,
+      },
+    ],
+    'results',
+  )
 }
 
 /** The opponent confirmed or disputed a report; a dispute goes to the organiser. */
@@ -418,30 +449,33 @@ export async function notifyReportAnswered(
   const by = await playerName(byUserId)
   const reporter = await playerName(reporterId)
   const url = `/c/${competition.slug}`
-  await bestEffort([
-    {
-      userId: reporterId,
-      title: accepted
-        ? `${by} confirmed your result`
-        : `${by} disputed your result`,
-      body: accepted
-        ? `It counts in ${competition.name}.`
-        : `In ${competition.name}. The organiser will settle it.`,
-      url,
-    },
-    ...(!accepted &&
-    competition.ownerId !== byUserId &&
-    competition.ownerId !== reporterId
-      ? [
-          {
-            userId: competition.ownerId,
-            title: `${reporter} and ${by} disagree on a result`,
-            body: `In ${competition.name}. Enter the result yourself.`,
-            url,
-          },
-        ]
-      : []),
-  ])
+  await bestEffort(
+    [
+      {
+        userId: reporterId,
+        title: accepted
+          ? `${by} confirmed your result`
+          : `${by} disputed your result`,
+        body: accepted
+          ? `It counts in ${competition.name}.`
+          : `In ${competition.name}. The organiser will settle it.`,
+        url,
+      },
+      ...(!accepted &&
+      competition.ownerId !== byUserId &&
+      competition.ownerId !== reporterId
+        ? [
+            {
+              userId: competition.ownerId,
+              title: `${reporter} and ${by} disagree on a result`,
+              body: `In ${competition.name}. Enter the result yourself.`,
+              url,
+            },
+          ]
+        : []),
+    ],
+    'results',
+  )
 }
 
 /** A player conceded: their opponent gets the win, and the organiser hears of it. */
@@ -455,24 +489,27 @@ export async function notifyConceded(
   const by = await playerName(byUserId)
   const to = await playerName(toUserId)
   const url = `/c/${competition.slug}`
-  await bestEffort([
-    {
-      userId: toUserId,
-      title: `${by} gave you a walkover`,
-      body: `They can't play your ${competition.name} match. The win is yours.`,
-      url,
-    },
-    ...(competition.ownerId !== byUserId && competition.ownerId !== toUserId
-      ? [
-          {
-            userId: competition.ownerId,
-            title: `${by} conceded to ${to}`,
-            body: `In ${competition.name}. You can reopen the match if it was a mistake.`,
-            url,
-          },
-        ]
-      : []),
-  ])
+  await bestEffort(
+    [
+      {
+        userId: toUserId,
+        title: `${by} gave you a walkover`,
+        body: `They can't play your ${competition.name} match. The win is yours.`,
+        url,
+      },
+      ...(competition.ownerId !== byUserId && competition.ownerId !== toUserId
+        ? [
+            {
+              userId: competition.ownerId,
+              title: `${by} conceded to ${to}`,
+              body: `In ${competition.name}. You can reopen the match if it was a mistake.`,
+              url,
+            },
+          ]
+        : []),
+    ],
+    'results',
+  )
 }
 
 /** Tells the organiser who joined. */
@@ -490,13 +527,16 @@ export async function notifyJoined(competitionId: string, joinerId: string) {
     .where(eq(competitions.id, competitionId))
     .limit(1)
   if (!row || row.ownerId === joinerId) return
-  await bestEffort([
-    {
-      userId: row.ownerId,
-      title: `${row.joiner} joined ${row.name}`,
-      url: `/c/${row.slug}`,
-    },
-  ])
+  await bestEffort(
+    [
+      {
+        userId: row.ownerId,
+        title: `${row.joiner} joined ${row.name}`,
+        url: `/c/${row.slug}`,
+      },
+    ],
+    'news',
+  )
 }
 
 /**
@@ -554,6 +594,6 @@ export async function remindDeadlines(now = new Date()) {
         sql`, `,
       )})`,
     )
-  await bestEffort(reminderPushes(due))
+  await bestEffort(reminderPushes(due), 'games')
   return due.length
 }

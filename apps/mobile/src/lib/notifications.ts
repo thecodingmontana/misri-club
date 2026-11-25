@@ -1,4 +1,5 @@
 import type { ApiClient } from '@misri/api-client'
+import { PUSH_KINDS } from '@misri/core/push-kinds'
 import * as Notifications from 'expo-notifications'
 import { router } from 'expo-router'
 import { Platform } from 'react-native'
@@ -30,10 +31,14 @@ export function appRoute(url: string): string | null {
  */
 export async function registerForPush(api: ApiClient) {
   if (Platform.OS !== 'android') return
-  await Notifications.setNotificationChannelAsync('default', {
-    name: 'Matches and results',
-    importance: Notifications.AndroidImportance.HIGH,
-  })
+  // one channel per kind, so a kind can be muted in the phone's settings
+  for (const [id, name] of Object.entries(PUSH_KINDS)) {
+    await Notifications.setNotificationChannelAsync(id, {
+      name,
+      importance: Notifications.AndroidImportance.HIGH,
+    })
+  }
+  await Notifications.deleteNotificationChannelAsync('default')
   const { granted } = await Notifications.requestPermissionsAsync()
   if (!granted) return
   const { data: token } = await Notifications.getDevicePushTokenAsync()

@@ -4,6 +4,7 @@ import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import webpush from 'web-push'
 import { FCM_PREFIX, fcmReady, sendFcm } from './fcm.ts'
 import { isPushEndpoint } from './push-endpoint.ts'
+import type { PushKind } from './push-kinds.ts'
 
 // Web push to the browsers and phones people turned on in Account → Notifications.
 // The service worker (public/sw.js) shows each message and opens its link when tapped.
@@ -30,6 +31,8 @@ export interface PushMessage {
   url: string
   /** a repeat with the same tag replaces the earlier notification instead of stacking */
   tag?: string
+  /** the app's notification channel, so people can mute one kind on their phone */
+  kind?: PushKind
 }
 
 /** Sends each message to every device of its person; forgets devices the browser dropped. */

@@ -382,6 +382,10 @@ function Notifications() {
           Notifications are on for this phone.
         </Text>
       </View>
+      <Text className="font-normal text-xs text-muted">
+        Games and deadlines, results, join requests and competition news each
+        have their own switch in your phone's settings.
+      </Text>
       <FormError message={error} />
       <Done message={done} />
       <View className="flex-row gap-2">
@@ -405,7 +409,7 @@ function Notifications() {
           className="flex-1"
           onPress={() => Linking.openSettings()}
         >
-          Phone settings
+          Choose which
         </Button>
       </View>
     </>
