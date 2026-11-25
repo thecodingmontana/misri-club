@@ -6,7 +6,7 @@
     ],
     "target": {
       "namespace": "android_app",
-      "package_name": "club.misri.app",
+      "package_name": "misri.thecodingmontana.app",
       "sha256_cert_fingerprints": [
         "71:8C:F4:ED:1C:53:25:4D:35:24:0E:12:19:CF:82:76:45:C7:F1:11:DF:25:71:56:CA:0C:F8:AA:44:8C:E9:C9"
       ]
