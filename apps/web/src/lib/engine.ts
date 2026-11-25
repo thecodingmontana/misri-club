@@ -6,11 +6,9 @@
 
 const ENGINE_URL = '/stockfish/stockfish-19-lite-single.js'
 
-/**
- * Engine verdict on a position: the score, always from White's point of view,
- * and the move Stockfish would play there (UCI, e.g. `e2e4`), if any.
- */
-export type Score = ({ cp: number } | { mate: number }) & { best?: string }
+import type { Score } from '@misri/core/analysis'
+
+export type { Score }
 
 export class Engine {
   private worker = new Worker(ENGINE_URL)

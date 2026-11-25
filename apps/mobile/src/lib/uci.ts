@@ -6,8 +6,9 @@
  * shortcut: the engine page loads over the network, so Play and Analyse need a connection; bundle the wasm in the app if offline matters.
  */
 
-/** Engine verdict: the score from White's point of view, and its best move (UCI). */
-export type Score = ({ cp: number } | { mate: number }) & { best?: string }
+import type { Score } from '@misri/core/analysis'
+
+export type { Score }
 
 const LOAD_TIMEOUT_MS = 20_000
 
