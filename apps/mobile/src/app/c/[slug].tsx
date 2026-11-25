@@ -383,7 +383,7 @@ function byRound(matches: MatchView[]) {
 }
 
 /** Ties in a round: home & away legs and a decider share one position. */
-// shortcut: a two-leg tie shows its first leg's winner, not the aggregate; the website's bracket has the full tie
+// shortcut: a two-leg tie isn't marked with a winner here; the website's bracket has the full tie
 const tieCount = (matches: MatchView[]) =>
   new Set(matches.map((m) => m.position)).size
 
@@ -423,6 +423,9 @@ function Bracket({ matches }: { matches: MatchView[] }) {
                         key={p?.id ?? k}
                         className={`text-sm ${
                           p &&
+                          // a two-leg tie's winner is the aggregate, not one leg's
+                          ties.filter((t) => t.position === m.position)
+                            .length === 1 &&
                           (
                             m.winnerId === p.id ||
                               (m.homeWon !== null && (k === 0) === m.homeWon)

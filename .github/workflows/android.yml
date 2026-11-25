@@ -118,8 +118,11 @@ jobs:
       # the previous app release; the app shows these when it offers the update
       - name: Release notes
         run: |
-          previous=$(git tag --list 'mobile-v*' --sort=-creatordate | head -n 1)
+          # the last release before this commit (a pushed tag isn't its own predecessor)
+          previous=$(git describe --tags --abbrev=0 --match 'mobile-v*' HEAD^ 2>/dev/null || true)
           python3 .github/scripts/release-notes.py "$previous" > notes.md
+          # the APK's versionCode, which the app compares against its own
+          echo "<!-- build: ${{ github.run_number }} -->" >> notes.md
           cat notes.md
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:

@@ -21,8 +21,11 @@ export type Update = {
   date: string | null
 }
 
-/** The build number in a release tag (mobile-v0.1.<build>), as Android's versionCode. */
-const buildOf = (tag: string) => Number(/(\d+)$/.exec(tag)?.[1] ?? 0)
+/** The APK's versionCode, written into the notes by the workflow; older releases: the tag's last number. */
+const buildOf = (tag: string, body: string) =>
+  Number(
+    /<!-- build: (\d+) -->/.exec(body)?.[1] ?? /(\d+)$/.exec(tag)?.[1] ?? 0,
+  )
 
 /**
  * A newer app on GitHub Releases than this one, with its notes; null when
@@ -35,7 +38,8 @@ export async function checkForUpdate(): Promise<Update | null> {
   const res = await fetch(LATEST, {
     headers: { accept: 'application/vnd.github+json' },
   })
-  if (!res.ok) return null
+  // a failed check keeps whatever update is already known
+  if (!res.ok) throw new Error(`GitHub answered ${res.status}`)
   const release = (await res.json()) as {
     tag_name?: string
     body?: string | null
@@ -43,7 +47,11 @@ export async function checkForUpdate(): Promise<Update | null> {
     assets?: Array<{ name: string; browser_download_url: string; size: number }>
   }
   const tag = release.tag_name ?? ''
-  if (!tag.startsWith('mobile-v') || buildOf(tag) <= installed) return null
+  if (
+    !tag.startsWith('mobile-v') ||
+    buildOf(tag, release.body ?? '') <= installed
+  )
+    return null
   const apk = release.assets?.find((a) => a.name.endsWith('.apk'))
   if (!apk) return null
   const notes: Note[] = []

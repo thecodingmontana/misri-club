@@ -10,6 +10,8 @@ import { play } from '@/lib/sound'
 import { checkForUpdate, putOff, updateStore, wasPutOff } from '@/lib/update'
 
 const EVERY = 6 * 60 * 60 * 1000
+// survives the page remounting on sign-in or navigation
+let lastCheck = 0
 
 const SECTIONS = [
   { kind: 'new', title: "What's new", icon: 'Stars' },
@@ -28,15 +30,17 @@ export function UpdatePrompt() {
   const { update, open } = useUpdate()
 
   useEffect(() => {
-    let last = 0
+    let active = true
     const check = () => {
-      if (Date.now() - last < EVERY) return
-      last = Date.now()
+      if (Date.now() - lastCheck < EVERY) return
+      lastCheck = Date.now()
       checkForUpdate()
         .then(async (found) => {
+          if (!active) return
           if (!found) return updateStore.set({ update: null, open: false })
           // the page opens by itself once per version; the top bar keeps it after
           const opens = !(await wasPutOff(found.tag))
+          if (!active) return
           if (opens) play('navigate')
           updateStore.set({ update: found, open: opens })
         })
@@ -46,7 +50,10 @@ export function UpdatePrompt() {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') check()
     })
-    return () => sub.remove()
+    return () => {
+      active = false
+      sub.remove()
+    }
   }, [])
 
   if (!update || !open) return null

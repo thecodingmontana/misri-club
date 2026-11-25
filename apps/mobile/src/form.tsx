@@ -142,14 +142,9 @@ export function NumberField({
         onChangeText={(text) => {
           setDraft(text)
           const n = Number(text)
-          if (
-            live &&
-            text.trim() &&
-            Number.isInteger(n) &&
-            n >= min &&
-            n <= max
-          ) {
-            onChange(n)
+          // what Create saves is what blur would show: rounded into range
+          if (live && text.trim() && Number.isFinite(n)) {
+            onChange(Math.min(max, Math.max(min, Math.round(n))))
           }
           if (live && optional && text.trim() === '') onChange(null)
         }}
