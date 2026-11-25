@@ -210,15 +210,15 @@ function ThemeBars({ puzzles }: { puzzles: Progress['puzzles'] }) {
           >
             {row.theme}
           </Text>
-          <View className="h-4 flex-1 flex-row overflow-hidden rounded">
+          <View className="h-4 flex-1">
+            {/* the bar is rounded at both ends, however long it is */}
             <View
-              className="bg-accent"
-              style={{ width: `${(row.clean / most) * 100}%` }}
-            />
-            <View
-              className="bg-muted"
-              style={{ width: `${(row.helped / most) * 100}%` }}
-            />
+              className="h-full flex-row overflow-hidden rounded-full"
+              style={{ width: `${((row.clean + row.helped) / most) * 100}%` }}
+            >
+              <View className="bg-accent" style={{ flex: row.clean }} />
+              <View className="bg-muted" style={{ flex: row.helped }} />
+            </View>
           </View>
           <Text className="w-6 text-right font-normal text-xs text-muted">
             {row.clean + row.helped}
