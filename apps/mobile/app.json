@@ -22,6 +22,38 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.REQUEST_INSTALL_PACKAGES"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "scheme": "https",
+              "host": "misri-chess-club.vercel.app",
+              "pathPrefix": "/c/"
+            },
+            {
+              "scheme": "https",
+              "host": "misri-chess-club.vercel.app",
+              "pathPrefix": "/join"
+            },
+            {
+              "scheme": "https",
+              "host": "misri-chess-club.vercel.app",
+              "pathPrefix": "/p/"
+            },
+            {
+              "scheme": "https",
+              "host": "misri-chess-club.vercel.app",
+              "pathPrefix": "/inbox"
+            }
+          ]
+        }
       ]
     },
     "ios": {
@@ -32,6 +64,7 @@
       "expo-web-browser",
       "expo-secure-store",
       "./plugins/with-release-signing",
+      "./plugins/with-shortcuts",
       "expo-font",
       [
         "expo-audio",
