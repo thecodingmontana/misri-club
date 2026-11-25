@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import {
   EMPTY,
   streak,
+  streakWarningAt,
   weakestThemes,
   withDrill,
   withGuess,
@@ -54,4 +55,23 @@ test('weakest themes: lowest clean rate first, only themes tried enough', () => 
     weakestThemes(puzzles, 3, 2).map((w) => w.theme),
     ['pin', 'skewer'],
   )
+})
+
+test('the streak warning lands on the evening the streak would end', () => {
+  const morning = new Date('2026-03-10T09:00:00')
+  const late = new Date('2026-03-10T21:00:00')
+  // trained yesterday, not yet today: warn tonight
+  assert.equal(
+    streakWarningAt(['2026-03-09'], morning)?.toString(),
+    new Date('2026-03-10T20:00:00').toString(),
+  )
+  // too late tonight to warn
+  assert.equal(streakWarningAt(['2026-03-09'], late), null)
+  // trained today: warn tomorrow evening
+  assert.equal(
+    streakWarningAt(['2026-03-10'], late)?.toString(),
+    new Date('2026-03-11T20:00:00').toString(),
+  )
+  // no streak at all
+  assert.equal(streakWarningAt(['2026-03-01'], morning), null)
 })

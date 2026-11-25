@@ -10,6 +10,7 @@ import { Loading, Screen } from '@/components'
 import { trackScreen, trackUser } from '@/lib/analytics'
 import { introSeen } from '@/lib/intro'
 import { openTappedNotifications, registerForPush } from '@/lib/notifications'
+import { scheduleReminders } from '@/lib/reminders'
 import { SessionProvider, useSession } from '@/lib/session'
 import { loadSoundSetting } from '@/lib/sound'
 import { loadTheme } from '@/lib/theme'
@@ -46,6 +47,7 @@ function Gate() {
   useEffect(() => {
     if (!ready || !api) return
     void registerForPush(api).catch(() => {})
+    void scheduleReminders().catch(() => {})
     return openTappedNotifications()
   }, [ready, api])
   const segments = useSegments()

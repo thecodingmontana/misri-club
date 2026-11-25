@@ -282,7 +282,8 @@ function Table({
   const line = (cells: Array<string | number>, header: boolean) =>
     cells.map((cell, i) => (
       <Text
-        key={`${i}`}
+        // biome-ignore lint/suspicious/noArrayIndexKey: columns are fixed
+        key={i}
         numberOfLines={1}
         className={`font-normal text-xs ${i === 0 ? 'flex-1' : 'w-14 text-right'} ${header ? 'text-muted' : 'text-foreground'}`}
       >

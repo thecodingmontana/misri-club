@@ -6,6 +6,7 @@ import {
   withGuess,
   withPuzzle,
 } from '@misri/core/progress'
+import { scheduleReminders } from '@/lib/reminders'
 import * as Store from '@/lib/storage'
 
 export * from '@misri/core/progress'
@@ -31,6 +32,8 @@ function save(update: (progress: Progress) => Progress) {
     .then(async () =>
       Store.setItemAsync(KEY, JSON.stringify(update(await readProgress()))),
     )
+    // trained today: tonight's streak warning moves to tomorrow
+    .then(scheduleReminders)
     // storage failed: training still works, it just isn't counted
     .catch(() => {})
 }

@@ -128,3 +128,23 @@ export function weakestThemes(
     .sort((a, b) => a.rate - b.rate || a.theme.localeCompare(b.theme))
     .slice(0, count)
 }
+
+/**
+ * When to warn "your streak ends tonight": `hour` o'clock on the next day
+ * that would break the streak if you don't train, or null with no streak.
+ */
+export function streakWarningAt(
+  days: Array<string>,
+  now = new Date(),
+  hour = 20,
+): Date | null {
+  const day = now.toLocaleDateString('en-CA')
+  const at = new Date(now)
+  at.setHours(hour, 0, 0, 0)
+  // trained today: safe until tomorrow evening
+  if (days.includes(day)) {
+    at.setDate(at.getDate() + 1)
+    return at
+  }
+  return streak(days, day) > 0 && now < at ? at : null
+}

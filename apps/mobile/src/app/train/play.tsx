@@ -18,8 +18,8 @@ import { Kicker } from '@/competitions'
 import { Screen } from '@/components'
 import { useEngine } from '@/engine-host'
 import { Icon } from '@/icon'
-import { play, type Sound } from '@/lib/sound'
 import { PHONE_PLAY_KEY } from '@/lib/progress'
+import { play, type Sound } from '@/lib/sound'
 import * as Store from '@/lib/storage'
 
 const FRESH: SavedGame = { pgn: '', colour: 'white', level: 1, record: {} }

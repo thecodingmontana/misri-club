@@ -22,7 +22,8 @@ export function appRoute(url: string): string | null {
   if (invite) return `/join/${invite}`
   const player = /^\/p\/([^/?#]+)/.exec(url)?.[1]
   if (player) return `/p/${player}`
-  return url === '/inbox' ? '/inbox' : null
+  if (url === '/inbox' || url.startsWith('/train')) return url
+  return null
 }
 
 // Whether this phone's token reached the server this session: until it has,
