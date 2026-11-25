@@ -1,5 +1,6 @@
 import { db } from '@misri/db/client'
 import {
+  appMeta,
   chessAccounts,
   competitionMembers,
   competitionRequests,
@@ -7,6 +8,7 @@ import {
   competitionViews,
   matches,
   notifications,
+  pushSubscriptions,
   user,
 } from '@misri/db/schema'
 import {
@@ -22,6 +24,7 @@ import {
 } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { awaitsDecision } from './decisions.ts'
+import { FCM_PREFIX } from './fcm.ts'
 import { type PushMessage, sendPushes } from './push.ts'
 import type { PushKind } from './push-kinds.ts'
 import { takeAllowance } from './rate-limit.ts'
@@ -906,4 +909,48 @@ export async function sendWeeklySummaries(now = new Date()) {
   }
   await bestEffort(messages, 'weekly')
   return messages.length
+}
+
+const LATEST_APP =
+  'https://api.github.com/repos/thecodingmontana/misri-club/releases/latest'
+
+/**
+ * A new phone app on GitHub Releases: every phone with the app hears once that
+ * it's ready (not browsers, not the inbox). Called by the daily cron.
+ */
+export async function announceAppRelease(now = new Date()) {
+  const res = await fetch(LATEST_APP, {
+    headers: { accept: 'application/vnd.github+json' },
+    signal: AbortSignal.timeout(8000),
+  })
+  if (!res.ok) throw new Error(`GitHub answered ${res.status}`)
+  const { tag_name: tag } = (await res.json()) as { tag_name?: string }
+  if (!tag?.startsWith('mobile-v')) return 0
+  // claim the tag first, so two runs can't both announce it
+  const claimed = await db
+    .insert(appMeta)
+    .values({ key: 'announced-app-release', value: tag, updatedAt: now })
+    .onConflictDoUpdate({
+      target: appMeta.key,
+      set: { value: tag, updatedAt: now },
+      setWhere: sql`${appMeta.value} <> ${tag}`,
+    })
+    .returning({ value: appMeta.value })
+  if (claimed.length === 0) return 0
+  const phones = await db
+    .selectDistinct({ userId: pushSubscriptions.userId })
+    .from(pushSubscriptions)
+    .where(sql`${pushSubscriptions.endpoint} like ${`${FCM_PREFIX}%`}`)
+  const version = tag.replace('mobile-v', '')
+  return sendPushes(
+    phones.map(({ userId }) => ({
+      userId,
+      title: `Misri ${version} is ready to install`,
+      body: "See what's new and update in a tap.",
+      url: '/update',
+      tag: 'app-update',
+      kind: 'updates' as const,
+      appOnly: true,
+    })),
+  )
 }

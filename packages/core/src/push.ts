@@ -33,6 +33,8 @@ export interface PushMessage {
   tag?: string
   /** the app's notification channel, so people can mute one kind on their phone */
   kind?: PushKind
+  /** the phone app only, not browsers (e.g. "a new app is ready") */
+  appOnly?: boolean
 }
 
 /** Sends each message to every device of its person; forgets devices the browser dropped. */
@@ -72,9 +74,9 @@ export async function sendPushes(messages: PushMessage[]) {
   }
   let sent = 0
   await Promise.allSettled(
-    messages.flatMap(({ userId, ...message }) =>
+    messages.flatMap(({ userId, appOnly, ...message }) =>
       subs
-        .filter((s) => s.userId === userId)
+        .filter((s) => s.userId === userId && (!appOnly || app(s)))
         .map(async (s) => {
           if (app(s)) {
             const result = await sendFcm(

@@ -3,6 +3,8 @@ import { after, test } from 'node:test'
 import { eq, inArray } from 'drizzle-orm'
 import { db } from '#/db/client.server'
 import {
+  allowance,
+  appMeta,
   chessAccounts,
   competitionMembers,
   competitions,
@@ -35,7 +37,7 @@ import {
   refuseIfOwner,
   removePlayer,
 } from '#/server/membership.server'
-import { remindDeadlines, remindOrganisers, remindStarts, sendWeeklySummaries } from '#/server/notifications.server'
+import { announceAppRelease, remindDeadlines, remindOrganisers, remindStarts, sendWeeklySummaries } from '#/server/notifications.server'
 import {
   concedeMatch,
   decideMatch,
@@ -1036,6 +1038,8 @@ test('a public competition tells people who looked, once, when nearly full', asy
 test('weekly summary: Monday only, once, with the week in the competition', async () => {
   const c = await competition('league', ['a', 'b'], { status: 'running' })
   const monday = new Date('2031-06-02T05:00:00Z') // a Monday no other test uses
+  // a run before this one already took the Monday
+  await db.delete(allowance).where(eq(allowance.key, 'weekly-summary:2031-06-02'))
   const [m] = await db
     .insert(matches)
     .values({
@@ -1061,4 +1065,32 @@ test('weekly summary: Monday only, once, with the week in the competition', asyn
   assert.match((await told(c.ids[1]))[0]?.body ?? '', /^Last week: 1 loss\./)
   assert.equal(await sendWeeklySummaries(monday), 0, 'a second run the same Monday sends nothing')
   assert.equal((await told(c.ids[0])).length, 1)
+})
+
+test('a new app release is announced once per version', async () => {
+  const real = globalThis.fetch
+  let tag = 'mobile-v0.1.900'
+  globalThis.fetch = (async () => Response.json({ tag_name: tag })) as typeof fetch
+  const stored = async () =>
+    (await db.select().from(appMeta).where(eq(appMeta.key, 'announced-app-release')))[0]
+  try {
+    await db.delete(appMeta).where(eq(appMeta.key, 'announced-app-release'))
+    const first = new Date('2031-01-01T05:00:00Z')
+    await announceAppRelease(first)
+    assert.equal((await stored())?.value, 'mobile-v0.1.900')
+    // the same release again: nothing claimed, nothing sent
+    await announceAppRelease(new Date('2031-01-02T05:00:00Z'))
+    assert.equal((await stored())?.updatedAt.getTime(), first.getTime())
+    // a newer one is claimed
+    tag = 'mobile-v0.1.901'
+    await announceAppRelease(new Date('2031-01-03T05:00:00Z'))
+    assert.equal((await stored())?.value, 'mobile-v0.1.901')
+    // a website-only release tag is ignored
+    tag = 'web-v1'
+    assert.equal(await announceAppRelease(), 0)
+    assert.equal((await stored())?.value, 'mobile-v0.1.901')
+  } finally {
+    globalThis.fetch = real
+    await db.delete(appMeta).where(eq(appMeta.key, 'announced-app-release'))
+  }
 })

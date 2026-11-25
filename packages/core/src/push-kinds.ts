@@ -6,5 +6,6 @@ export const PUSH_KINDS = {
   requests: 'Join requests',
   news: 'Competition news',
   weekly: 'Weekly summary',
+  updates: 'App updates',
 } as const
 export type PushKind = keyof typeof PUSH_KINDS

@@ -9,6 +9,7 @@ import {
   startScheduled,
 } from '#/server/competitions.server'
 import {
+  announceAppRelease,
   remindDeadlines,
   remindOrganisers,
   remindStarts,
@@ -99,6 +100,13 @@ export const Route = createFileRoute('/api/cron/deadlines')({
           )
           return 0
         })
+        const announced = await announceAppRelease().catch((error) => {
+          console.error(
+            '[cron] app release announcement failed',
+            (error as Error).message,
+          )
+          return 0
+        })
         await pruneAllowances().catch((error) =>
           console.error('[cron] prune failed', (error as Error).message),
         )
@@ -110,6 +118,7 @@ export const Route = createFileRoute('/api/cron/deadlines')({
           starting,
           nudged,
           weekly,
+          announced,
         })
       },
     },
