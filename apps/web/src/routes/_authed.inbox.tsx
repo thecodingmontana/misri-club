@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { useEffect } from 'react'
+import { InboxSkeleton } from '#/components/skeletons.tsx'
 import { relativeTime } from '#/lib/format'
 import { seo } from '#/lib/seo'
 import { useSyncedQuery } from '#/lib/sync/use-synced'
@@ -10,6 +11,7 @@ import { getInboxFn, markInboxReadFn } from '#/server/inbox.functions'
 
 /** Everything Misri told you, newest first; opening it reads them all. */
 export const Route = createFileRoute('/_authed/inbox')({
+  pendingComponent: InboxSkeleton,
   head: () =>
     seo({ title: 'Inbox', description: 'Your notifications.', noindex: true }),
   loader: () => getInboxFn(),

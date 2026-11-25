@@ -12,6 +12,7 @@ import {
   Lightbulb,
 } from '#/components/icons'
 import { PlayBoard } from '#/components/play-board'
+import { BoardSkeleton } from '#/components/skeletons.tsx'
 import { TrainHeader } from '#/components/train-header'
 import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
@@ -23,6 +24,7 @@ import { seo } from '#/lib/seo'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/train/openings/$slug')({
+  pendingComponent: BoardSkeleton,
   loader: ({ params }) => {
     const course = opening(params.slug)
     if (!course) throw notFound()

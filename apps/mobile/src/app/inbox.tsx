@@ -1,19 +1,21 @@
 import type { InboxItem } from '@misri/api-client'
 import { router } from 'expo-router'
-import { Card, PressableFeedback, Skeleton } from 'heroui-native'
+import { Card, PressableFeedback } from 'heroui-native'
 import { useEffect } from 'react'
-import { RefreshControl, ScrollView, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import { EmptyCard, PageTitle } from '@/competitions'
 import { Problem, Screen } from '@/components'
 import { relativeTime } from '@/lib/format'
 import { appRoute } from '@/lib/notifications'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
+import { RefreshScroll } from '@/refresh'
+import { InboxSkeleton } from '@/skeletons'
 
 /** Everything Misri told you, newest first; opening it reads them all. */
 export default function Inbox() {
   const { api } = useSession()
-  const { data, error, loading, reload } = useLoad(
+  const { data, error, reload } = useLoad(
     () => (api ? api.inbox() : Promise.resolve(null)),
     String(Boolean(api)),
   )
@@ -34,22 +36,10 @@ export default function Inbox() {
 
   return (
     <Screen>
-      <ScrollView
-        contentContainerClassName="gap-5 p-4"
-        refreshControl={
-          <RefreshControl
-            refreshing={loading && Boolean(data)}
-            onRefresh={reload}
-          />
-        }
-      >
+      <RefreshScroll contentContainerClassName="gap-5 p-4" onRefresh={reload}>
         <PageTitle title="Inbox" />
         {!data ? (
-          <View className="gap-3">
-            <Skeleton className="h-16 rounded-3xl" />
-            <Skeleton className="h-16 rounded-3xl" />
-            <Skeleton className="h-16 rounded-3xl" />
-          </View>
+          <InboxSkeleton />
         ) : data.length === 0 ? (
           <EmptyCard>
             Nothing yet. Starts, results, reminders and requests show up here.
@@ -57,7 +47,7 @@ export default function Inbox() {
         ) : (
           data.map((n) => <Notice key={n.id} item={n} />)
         )}
-      </ScrollView>
+      </RefreshScroll>
     </Screen>
   )
 }

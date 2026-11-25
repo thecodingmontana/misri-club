@@ -9,10 +9,11 @@ import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { Alert, Button, Card } from 'heroui-native'
 import { ScrollView, Text, View } from 'react-native'
 import { FormatExplainer, IconBadge, JoinButton, Kicker } from '@/competitions'
-import { Loading, Problem, Screen } from '@/components'
+import { Problem, Screen } from '@/components'
 import { formatDate } from '@/lib/format'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
+import { InviteSkeleton } from '@/skeletons'
 
 /** An invite (code or link): what you're joining, then Join or Decline. */
 export default function Invite() {
@@ -38,7 +39,8 @@ export default function Invite() {
   if (loading && !invite) {
     return (
       <Screen>
-        <Loading />
+        <Stack.Screen options={{ title: '' }} />
+        <InviteSkeleton />
       </Screen>
     )
   }

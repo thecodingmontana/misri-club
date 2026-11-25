@@ -10,7 +10,7 @@ import { timeControlLabel } from '@misri/core/time-control'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { Button, Card, Spinner, Tabs } from 'heroui-native'
 import { type ReactNode, useState } from 'react'
-import { RefreshControl, ScrollView, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import { FormError } from '@/auth-shell'
 import {
   EmptyCard,
@@ -19,7 +19,7 @@ import {
   JoinButton,
   Kicker,
 } from '@/competitions'
-import { Loading, Problem, Screen } from '@/components'
+import { Problem, Screen } from '@/components'
 import { formatDate } from '@/lib/format'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
@@ -34,6 +34,8 @@ import {
   type PlayerView,
 } from '@/match'
 import { DecideMatch, OwnerPanel, RemovePlayer } from '@/organiser'
+import { RefreshScroll } from '@/refresh'
+import { CompetitionSkeleton } from '@/skeletons'
 
 type Data = CompetitionPage
 type StandingRow = NonNullable<Data['standings']>[number]
@@ -42,7 +44,7 @@ type StandingRow = NonNullable<Data['standings']>[number]
 export default function Competition() {
   const { slug } = useLocalSearchParams<{ slug: string }>()
   const { api, me } = useSession()
-  const { data, error, loading, reload } = useLoad(
+  const { data, error, reload } = useLoad(
     () => (api ? api.competition(slug) : Promise.resolve(null)),
     `${Boolean(api)}:${slug}`,
   )
@@ -57,7 +59,8 @@ export default function Competition() {
   if (!data) {
     return (
       <Screen>
-        <Loading />
+        <Stack.Screen options={{ title: '' }} />
+        <CompetitionSkeleton />
       </Screen>
     )
   }
@@ -73,11 +76,9 @@ export default function Competition() {
   return (
     <Screen>
       <Stack.Screen options={{ title: '' }} />
-      <ScrollView
+      <RefreshScroll
         contentContainerClassName="gap-5 p-4 pb-10"
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={reload} />
-        }
+        onRefresh={reload}
       >
         <View className="items-center gap-1">
           <Text className="font-semibold text-center text-xs uppercase tracking-widest text-muted">
@@ -173,7 +174,7 @@ export default function Competition() {
         {isMember && !data.isOrganiser && competition.status !== 'finished' && (
           <LeaveButton data={data} onLeft={reload} />
         )}
-      </ScrollView>
+      </RefreshScroll>
     </Screen>
   )
 }

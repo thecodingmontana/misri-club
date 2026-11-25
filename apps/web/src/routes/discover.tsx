@@ -5,6 +5,7 @@ import {
   FORMAT_LABEL,
   JoinButton,
 } from '#/components/competitions'
+import { DiscoverSkeleton } from '#/components/skeletons.tsx'
 import { Button } from '#/components/ui/button'
 import { seo } from '#/lib/seo'
 import { useAdmin } from '#/lib/use-admin'
@@ -15,6 +16,7 @@ const FILTERS = ['all', 'league', 'knockout', 'groups'] as const
 
 /** Every public competition taking players, for anyone to browse. */
 export const Route = createFileRoute('/discover')({
+  pendingComponent: DiscoverSkeleton,
   validateSearch: z.object({
     format: z.enum(FILTERS).catch('all').default('all'),
   }),

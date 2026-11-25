@@ -6,6 +6,7 @@ import {
 } from '#/components/competitions'
 import { Plus, UserPlus } from '#/components/icons'
 import { InstallCard } from '#/components/install-card'
+import { HomeSkeleton } from '#/components/skeletons.tsx'
 import { Button } from '#/components/ui/button'
 import { seo } from '#/lib/seo'
 import { useAdmin } from '#/lib/use-admin'
@@ -16,6 +17,7 @@ import {
 
 /** Home: signed-out visitors are sent to sign in by the `_authed` layout. */
 export const Route = createFileRoute('/_authed/')({
+  pendingComponent: HomeSkeleton,
   head: () =>
     seo({
       title: 'Your competitions',

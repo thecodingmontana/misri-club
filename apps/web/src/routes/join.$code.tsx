@@ -13,6 +13,7 @@ import {
 } from '#/components/competitions'
 import { Trophy } from '#/components/icons'
 import { scoringSummary } from '#/components/scoring-rules'
+import { InviteSkeleton } from '#/components/skeletons.tsx'
 import { Button } from '#/components/ui/button'
 import { formatDate } from '#/lib/format'
 import { seo } from '#/lib/seo'
@@ -22,6 +23,7 @@ import { getInviteFn } from '#/server/competitions.functions'
 
 /** An invite link: shows what you're joining; signed-out visitors sign in first. */
 export const Route = createFileRoute('/join/$code')({
+  pendingComponent: InviteSkeleton,
   // Like Zadaci: sign in (or finish onboarding) first, then land back here.
   beforeLoad: async ({ location }) => {
     const { user } = await getSessionFn()

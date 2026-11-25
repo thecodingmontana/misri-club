@@ -2,11 +2,12 @@ import * as WebBrowser from 'expo-web-browser'
 import { Button, Card, Spinner } from 'heroui-native'
 import { useState } from 'react'
 import { View } from 'react-native'
-import { Loading, Screen } from '@/components'
+import { Screen } from '@/components'
 import { Icon } from '@/icon'
 import { SITE_URL } from '@/lib/config'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
+import { AccountSkeleton } from '@/skeletons'
 
 export default function Account() {
   const { api, signOut } = useSession()
@@ -31,7 +32,7 @@ export default function Account() {
             </Card.Body>
           </Card>
         ) : (
-          <Loading />
+          <AccountSkeleton />
         )}
         <Button
           variant="secondary"

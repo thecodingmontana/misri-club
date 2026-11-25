@@ -9,14 +9,16 @@ import {
   PressableFeedback,
   useThemeColor,
 } from 'heroui-native'
-import { RefreshControl, ScrollView, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import { EmptyCard } from '@/competitions'
-import { Loading, Problem, Screen } from '@/components'
+import { Problem, Screen } from '@/components'
 import { Icon } from '@/icon'
 import { relativeTime } from '@/lib/format'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
 import { avatarUrl, PlayerAvatar } from '@/match'
+import { RefreshScroll } from '@/refresh'
+import { PlayerSkeleton } from '@/skeletons'
 
 type Record = PlayerPage['record']
 type Result = PlayerPage['recent'][number]
@@ -50,7 +52,8 @@ export default function Player() {
   if (loading && !data) {
     return (
       <Screen>
-        <Loading />
+        <Stack.Screen options={{ title: '' }} />
+        <PlayerSkeleton />
       </Screen>
     )
   }
@@ -67,11 +70,9 @@ export default function Player() {
   return (
     <Screen>
       <Stack.Screen options={{ title: '' }} />
-      <ScrollView
+      <RefreshScroll
         contentContainerClassName="gap-5 p-4 pb-10"
-        refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={reload} />
-        }
+        onRefresh={reload}
       >
         <View className="items-center gap-2">
           <PlayerAvatar
@@ -156,7 +157,7 @@ export default function Player() {
             ))
           )}
         </View>
-      </ScrollView>
+      </RefreshScroll>
     </Screen>
   )
 }

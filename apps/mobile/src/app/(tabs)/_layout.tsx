@@ -125,22 +125,28 @@ function TopBar() {
         Misri
       </Text>
       <View className="flex-1 flex-row items-center justify-end gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          isIconOnly
-          accessibilityLabel={label}
-          onPress={() => router.push('/inbox')}
-        >
-          <Icon name="Bell" size={19} />
+        {/* the badge sits beside the button, which clips what overflows it */}
+        <View>
+          <Button
+            variant="ghost"
+            size="sm"
+            isIconOnly
+            accessibilityLabel={label}
+            onPress={() => router.push('/inbox')}
+          >
+            <Icon name="Bell" size={19} />
+          </Button>
           {unread > 0 && (
-            <View className="absolute top-0.5 right-0.5 min-w-4 items-center rounded-full bg-accent px-1">
-              <Text className="font-semibold text-[10px] leading-4 text-accent-foreground">
+            <View
+              pointerEvents="none"
+              className="absolute top-0 right-0 h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1"
+            >
+              <Text className="font-semibold text-[10px] text-accent-foreground">
                 {unread > 9 ? '9+' : unread}
               </Text>
             </View>
           )}
-        </Button>
+        </View>
         <Button
           variant="ghost"
           size="sm"

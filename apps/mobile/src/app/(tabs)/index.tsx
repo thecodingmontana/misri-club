@@ -1,13 +1,7 @@
 import { CREATE_CHOICES } from '@misri/core/formats'
 import { router } from 'expo-router'
-import {
-  Button,
-  Card,
-  PressableFeedback,
-  Skeleton,
-  useThemeColor,
-} from 'heroui-native'
-import { RefreshControl, ScrollView, Text, View } from 'react-native'
+import { Button, Card, PressableFeedback, useThemeColor } from 'heroui-native'
+import { Text, View } from 'react-native'
 import {
   CompetitionCard,
   type CompetitionSummary,
@@ -19,6 +13,8 @@ import { Problem, Screen } from '@/components'
 import { Icon } from '@/icon'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
+import { RefreshScroll } from '@/refresh'
+import { CompetitionListSkeleton } from '@/skeletons'
 
 /**
  * Home: your competitions first. Only someone in none gets the ways to start
@@ -27,7 +23,7 @@ import { useLoad } from '@/lib/use-load'
 export default function Home() {
   const { api, me } = useSession()
   const accent = useThemeColor('accent')
-  const { data, error, loading, reload } = useLoad(
+  const { data, error, reload } = useLoad(
     async () => {
       if (!api) return null
       const [mine, open] = await Promise.all([
@@ -52,15 +48,7 @@ export default function Home() {
 
   return (
     <Screen>
-      <ScrollView
-        contentContainerClassName="gap-5 p-4"
-        refreshControl={
-          <RefreshControl
-            refreshing={loading && Boolean(data)}
-            onRefresh={reload}
-          />
-        }
-      >
+      <RefreshScroll contentContainerClassName="gap-5 p-4" onRefresh={reload}>
         {me && !me.chessUsername && (
           <Card className="p-0">
             <PressableFeedback
@@ -80,10 +68,7 @@ export default function Home() {
         <PageTitle title="Your competitions" />
 
         {!data ? (
-          <View className="gap-3">
-            <Skeleton className="h-[72px] rounded-3xl" />
-            <Skeleton className="h-[72px] rounded-3xl" />
-          </View>
+          <CompetitionListSkeleton />
         ) : (
           <>
             <View className="gap-3">
@@ -132,7 +117,7 @@ export default function Home() {
             <OpenCompetitions competitions={data.open} />
           </>
         )}
-      </ScrollView>
+      </RefreshScroll>
     </Screen>
   )
 }

@@ -1,8 +1,8 @@
 import { FORMAT_LABEL } from '@misri/core/formats'
 import { router } from 'expo-router'
-import { Button, Chip, Skeleton } from 'heroui-native'
+import { Button, Chip } from 'heroui-native'
 import { useState } from 'react'
-import { RefreshControl, ScrollView, View } from 'react-native'
+import { View } from 'react-native'
 import {
   CompetitionCard,
   type CompetitionSummary,
@@ -13,6 +13,8 @@ import {
 import { Problem, Screen } from '@/components'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
+import { RefreshScroll } from '@/refresh'
+import { CompetitionListSkeleton } from '@/skeletons'
 
 const FILTERS = ['all', 'league', 'knockout', 'groups'] as const
 
@@ -20,7 +22,7 @@ const FILTERS = ['all', 'league', 'knockout', 'groups'] as const
 export default function Discover() {
   const { api } = useSession()
   const [format, setFormat] = useState<(typeof FILTERS)[number]>('all')
-  const { data, error, loading, reload } = useLoad(
+  const { data, error, reload } = useLoad(
     async () =>
       api ? ((await api.openCompetitions()) as CompetitionSummary[]) : null,
     String(Boolean(api)),
@@ -38,15 +40,7 @@ export default function Discover() {
 
   return (
     <Screen>
-      <ScrollView
-        contentContainerClassName="gap-5 p-4"
-        refreshControl={
-          <RefreshControl
-            refreshing={loading && Boolean(data)}
-            onRefresh={reload}
-          />
-        }
-      >
+      <RefreshScroll contentContainerClassName="gap-5 p-4" onRefresh={reload}>
         <PageTitle
           title="Open competitions"
           lead="Public leagues and tournaments taking players right now."
@@ -65,10 +59,7 @@ export default function Discover() {
           ))}
         </View>
         {!shown ? (
-          <View className="gap-3">
-            <Skeleton className="h-[72px] rounded-3xl" />
-            <Skeleton className="h-[72px] rounded-3xl" />
-          </View>
+          <CompetitionListSkeleton action />
         ) : shown.length === 0 ? (
           <View className="gap-3">
             <EmptyCard>
@@ -97,7 +88,7 @@ export default function Discover() {
             />
           ))
         )}
-      </ScrollView>
+      </RefreshScroll>
     </Screen>
   )
 }

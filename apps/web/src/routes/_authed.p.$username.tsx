@@ -2,6 +2,7 @@ import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { FORMAT_LABEL, STATUS_LABEL } from '#/components/competitions'
 import { ExternalLink, Trophy } from '#/components/icons'
 import { PlayerAvatar, PlayerChip } from '#/components/player-chip'
+import { PlayerSkeleton } from '#/components/skeletons.tsx'
 import { relativeTime } from '#/lib/format'
 import { seo } from '#/lib/seo'
 import { cn } from '#/lib/utils'
@@ -12,6 +13,7 @@ type Page = NonNullable<Awaited<ReturnType<typeof getPlayer>>>
 
 /** A player: their record, their results, and how you do against them. */
 export const Route = createFileRoute('/_authed/p/$username')({
+  pendingComponent: PlayerSkeleton,
   head: () =>
     seo({ title: 'Player', description: 'A player on Misri.', noindex: true }),
   loader: async ({ params }) => {

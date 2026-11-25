@@ -13,6 +13,7 @@ import {
   Target,
 } from '#/components/icons'
 import { PlayBoard } from '#/components/play-board'
+import { BoardSkeleton } from '#/components/skeletons.tsx'
 import { TrainHeader } from '#/components/train-header'
 import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
@@ -28,6 +29,7 @@ import { useEngineAnalysis, useStoredScores } from '#/lib/use-engine-analysis'
 import { cn } from '#/lib/utils'
 
 export const Route = createFileRoute('/train/masters/$slug')({
+  pendingComponent: BoardSkeleton,
   // `?ply=36` opens the game at that move, e.g. from the brilliant-moves lesson.
   validateSearch: z.object({
     ply: z.number().int().min(0).optional().catch(undefined),

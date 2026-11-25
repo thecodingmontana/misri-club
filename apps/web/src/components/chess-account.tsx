@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Spinner } from '#/components/auth'
 import { CopyIcon } from '#/components/copy-icon'
 import { ShieldCheck } from '#/components/icons'
+import { LinesSkeleton } from '#/components/skeletons.tsx'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
 import { formatDate } from '#/lib/format'
@@ -59,7 +60,7 @@ export function ChessAccount({
   })
 
   const data = account.data
-  if (!data) return <p className="text-sm text-muted-foreground">Loading…</p>
+  if (!data) return <LinesSkeleton />
 
   if (data.status === 'verified') {
     return (

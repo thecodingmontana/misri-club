@@ -37,6 +37,7 @@ import { MatchReport } from '#/components/match-report'
 import { PlayerChip } from '#/components/player-chip'
 import { ScoringRules, scoringSummary } from '#/components/scoring-rules'
 import { Seeding } from '#/components/seeding'
+import { CompetitionSkeleton } from '#/components/skeletons.tsx'
 import {
   StartDateField,
   startDayOf,
@@ -68,6 +69,7 @@ import {
 
 /** A competition: public to read; the organiser manages it from here. */
 export const Route = createFileRoute('/c/$slug')({
+  pendingComponent: CompetitionSkeleton,
   loader: async ({ params }) => {
     const data = await getCompetitionFn({ data: { slug: params.slug } })
     if (!data) throw notFound()

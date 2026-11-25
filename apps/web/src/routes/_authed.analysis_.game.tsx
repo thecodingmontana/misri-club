@@ -4,7 +4,6 @@ import { useServerFn } from '@tanstack/react-start'
 import { play } from 'cuelume'
 import { useEffect, useMemo, useState } from 'react'
 import { z } from 'zod'
-import { Spinner } from '#/components/auth'
 import type { BoardStep } from '#/components/chess-board'
 import { ChessBoard } from '#/components/chess-board'
 import {
@@ -18,6 +17,7 @@ import {
 import { SpeakButton } from '#/components/speak-button'
 import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
+import { Skeleton } from '#/components/ui/skeleton.tsx'
 import { confetti } from '#/lib/confetti'
 import type { LessonMoment, QuizQuestion } from '#/lib/lesson'
 import { buildLesson } from '#/lib/lesson'
@@ -92,10 +92,12 @@ function LessonScreen() {
       </Link>
 
       {loading ? (
-        <Card className="items-center gap-2 p-8 text-xs text-muted-foreground">
-          <Spinner />
-          Fetching your games from chess.com
-        </Card>
+        <div className="space-y-3">
+          <Skeleton className="aspect-square w-full rounded-xl" />
+          <p className="text-center text-xs text-muted-foreground">
+            Fetching your game from chess.com
+          </p>
+        </div>
       ) : !game ? (
         <Card className="p-8 text-center text-xs text-muted-foreground">
           {failure

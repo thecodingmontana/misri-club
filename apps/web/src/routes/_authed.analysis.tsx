@@ -2,9 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { useMemo, useState } from 'react'
-import { Spinner } from '#/components/auth'
 import { ChevronRight, Cpu, Fire, Stop, Target } from '#/components/icons'
 import { PlayerAvatar } from '#/components/player-chip'
+import { RowsSkeleton } from '#/components/skeletons.tsx'
 import { Button } from '#/components/ui/button'
 import { Card } from '#/components/ui/card'
 import type { GameReview } from '#/lib/analysis'
@@ -70,10 +70,12 @@ function AnalysisScreen() {
       </fieldset>
 
       {query.isPending ? (
-        <Card className="items-center gap-2 p-8 text-xs text-muted-foreground">
-          <Spinner />
-          Fetching your games from chess.com
-        </Card>
+        <div className="space-y-2">
+          <p className="text-center text-xs text-muted-foreground">
+            Fetching your games from chess.com
+          </p>
+          <RowsSkeleton count={6} />
+        </div>
       ) : query.isError ? (
         <Card className="items-center gap-3 p-6 text-center text-xs">
           <p className="text-destructive">{query.error.message}</p>
