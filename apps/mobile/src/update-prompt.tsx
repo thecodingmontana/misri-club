@@ -1,12 +1,13 @@
 import * as Linking from 'expo-linking'
-import { Button, Card, CloseButton } from 'heroui-native'
-import { useEffect, useState } from 'react'
+import { Button, Card, CloseButton, useThemeColor } from 'heroui-native'
+import { useEffect, useSyncExternalStore } from 'react'
 import { AppState, Modal, ScrollView, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { IconBadge, Kicker } from '@/competitions'
+import { Icon } from '@/icon'
 import { formatDate } from '@/lib/format'
 import { play } from '@/lib/sound'
-import { checkForUpdate, putOff, type Update } from '@/lib/update'
+import { checkForUpdate, putOff, updateStore, wasPutOff } from '@/lib/update'
 
 const EVERY = 6 * 60 * 60 * 1000
 
@@ -24,7 +25,7 @@ const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
  */
 export function UpdatePrompt() {
   const insets = useSafeAreaInsets()
-  const [update, setUpdate] = useState<Update | null>(null)
+  const { update, open } = useUpdate()
 
   useEffect(() => {
     let last = 0
@@ -32,11 +33,12 @@ export function UpdatePrompt() {
       if (Date.now() - last < EVERY) return
       last = Date.now()
       checkForUpdate()
-        .then((found) => {
-          if (found) {
-            play('navigate')
-            setUpdate(found)
-          }
+        .then(async (found) => {
+          if (!found) return updateStore.set({ update: null, open: false })
+          // the page opens by itself once per version; the top bar keeps it after
+          const opens = !(await wasPutOff(found.tag))
+          if (opens) play('navigate')
+          updateStore.set({ update: found, open: opens })
         })
         .catch(() => {})
     }
@@ -47,10 +49,10 @@ export function UpdatePrompt() {
     return () => sub.remove()
   }, [])
 
-  if (!update) return null
+  if (!update || !open) return null
   const later = () => {
     void putOff(update.tag)
-    setUpdate(null)
+    updateStore.set({ open: false })
   }
   const facts = [
     `Version ${update.version}`,
@@ -111,7 +113,7 @@ export function UpdatePrompt() {
             size="lg"
             onPress={() => {
               void Linking.openURL(update.apk)
-              setUpdate(null)
+              updateStore.set({ open: false })
             }}
           >
             {`Update now · ${megabytes(update.size)}`}
@@ -122,5 +124,29 @@ export function UpdatePrompt() {
         </View>
       </View>
     </Modal>
+  )
+}
+
+/** The newer app waiting to be installed, if any, and whether its page is open. */
+export function useUpdate() {
+  return useSyncExternalStore(updateStore.subscribe, updateStore.get)
+}
+
+/** The top bar's reminder: shown while a newer app waits; opens its page. */
+export function UpdateButton() {
+  const { update } = useUpdate()
+  const accent = useThemeColor('accent')
+  if (!update) return null
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      isIconOnly
+      accessibilityLabel={`Update available: version ${update.version}`}
+      onPress={() => updateStore.set({ open: true })}
+    >
+      <Icon name="ArrowUp" size={17} color={accent} />
+      <View className="absolute top-0.5 right-0.5 size-2 rounded-full bg-accent" />
+    </Button>
   )
 }

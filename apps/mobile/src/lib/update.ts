@@ -25,8 +25,8 @@ export type Update = {
 const buildOf = (tag: string) => Number(/(\d+)$/.exec(tag)?.[1] ?? 0)
 
 /**
- * A newer app on GitHub Releases than this one, with its "What's new" lines;
- * null when up to date, already put off, or on a build that isn't a release.
+ * A newer app on GitHub Releases than this one, with its notes; null when
+ * up to date or on a build that isn't a release.
  */
 export async function checkForUpdate(): Promise<Update | null> {
   if (Platform.OS !== 'android') return null
@@ -44,9 +44,6 @@ export async function checkForUpdate(): Promise<Update | null> {
   }
   const tag = release.tag_name ?? ''
   if (!tag.startsWith('mobile-v') || buildOf(tag) <= installed) return null
-  if ((await SecureStore.getItemAsync(LATER_KEY).catch(() => null)) === tag) {
-    return null
-  }
   const apk = release.assets?.find((a) => a.name.endsWith('.apk'))
   if (!apk) return null
   const notes: Note[] = []
@@ -69,7 +66,29 @@ export async function checkForUpdate(): Promise<Update | null> {
   }
 }
 
-/** "Later": don't ask again about this release (a newer one asks again). */
+/** "Later": the page doesn't open by itself again for this release. */
 export async function putOff(tag: string) {
   await SecureStore.setItemAsync(LATER_KEY, tag).catch(() => {})
+}
+
+/** Whether this release was already put off (the top bar still offers it). */
+export async function wasPutOff(tag: string) {
+  return (await SecureStore.getItemAsync(LATER_KEY).catch(() => null)) === tag
+}
+
+// The update found, and whether its page is open: shared by the page and the
+// top bar's Update button, so an update stays one tap away until installed.
+type State = { update: Update | null; open: boolean }
+let state: State = { update: null, open: false }
+const listeners = new Set<() => void>()
+export const updateStore = {
+  get: () => state,
+  set(next: Partial<State>) {
+    state = { ...state, ...next }
+    for (const listen of listeners) listen()
+  },
+  subscribe(listen: () => void) {
+    listeners.add(listen)
+    return () => listeners.delete(listen)
+  },
 }
