@@ -1,6 +1,7 @@
 import {
   DIFFICULTIES,
   type Difficulty,
+  fetchDailyPuzzle,
   fetchLichessPuzzle,
   fromUci,
   judgeMove,
@@ -34,8 +35,8 @@ const DIFFICULTY_LABEL: Record<Difficulty, string> = {
 
 /** Lichess puzzles by theme and difficulty, as on the website's Train page. */
 export default function Puzzles() {
-  // Brilliant moves links here with a theme to practise
-  const params = useLocalSearchParams<{ theme?: string }>()
+  // Brilliant moves links here with a theme to practise; the widget with daily=1
+  const params = useLocalSearchParams<{ theme?: string; daily?: string }>()
   const [theme, setTheme] = useState<Theme | undefined>(
     params.theme && params.theme in THEMES
       ? (params.theme as Theme)
@@ -45,7 +46,11 @@ export default function Puzzles() {
   const [round, setRound] = useState(0)
   const [solved, setSolved] = useState(0)
   const { data, error, loading, reload } = useLoad(async () => {
-    const puzzle = await fetchLichessPuzzle(theme, difficulty)
+    // the daily puzzle first when asked for, random ones after it
+    const puzzle =
+      params.daily === '1' && round === 0 && !theme
+        ? await fetchDailyPuzzle()
+        : await fetchLichessPuzzle(theme, difficulty)
     return { ...puzzle, start: puzzleStart(puzzle) }
   }, `${theme}:${difficulty}:${round}`)
 

@@ -15,6 +15,7 @@ import { SessionProvider, useSession } from '@/lib/session'
 import { loadSoundSetting } from '@/lib/sound'
 import { loadTheme } from '@/lib/theme'
 import { UpdatePrompt } from '@/update-prompt'
+import { refreshWidgets } from '@/widgets/register'
 
 export default function RootLayout() {
   const [fontsReady] = useFonts({
@@ -48,6 +49,8 @@ function Gate() {
     if (!ready || !api) return
     void registerForPush(api).catch(() => {})
     void scheduleReminders().catch(() => {})
+    // fresh games and standings on the home screen whenever the app opens
+    refreshWidgets()
     return openTappedNotifications()
   }, [ready, api])
   const segments = useSegments()

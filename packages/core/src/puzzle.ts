@@ -116,6 +116,17 @@ export async function fetchLichessPuzzle(
   return puzzle
 }
 
+/** Today's Lichess daily puzzle, the same for everyone, checked the same way. */
+export async function fetchDailyPuzzle() {
+  const response = await fetch('https://lichess.org/api/puzzle/daily', {
+    headers: { Accept: 'application/json' },
+  })
+  if (!response.ok) throw new Error(`Lichess answered ${response.status}.`)
+  const puzzle = lichessPuzzle.parse(await response.json())
+  puzzleStart(puzzle)
+  return puzzle
+}
+
 /** Where the puzzle begins: the game played out, and whose move it is. */
 export function puzzleStart({ game, puzzle }: LichessPuzzle) {
   const chess = new Chess()
