@@ -7,7 +7,17 @@ import {
   notifications,
   user,
 } from '@misri/db/schema'
-import { and, eq, gt, inArray, isNull, lte, ne, sql } from 'drizzle-orm'
+import {
+  and,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  ne,
+  sql,
+} from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { awaitsDecision } from './decisions.ts'
 import { type PushMessage, sendPushes } from './push.ts'
@@ -628,7 +638,8 @@ export async function notifyResults(competitionId: string, matchIds: string[]) {
     .innerJoin(awayUser, eq(awayUser.id, matches.awayUserId))
     .leftJoin(home, eq(home.userId, matches.homeUserId))
     .leftJoin(away, eq(away.userId, matches.awayUserId))
-    .where(inArray(matches.id, matchIds))
+    // reopened since it was settled: nothing to tell
+    .where(and(inArray(matches.id, matchIds), isNotNull(matches.result)))
 
   let placeOf: (userId: string) => number | null = () => null
   if (competition.format === 'league') {
@@ -703,6 +714,19 @@ export async function remindStarts(now = new Date()) {
         soon.map((c) => c.id),
       ),
     )
+    .catch(async (error) => {
+      // nothing sent yet: let the next run claim them again
+      await db
+        .update(competitions)
+        .set({ startRemindedAt: null })
+        .where(
+          inArray(
+            competitions.id,
+            soon.map((c) => c.id),
+          ),
+        )
+      throw error
+    })
   await bestEffort(
     soon.flatMap((c) => {
       const players = members.filter((m) => m.competitionId === c.id)

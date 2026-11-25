@@ -13,8 +13,9 @@ import {
   TextField,
   useThemeColor,
 } from 'heroui-native'
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import {
+  AppState,
   Linking,
   Alert as NativeAlert,
   Pressable,
@@ -42,7 +43,11 @@ import { AccountSkeleton } from '@/skeletons'
 /** Your account, section for section as on the website. */
 export default function Account() {
   const { me } = useSession()
-  const { data: session } = authClient.useSession()
+  const {
+    data: session,
+    error: sessionError,
+    refetch,
+  } = authClient.useSession()
   const user = session?.user as
     | (NonNullable<typeof session>['user'] & { twoFactorEnabled?: boolean })
     | undefined
@@ -118,7 +123,10 @@ export default function Account() {
           {user ? (
             <TwoFactor enabled={Boolean(user.twoFactorEnabled)} />
           ) : (
-            <Spinner />
+            <Waiting
+              error={sessionError ? authError(sessionError) : null}
+              retry={refetch}
+            />
           )}
         </Section>
         <Section
@@ -176,7 +184,11 @@ function useTask() {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
+  // a second press before React re-renders must not start a second task
+  const active = useRef(false)
   async function run(label: string, work: () => Promise<unknown>) {
+    if (active.current) return
+    active.current = true
     setBusy(label)
     setError(null)
     setDone(null)
@@ -186,10 +198,30 @@ function useTask() {
     } catch (e) {
       setError((e as Error).message)
     } finally {
+      active.current = false
       setBusy(null)
     }
   }
   return { busy, error, done, run }
+}
+
+/** Still loading: a spinner. Failed: why, and Retry. */
+function Waiting({
+  error,
+  retry,
+}: {
+  error: string | null
+  retry: () => unknown
+}) {
+  if (!error) return <Spinner />
+  return (
+    <>
+      <FormError message={error} />
+      <Button variant="secondary" size="sm" onPress={() => retry()}>
+        Retry
+      </Button>
+    </>
+  )
 }
 
 function Busy({ on, children }: { on: boolean; children: ReactNode }) {
@@ -238,7 +270,11 @@ function NameForm({ name: saved }: { name: string }) {
 function ChessAccount() {
   const { api, refresh } = useSession()
   const accent = useThemeColor('accent')
-  const { data, reload } = useLoad(
+  const {
+    data,
+    error: loadError,
+    reload,
+  } = useLoad(
     () => (api ? api.chessAccount() : Promise.resolve(null)),
     String(Boolean(api)),
   )
@@ -246,7 +282,7 @@ function ChessAccount() {
   const [changing, setChanging] = useState(false)
   const { busy, error, run } = useTask()
 
-  if (!data) return <Spinner />
+  if (!data) return <Waiting error={loadError} retry={reload} />
   if (data.status === 'verified') {
     return (
       <View className="flex-row items-center gap-3">
@@ -306,8 +342,12 @@ function ChessAccount() {
           isDisabled={busy !== null}
           onPress={() =>
             run('check', async () => {
-              await api?.act('checkChessVerification', {})
-              await Promise.all([reload(), refresh()])
+              // re-read either way: an expired code gives way to the form
+              try {
+                await api?.act('checkChessVerification', {})
+              } finally {
+                await Promise.all([reload(), refresh()])
+              }
             })
           }
         >
@@ -365,9 +405,16 @@ function ChessAccount() {
 function Notifications() {
   const { api } = useSession()
   const accent = useThemeColor('accent')
-  const { data: status, reload } = useLoad(pushStatus, 'push')
+  const { data: status, error: loadError, reload } = useLoad(pushStatus, 'push')
   const { busy, error, done, run } = useTask()
-  if (!status) return <Spinner />
+  // back from the phone's settings: show what changed there
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void reload()
+    })
+    return () => sub.remove()
+  }, [reload])
+  if (!status) return <Waiting error={loadError} retry={reload} />
   if (status !== 'on') {
     return (
       <>
@@ -419,8 +466,13 @@ function Notifications() {
           isDisabled={busy !== null}
           onPress={() =>
             run('test', async () => {
-              await api?.act('testPush', {})
-              return 'Sent. It should arrive in a few seconds.'
+              const result = await api?.act('testPush', {})
+              if (!result?.sent) {
+                throw new Error(
+                  'No device took it. Turn notifications off and on, then try again.',
+                )
+              }
+              return 'Sent to your devices. It should arrive in a few seconds.'
             })
           }
         >
@@ -443,23 +495,34 @@ function Notifications() {
 function CalendarLink() {
   const { api } = useSession()
   const [path, setPath] = useState<string | null>(null)
-  const { data } = useLoad(
+  const {
+    data,
+    error: loadError,
+    reload,
+  } = useLoad(
     () => (api ? api.calendarPath() : Promise.resolve(null)),
     String(Boolean(api)),
   )
   const { busy, error, done, run } = useTask()
   const current = path ?? data
-  if (!current) return <Spinner />
+  if (!current) return <Waiting error={loadError} retry={reload} />
   const url = `${SITE_URL}${current}`
   return (
     <>
       <FormError message={error} />
       <Done message={done} />
       <Button
+        isDisabled={busy !== null}
         onPress={() =>
           run('add', async () => {
-            await Linking.openURL(url.replace(/^https?:/, 'webcal:'))
-          }).catch(() => {})
+            await Linking.openURL(url.replace(/^https?:/, 'webcal:')).catch(
+              () => {
+                throw new Error(
+                  'No calendar app opened it. Copy the link and add it in your calendar app.',
+                )
+              },
+            )
+          })
         }
       >
         <Icon name="CalendarOutline" size={18} />
@@ -469,6 +532,7 @@ function CalendarLink() {
         <Button
           variant="secondary"
           className="flex-1"
+          isDisabled={busy !== null}
           onPress={() =>
             run('copy', async () => {
               await Clipboard.setStringAsync(url)
@@ -485,7 +549,14 @@ function CalendarLink() {
           isDisabled={busy !== null}
           onPress={() =>
             run('reset', async () => {
-              const fresh = await api?.act('resetCalendarLink', {})
+              const fresh = await api
+                ?.act('resetCalendarLink', {})
+                .catch(async (e) => {
+                  // the reset may have happened anyway: show the link as it is now
+                  setPath(null)
+                  await reload()
+                  throw e
+                })
               if (fresh) setPath(fresh.path)
               return 'New link made. Add it to your calendar again.'
             })
@@ -502,12 +573,16 @@ function CalendarLink() {
 
 function Passkeys() {
   const passkeys = usePasskeys()
-  const { data: keys, reload } = useLoad(listPasskeys, 'passkeys')
+  const {
+    data: keys,
+    error: loadError,
+    reload,
+  } = useLoad(listPasskeys, 'passkeys')
   const { busy, error, done, run } = useTask()
   return (
     <>
       {keys === null ? (
-        <Spinner />
+        <Waiting error={loadError} retry={reload} />
       ) : keys.length === 0 ? (
         <Text className="font-normal text-sm text-muted">No passkeys yet.</Text>
       ) : (
@@ -540,6 +615,10 @@ function Passkeys() {
             </Button>
           </View>
         ))
+      )}
+      {/* a change went through but the list didn't come back: say so */}
+      {keys !== null && loadError && (
+        <Waiting error={loadError} retry={reload} />
       )}
       <FormError message={error} />
       <Done message={done} />
@@ -581,6 +660,8 @@ function Passkeys() {
 /** Authenticator-app codes: set up on this phone, backup codes, or off. */
 function TwoFactor({ enabled }: { enabled: boolean }) {
   const accent = useThemeColor('accent')
+  // turning it on or off replaces the session: pick up the new token
+  const { refresh } = useSession()
   const [setup, setSetup] = useState<{ uri: string; codes: string[] } | null>(
     null,
   )
@@ -653,6 +734,7 @@ function TwoFactor({ enabled }: { enabled: boolean }) {
           <Button
             variant="ghost"
             className="flex-1"
+            isDisabled={busy !== null}
             onPress={() => setSetup(null)}
           >
             Cancel
@@ -671,7 +753,7 @@ function TwoFactor({ enabled }: { enabled: boolean }) {
                 }
                 setCodes(setup.codes)
                 setSetup(null)
-                await authClient.getSession()
+                await refresh()
                 return 'Two-step verification is on'
               })
             }
@@ -772,7 +854,7 @@ function TwoFactor({ enabled }: { enabled: boolean }) {
             const { error } = await authClient.twoFactor.disable({})
             if (error) throw new Error(authError(error))
             setCodes(null)
-            await authClient.getSession()
+            await refresh()
             return 'Two-step verification is off'
           })
         }
@@ -787,23 +869,28 @@ function TwoFactor({ enabled }: { enabled: boolean }) {
 
 function Devices() {
   const { signOut } = useSession()
-  const { data, reload } = useLoad(async () => {
+  const {
+    data,
+    error: loadError,
+    reload,
+  } = useLoad(async () => {
     const [list, current] = await Promise.all([
       authClient.listSessions(),
       authClient.getSession(),
     ])
     if (list.error) throw new Error(authError(list.error))
-    return {
-      list: list.data ?? [],
-      currentToken: current.data?.session.token ?? null,
+    // without knowing which is this phone, every row would offer "Sign out"
+    if (current.error || !current.data) {
+      throw new Error(authError(current.error))
     }
+    return { list: list.data ?? [], currentToken: current.data.session.token }
   }, 'devices')
   const { busy, error, done, run } = useTask()
 
   return (
     <>
       {!data ? (
-        <Spinner />
+        <Waiting error={loadError} retry={reload} />
       ) : (
         data.list.map((s) => {
           const here = s.token === data.currentToken
@@ -845,6 +932,7 @@ function Devices() {
           )
         })
       )}
+      {data && loadError && <Waiting error={loadError} retry={reload} />}
       <FormError message={error} />
       <Done message={done} />
       <Button

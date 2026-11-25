@@ -80,7 +80,10 @@ export async function addPasskey(): Promise<string | null> {
     })
   } catch (cause) {
     const text = String((cause as { error?: string })?.error ?? cause)
-    return /cancel/i.test(text) ? 'cancelled' : 'unavailable'
+    if (/cancel/i.test(text)) return 'cancelled'
+    // only a confirmed "can't" hides the button; anything else can be retried
+    if (/NotSupported|not supported/i.test(text)) return 'unavailable'
+    return "Couldn't make a passkey. Try again."
   }
   const saved = await authClient.$fetch('/passkey/verify-registration', {
     method: 'POST',

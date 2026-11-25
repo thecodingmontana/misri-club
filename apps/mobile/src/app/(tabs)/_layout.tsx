@@ -83,7 +83,7 @@ export default function TabsLayout() {
 /** The website's top bar: theme and sound on the left, Misri, then the inbox and you. */
 function TopBar() {
   const insets = useSafeAreaInsets()
-  const { api, me } = useSession()
+  const { api } = useSession()
   const [unread, setUnread] = useState(0)
   useFocusEffect(
     useCallback(() => {
@@ -159,13 +159,11 @@ function TopBar() {
         <Button
           variant="ghost"
           size="sm"
+          isIconOnly
           accessibilityLabel="Your account"
           onPress={() => router.push('/account')}
         >
-          <Icon name="UserRound" size={18} />
-          <Button.Label numberOfLines={1} className="max-w-24">
-            {me?.name.split(' ')[0] ?? ''}
-          </Button.Label>
+          <Icon name="UserRound" size={19} />
         </Button>
       </View>
     </View>

@@ -69,7 +69,13 @@ export const Route = createFileRoute('/api/cron/deadlines')({
               ),
           )
         }
-        const reminded = await remindDeadlines()
+        const reminded = await remindDeadlines().catch((error) => {
+          console.error(
+            '[cron] deadline reminders failed',
+            (error as Error).message,
+          )
+          return 0
+        })
         const nudged = await remindOrganisers().catch((error) => {
           console.error(
             '[cron] organiser nudges failed',
