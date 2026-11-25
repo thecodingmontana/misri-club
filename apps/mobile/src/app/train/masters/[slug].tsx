@@ -21,7 +21,7 @@ interface Guessing {
 }
 
 export default function MasterGameScreen() {
-  const { slug } = useLocalSearchParams<{ slug: string }>()
+  const { slug, ply } = useLocalSearchParams<{ slug: string; ply?: string }>()
   const game = masterGame(slug)
   if (!game) {
     return (
@@ -31,11 +31,11 @@ export default function MasterGameScreen() {
     )
   }
   // a fresh replay per game, so moving between games never mixes state
-  return <Replay key={game.slug} game={game} />
+  return <Replay key={game.slug} game={game} startAt={Number(ply) || 0} />
 }
 
 /** Replay a famous game with its notes, or guess each move the master played. */
-function Replay({ game }: { game: MasterGame }) {
+function Replay({ game, startAt }: { game: MasterGame; startAt: number }) {
   const moves = useMemo(() => {
     const chess = new Chess()
     chess.loadPgn(game.moves)
@@ -45,7 +45,7 @@ function Replay({ game }: { game: MasterGame }) {
     () => new Map(game.notes.map((note) => [plyOf(note.move).ply, note])),
     [game],
   )
-  const [ply, setPly] = useState(0)
+  const [ply, setPly] = useState(() => Math.min(startAt, moves.length))
   const [playing, setPlaying] = useState(false)
   const [guess, setGuess] = useState<Guessing | null>(null)
   const last = ply === moves.length

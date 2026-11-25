@@ -24,6 +24,7 @@ const MODES: Array<{
     title: 'Brilliant moves',
     description:
       'How to spot sacrifices and killer moves, with master examples.',
+    href: '/train/brilliant',
   },
   {
     icon: 'Target',

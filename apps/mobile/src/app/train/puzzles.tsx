@@ -10,7 +10,7 @@ import {
   type Theme,
 } from '@misri/core/puzzle'
 import { Chess } from 'chess.js'
-import { Stack } from 'expo-router'
+import { Stack, useLocalSearchParams } from 'expo-router'
 import { Button, Chip, Skeleton, useThemeColor } from 'heroui-native'
 import { useEffect, useRef, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
@@ -33,7 +33,13 @@ const DIFFICULTY_LABEL: Record<Difficulty, string> = {
 
 /** Lichess puzzles by theme and difficulty, as on the website's Train page. */
 export default function Puzzles() {
-  const [theme, setTheme] = useState<Theme | undefined>()
+  // Brilliant moves links here with a theme to practise
+  const params = useLocalSearchParams<{ theme?: string }>()
+  const [theme, setTheme] = useState<Theme | undefined>(
+    params.theme && params.theme in THEMES
+      ? (params.theme as Theme)
+      : undefined,
+  )
   const [difficulty, setDifficulty] = useState<Difficulty>('normal')
   const [round, setRound] = useState(0)
   const [solved, setSolved] = useState(0)
