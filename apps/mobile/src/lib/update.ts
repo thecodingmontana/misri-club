@@ -12,6 +12,10 @@ export type Update = {
   version: string
   notes: string[]
   apk: string
+  /** the APK's download size in bytes */
+  size: number
+  /** when it was released, ISO */
+  date: string | null
 }
 
 /** The build number in a release tag (mobile-v0.1.<build>), as Android's versionCode. */
@@ -32,7 +36,8 @@ export async function checkForUpdate(): Promise<Update | null> {
   const release = (await res.json()) as {
     tag_name?: string
     body?: string | null
-    assets?: Array<{ name: string; browser_download_url: string }>
+    published_at?: string | null
+    assets?: Array<{ name: string; browser_download_url: string; size: number }>
   }
   const tag = release.tag_name ?? ''
   if (!tag.startsWith('mobile-v') || buildOf(tag) <= installed) return null
@@ -50,6 +55,8 @@ export async function checkForUpdate(): Promise<Update | null> {
     version: tag.replace('mobile-v', ''),
     notes: notes.length ? notes : ['Improvements and fixes.'],
     apk: apk.browser_download_url,
+    size: apk.size,
+    date: release.published_at ?? null,
   }
 }
 
