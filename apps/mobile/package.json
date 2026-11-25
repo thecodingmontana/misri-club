@@ -20,6 +20,7 @@
     "@react-native-firebase/app": "27.1.1",
     "@react-native-google-signin/google-signin": "17.0.0",
     "better-auth": "1.7.18",
+    "chess.js": "^1.4.0",
     "expo": "~58.0.26",
     "expo-application": "~58.1.2",
     "expo-audio": "~58.0.12",

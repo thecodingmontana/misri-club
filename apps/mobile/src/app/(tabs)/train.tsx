@@ -1,3 +1,4 @@
+import { router } from 'expo-router'
 import { Card, Chip, PressableFeedback } from 'heroui-native'
 import { ScrollView, Text, View } from 'react-native'
 import { IconBadge, Kicker, PageTitle } from '@/competitions'
@@ -9,11 +10,14 @@ const MODES: Array<{
   icon: IconName
   title: string
   description: string
+  /** where it opens; until a mode has one it says "Soon" */
+  href?: string
 }> = [
   {
     icon: 'Lightbulb',
     title: 'Puzzles',
     description: 'Endless tactics from Lichess. Find the best move.',
+    href: '/train/puzzles',
   },
   {
     icon: 'Fire',
@@ -47,8 +51,8 @@ const MODES: Array<{
 ]
 
 /**
- * Train, laid out like the website's. The board and Stockfish come to the app
- * next (MIS-80); until then each mode says so rather than going nowhere.
+ * Train, laid out like the website's. Modes arrive one by one (MIS-80); until
+ * one has its page it says "Soon" rather than going nowhere.
  */
 export default function Train() {
   return (
@@ -63,7 +67,8 @@ export default function Train() {
             <Card key={mode.title} className="p-0">
               <PressableFeedback
                 className="flex-row items-center gap-4 px-4 py-4"
-                isDisabled
+                isDisabled={!mode.href}
+                onPress={() => mode.href && router.push(mode.href as never)}
               >
                 <IconBadge name={mode.icon} size={48} />
                 <View className="flex-1 gap-0.5">
@@ -74,9 +79,11 @@ export default function Train() {
                     {mode.description}
                   </Text>
                 </View>
-                <Chip size="sm" variant="soft">
-                  Soon
-                </Chip>
+                {!mode.href && (
+                  <Chip size="sm" variant="soft">
+                    Soon
+                  </Chip>
+                )}
               </PressableFeedback>
             </Card>
           ))}
