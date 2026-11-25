@@ -530,6 +530,11 @@ test('sync: chess.com failing never finishes a league; the late result then coun
   const end = await c.state()
   assert.equal(end.status, 'finished')
   assert.equal(end.championUserId, m.homeUserId)
+  // both players hear the result, with their place in the table
+  const told = await db.select().from(notifications).where(inArray(notifications.userId, c.ids))
+  const winner = told.find((n) => n.userId === m.homeUserId && n.title.startsWith('You beat'))
+  assert.equal(winner?.body, `You're now 1st in ${c.row.name}.`)
+  assert.ok(told.some((n) => n.userId === m.awayUserId && n.title.startsWith('You lost to')))
 })
 
 test('sync: a concede after the deadline waits for chess.com before finishing', async () => {

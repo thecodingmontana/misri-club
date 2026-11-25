@@ -12,6 +12,8 @@ import { alias } from 'drizzle-orm/pg-core'
 import { type PushMessage, sendPushes } from './push.ts'
 import type { PushKind } from './push-kinds.ts'
 import { reminderPushes } from './reminders.ts'
+import { resultPushes } from './result-pushes.ts'
+import { rankStandings } from './standings.ts'
 
 // What reaches people's phones. Each sender is best-effort: a push that fails
 // never fails the action that caused it.
@@ -596,4 +598,69 @@ export async function remindDeadlines(now = new Date()) {
     )
   await bestEffort(reminderPushes(due), 'games')
   return due.length
+}
+
+/** Results chess.com just settled: both players, with their place in a league. */
+export async function notifyResults(competitionId: string, matchIds: string[]) {
+  if (matchIds.length === 0) return
+  const [competition] = await db
+    .select()
+    .from(competitions)
+    .where(eq(competitions.id, competitionId))
+  if (!competition) return
+  const home = alias(chessAccounts, 'home')
+  const away = alias(chessAccounts, 'away')
+  const homeUser = alias(user, 'home_user')
+  const awayUser = alias(user, 'away_user')
+  const settled = await db
+    .select({
+      matchId: matches.id,
+      homeUserId: sql<string>`${matches.homeUserId}`,
+      awayUserId: sql<string>`${matches.awayUserId}`,
+      homeName: sql<string>`coalesce(${home.username}, ${homeUser.name})`,
+      awayName: sql<string>`coalesce(${away.username}, ${awayUser.name})`,
+      result: sql<'white' | 'black' | 'draw'>`${matches.result}`,
+      whiteUserId: sql<string>`${matches.whiteUserId}`,
+    })
+    .from(matches)
+    .innerJoin(homeUser, eq(homeUser.id, matches.homeUserId))
+    .innerJoin(awayUser, eq(awayUser.id, matches.awayUserId))
+    .leftJoin(home, eq(home.userId, matches.homeUserId))
+    .leftJoin(away, eq(away.userId, matches.awayUserId))
+    .where(inArray(matches.id, matchIds))
+
+  let placeOf: (userId: string) => number | null = () => null
+  if (competition.format === 'league') {
+    const [all, members] = await Promise.all([
+      db.select().from(matches).where(eq(matches.competitionId, competitionId)),
+      db
+        .select({
+          id: competitionMembers.userId,
+          name: sql<string>`coalesce(${chessAccounts.username}, ${user.name})`,
+        })
+        .from(competitionMembers)
+        .innerJoin(user, eq(user.id, competitionMembers.userId))
+        .leftJoin(chessAccounts, eq(chessAccounts.userId, user.id))
+        .where(eq(competitionMembers.competitionId, competitionId)),
+    ])
+    const names = new Map(members.map((m) => [m.id, m.name]))
+    // ranked exactly as the competition page ranks it
+    const table = rankStandings(
+      all,
+      members.map((m) => m.id),
+      new Date(),
+      {
+        unplayed: competition.unplayedRule,
+        points: competition.points,
+        walkoverWinsBreakTies: competition.walkoverWinsBreakTies,
+      },
+      competition.tieBreaks,
+      (id) => names.get(id) ?? id,
+    )
+    placeOf = (id) => {
+      const i = table.findIndex((row) => row.id === id)
+      return i < 0 ? null : i + 1
+    }
+  }
+  await bestEffort(resultPushes(settled, competition, placeOf), 'results')
 }
