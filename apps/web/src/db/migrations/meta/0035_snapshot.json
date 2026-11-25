@@ -111,12 +111,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -230,12 +226,8 @@
           "name": "chess_accounts_user_id_user_id_fk",
           "tableFrom": "chess_accounts",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -245,16 +237,12 @@
         "chess_accounts_user_id_unique": {
           "name": "chess_accounts_user_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
-          ]
+          "columns": ["user_id"]
         },
         "chess_accounts_username_unique": {
           "name": "chess_accounts_username_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "username"
-          ]
+          "columns": ["username"]
         }
       },
       "policies": {},
@@ -291,12 +279,8 @@
           "name": "competition_leavers_competition_id_competitions_id_fk",
           "tableFrom": "competition_leavers",
           "tableTo": "competitions",
-          "columnsFrom": [
-            "competition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["competition_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -304,12 +288,8 @@
           "name": "competition_leavers_user_id_user_id_fk",
           "tableFrom": "competition_leavers",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -317,10 +297,7 @@
       "compositePrimaryKeys": {
         "competition_leavers_competition_id_user_id_pk": {
           "name": "competition_leavers_competition_id_user_id_pk",
-          "columns": [
-            "competition_id",
-            "user_id"
-          ]
+          "columns": ["competition_id", "user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -386,12 +363,8 @@
           "name": "competition_members_competition_id_competitions_id_fk",
           "tableFrom": "competition_members",
           "tableTo": "competitions",
-          "columnsFrom": [
-            "competition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["competition_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -399,12 +372,8 @@
           "name": "competition_members_user_id_user_id_fk",
           "tableFrom": "competition_members",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -412,10 +381,7 @@
       "compositePrimaryKeys": {
         "competition_members_competition_id_user_id_pk": {
           "name": "competition_members_competition_id_user_id_pk",
-          "columns": [
-            "competition_id",
-            "user_id"
-          ]
+          "columns": ["competition_id", "user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -453,12 +419,8 @@
           "name": "competition_requests_competition_id_competitions_id_fk",
           "tableFrom": "competition_requests",
           "tableTo": "competitions",
-          "columnsFrom": [
-            "competition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["competition_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -466,12 +428,8 @@
           "name": "competition_requests_user_id_user_id_fk",
           "tableFrom": "competition_requests",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -479,10 +437,7 @@
       "compositePrimaryKeys": {
         "competition_requests_competition_id_user_id_pk": {
           "name": "competition_requests_competition_id_user_id_pk",
-          "columns": [
-            "competition_id",
-            "user_id"
-          ]
+          "columns": ["competition_id", "user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -526,12 +481,8 @@
           "name": "competition_views_competition_id_competitions_id_fk",
           "tableFrom": "competition_views",
           "tableTo": "competitions",
-          "columnsFrom": [
-            "competition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["competition_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -539,12 +490,8 @@
           "name": "competition_views_user_id_user_id_fk",
           "tableFrom": "competition_views",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -552,10 +499,7 @@
       "compositePrimaryKeys": {
         "competition_views_competition_id_user_id_pk": {
           "name": "competition_views_competition_id_user_id_pk",
-          "columns": [
-            "competition_id",
-            "user_id"
-          ]
+          "columns": ["competition_id", "user_id"]
         }
       },
       "uniqueConstraints": {},
@@ -797,12 +741,8 @@
           "name": "competitions_owner_id_user_id_fk",
           "tableFrom": "competitions",
           "tableTo": "user",
-          "columnsFrom": [
-            "owner_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["owner_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -810,12 +750,8 @@
           "name": "competitions_champion_user_id_user_id_fk",
           "tableFrom": "competitions",
           "tableTo": "user",
-          "columnsFrom": [
-            "champion_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["champion_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -825,23 +761,17 @@
         "competitions_slug_unique": {
           "name": "competitions_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         },
         "competitions_name_key_unique": {
           "name": "competitions_name_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name_key"
-          ]
+          "columns": ["name_key"]
         },
         "competitions_invite_code_unique": {
           "name": "competitions_invite_code_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "invite_code"
-          ]
+          "columns": ["invite_code"]
         }
       },
       "policies": {},
@@ -884,12 +814,8 @@
           "name": "game_analyses_user_id_user_id_fk",
           "tableFrom": "game_analyses",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -897,10 +823,7 @@
       "compositePrimaryKeys": {
         "game_analyses_user_id_game_url_pk": {
           "name": "game_analyses_user_id_game_url_pk",
-          "columns": [
-            "user_id",
-            "game_url"
-          ]
+          "columns": ["user_id", "game_url"]
         }
       },
       "uniqueConstraints": {},
@@ -1127,12 +1050,8 @@
           "name": "matches_competition_id_competitions_id_fk",
           "tableFrom": "matches",
           "tableTo": "competitions",
-          "columnsFrom": [
-            "competition_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["competition_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1140,12 +1059,8 @@
           "name": "matches_home_user_id_user_id_fk",
           "tableFrom": "matches",
           "tableTo": "user",
-          "columnsFrom": [
-            "home_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["home_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1153,12 +1068,8 @@
           "name": "matches_away_user_id_user_id_fk",
           "tableFrom": "matches",
           "tableTo": "user",
-          "columnsFrom": [
-            "away_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["away_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1166,12 +1077,8 @@
           "name": "matches_bye_user_id_user_id_fk",
           "tableFrom": "matches",
           "tableTo": "user",
-          "columnsFrom": [
-            "bye_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bye_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1179,12 +1086,8 @@
           "name": "matches_white_user_id_user_id_fk",
           "tableFrom": "matches",
           "tableTo": "user",
-          "columnsFrom": [
-            "white_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["white_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1192,12 +1095,8 @@
           "name": "matches_winner_user_id_user_id_fk",
           "tableFrom": "matches",
           "tableTo": "user",
-          "columnsFrom": [
-            "winner_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["winner_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1284,12 +1183,8 @@
           "name": "notifications_user_id_user_id_fk",
           "tableFrom": "notifications",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1408,12 +1303,8 @@
           "name": "passkey_user_id_user_id_fk",
           "tableFrom": "passkey",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1494,12 +1385,8 @@
           "name": "push_subscriptions_user_id_user_id_fk",
           "tableFrom": "push_subscriptions",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1507,12 +1394,8 @@
           "name": "push_subscriptions_session_id_session_id_fk",
           "tableFrom": "push_subscriptions",
           "tableTo": "session",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["session_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1522,9 +1405,7 @@
         "push_subscriptions_endpoint_unique": {
           "name": "push_subscriptions_endpoint_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "endpoint"
-          ]
+          "columns": ["endpoint"]
         }
       },
       "policies": {},
@@ -1567,9 +1448,7 @@
         "rate_limit_key_unique": {
           "name": "rate_limit_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "key"
-          ]
+          "columns": ["key"]
         }
       },
       "policies": {},
@@ -1653,12 +1532,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1668,9 +1543,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -1763,12 +1636,8 @@
           "name": "two_factor_user_id_user_id_fk",
           "tableFrom": "two_factor",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1856,9 +1725,7 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -1937,73 +1804,42 @@
     "public.competition_format": {
       "name": "competition_format",
       "schema": "public",
-      "values": [
-        "league",
-        "knockout",
-        "challenge",
-        "groups"
-      ]
+      "values": ["league", "knockout", "challenge", "groups"]
     },
     "public.competition_status": {
       "name": "competition_status",
       "schema": "public",
-      "values": [
-        "open",
-        "running",
-        "finished"
-      ]
+      "values": ["open", "running", "finished"]
     },
     "public.competition_visibility": {
       "name": "competition_visibility",
       "schema": "public",
-      "values": [
-        "public",
-        "private"
-      ]
+      "values": ["public", "private"]
     },
     "public.early_rounds": {
       "name": "early_rounds",
       "schema": "public",
-      "values": [
-        "wait",
-        "auto",
-        "organiser"
-      ]
+      "values": ["wait", "auto", "organiser"]
     },
     "public.leave_rule": {
       "name": "leave_rule",
       "schema": "public",
-      "values": [
-        "award",
-        "void",
-        "keep"
-      ]
+      "values": ["award", "void", "keep"]
     },
     "public.match_result": {
       "name": "match_result",
       "schema": "public",
-      "values": [
-        "white",
-        "black",
-        "draw"
-      ]
+      "values": ["white", "black", "draw"]
     },
     "public.result_source": {
       "name": "result_source",
       "schema": "public",
-      "values": [
-        "chesscom",
-        "manual"
-      ]
+      "values": ["chesscom", "manual"]
     },
     "public.unplayed_rule": {
       "name": "unplayed_rule",
       "schema": "public",
-      "values": [
-        "organiser",
-        "both_forfeit",
-        "void"
-      ]
+      "values": ["organiser", "both_forfeit", "void"]
     }
   },
   "schemas": {},

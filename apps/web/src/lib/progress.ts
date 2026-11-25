@@ -37,4 +37,3 @@ export const recordDrill = (slug: string, clean: boolean) =>
   save((p) => withDrill(p, slug, clean))
 export const recordGuess = (slug: string, found: number, tried: number) =>
   save((p) => withGuess(p, slug, found, tried))
-
