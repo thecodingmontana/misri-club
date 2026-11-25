@@ -201,29 +201,25 @@ function ResultRow({ result }: { result: Result }) {
             {look.label}
           </Text>
         </View>
+        <Avatar size="sm" alt={result.opponent}>
+          <Avatar.Image
+            source={{
+              uri: avatarUrl(result.opponent, result.opponentImage),
+            }}
+          />
+          <Avatar.Fallback>
+            {result.opponent.slice(0, 2).toUpperCase()}
+          </Avatar.Fallback>
+        </Avatar>
+        {/* beside the avatar: who, then which competition */}
         <View className="min-w-0 flex-1">
-          <View className="flex-row items-center gap-2">
-            <Avatar size="sm" alt={result.opponent}>
-              <Avatar.Image
-                source={{
-                  uri: avatarUrl(result.opponent, result.opponentImage),
-                }}
-              />
-              <Avatar.Fallback>
-                {result.opponent.slice(0, 2).toUpperCase()}
-              </Avatar.Fallback>
-            </Avatar>
-            <Text
-              numberOfLines={1}
-              className="flex-1 font-medium text-sm text-foreground"
-            >
-              {result.opponent}
-            </Text>
-          </View>
           <Text
             numberOfLines={1}
-            className="font-normal mt-0.5 text-[11px] text-muted"
+            className="font-medium text-sm text-foreground"
           >
+            {result.opponent}
+          </Text>
+          <Text numberOfLines={1} className="font-normal text-xs text-muted">
             {result.competition}
           </Text>
         </View>
