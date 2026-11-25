@@ -11,6 +11,7 @@ import { introSeen } from '@/lib/intro'
 import { SessionProvider, useSession } from '@/lib/session'
 import { loadSoundSetting } from '@/lib/sound'
 import { loadTheme } from '@/lib/theme'
+import { UpdatePrompt } from '@/update-prompt'
 
 export default function RootLayout() {
   const [fontsReady] = useFonts({
@@ -73,6 +74,7 @@ function Gate() {
   }
   return (
     <>
+      <UpdatePrompt />
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
