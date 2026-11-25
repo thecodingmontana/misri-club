@@ -48,6 +48,7 @@ const MODES: Array<{
     title: 'Master games',
     description:
       'Replay famous games, learn the key moves, guess them yourself.',
+    href: '/train/masters',
   },
 ]
 
