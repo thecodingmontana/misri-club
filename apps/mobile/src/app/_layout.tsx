@@ -1,4 +1,3 @@
-import '../web-preview'
 import '../global.css'
 import { useFonts } from 'expo-font'
 import { Redirect, Stack, useSegments } from 'expo-router'
@@ -6,9 +5,12 @@ import { StatusBar } from 'expo-status-bar'
 import { HeroUINativeProvider, useThemeColor } from 'heroui-native'
 import { useEffect, useState } from 'react'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { useUniwind } from 'uniwind'
 import { Loading, Screen } from '@/components'
 import { introSeen } from '@/lib/intro'
 import { SessionProvider, useSession } from '@/lib/session'
+import { loadSoundSetting } from '@/lib/sound'
+import { loadTheme } from '@/lib/theme'
 
 export default function RootLayout() {
   const [fontsReady] = useFonts({
@@ -39,8 +41,11 @@ function Gate() {
   const segments = useSegments()
   const [seen, setSeen] = useState<boolean | undefined>(undefined)
   useEffect(() => {
-    void introSeen().then(setSeen)
+    void Promise.all([loadTheme(), loadSoundSetting()]).finally(() =>
+      introSeen().then(setSeen),
+    )
   }, [])
+  const { theme } = useUniwind()
   const background = useThemeColor('background')
   const foreground = useThemeColor('foreground')
   if (
@@ -68,7 +73,7 @@ function Gate() {
   }
   return (
     <>
-      <StatusBar style="auto" />
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: background },
@@ -83,8 +88,16 @@ function Gate() {
         <Stack.Screen name="verify" options={{ headerShown: false }} />
         <Stack.Screen name="two-factor" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="index" options={{ title: 'Misri' }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="inbox" options={{ title: '' }} />
+        <Stack.Screen name="discover" options={{ title: '' }} />
+        <Stack.Screen name="join/[code]" options={{ title: 'Invite' }} />
+        <Stack.Screen
+          name="competitions/new"
+          options={{ title: 'New competition' }}
+        />
         <Stack.Screen name="c/[slug]" options={{ title: '' }} />
+        <Stack.Screen name="p/[username]" options={{ title: '' }} />
         <Stack.Screen name="account" options={{ title: 'Account' }} />
       </Stack>
     </>

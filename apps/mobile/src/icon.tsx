@@ -2,6 +2,8 @@ import { useThemeColor } from 'heroui-native'
 import { SvgXml } from 'react-native-svg'
 import { ICONS, type IconName } from './icons.generated'
 
+export type { IconName }
+
 /** The website's icons (Iconify Solar and Hugeicons), by the same names. */
 export function Icon({
   name,

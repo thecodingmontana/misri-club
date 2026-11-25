@@ -10,6 +10,7 @@ import {
   startChessVerification,
   testPush,
 } from './account.ts'
+import { calendarPath, resetCalendarToken } from './calendar-token.ts'
 import {
   createCompetition,
   joinCompetition,
@@ -372,6 +373,11 @@ export const actions = {
   ),
 
   /** Opening the inbox reads everything in it. */
+  /** A new private calendar link; calendars on the old one stop updating. */
+  resetCalendarLink: define(z.object({}).default({}), async (viewer) => ({
+    path: calendarPath(await resetCalendarToken(viewer.id)),
+  })),
+
   markInboxRead: define(z.object({}).default({}), (viewer) =>
     markInboxRead(viewer.id),
   ),

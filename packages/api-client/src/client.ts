@@ -139,6 +139,9 @@ export function createApiClient(options: ApiClientOptions) {
         readAt: n.readAt ? new Date(n.readAt) : null,
         createdAt: new Date(n.createdAt),
       })),
+    /** Your private calendar feed's path on the website. */
+    calendarPath: async () =>
+      (await query<{ calendarPath: string }>('{ calendarPath }')).calendarPath,
     unreadCount: async () =>
       (await query<{ unreadCount: number }>('{ unreadCount }')).unreadCount,
     invite: async (code: string) =>

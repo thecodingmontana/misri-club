@@ -1,3 +1,4 @@
+import { TIE_LABEL } from '@misri/core/formats'
 import { ChevronDown, ChevronUp } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { Input } from '#/components/ui/input'
@@ -49,12 +50,6 @@ export function StartDateField({
       </p>
     </div>
   )
-}
-
-const TIE_LABEL: Record<TieBreak, string> = {
-  wins: 'More wins',
-  forfeits: 'Fewer forfeits',
-  headToHead: 'Head-to-head',
 }
 
 /** Leagues: the order ties on points are broken in; name decides last. */

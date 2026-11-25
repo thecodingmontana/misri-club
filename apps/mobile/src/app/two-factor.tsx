@@ -1,6 +1,8 @@
 import { useLocalSearchParams } from 'expo-router'
 import {
   Button,
+  Checkbox,
+  ControlField,
   Input,
   InputOTP,
   Label,
@@ -9,27 +11,59 @@ import {
   useThemeColor,
 } from 'heroui-native'
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
 import { AuthShell, FormError } from '@/auth-shell'
+import { Icon } from '@/icon'
 import { authClient, authError } from '@/lib/auth'
+import { signInWithPasskey, usePasskeys } from '@/lib/passkey'
 import { useSession } from '@/lib/session'
 
-/** Step 3, when the account has one: the authenticator app's code, or a backup code. */
+/**
+ * The second step, as on the website: the authenticator app's code, a backup
+ * code, or a passkey. `methods` is unknown after Google, so both show then.
+ */
 export default function TwoFactor() {
   const { methods = '' } = useLocalSearchParams<{ methods?: string }>()
   const { refresh } = useSession()
   const onAccent = useThemeColor('accent-foreground')
-  const [backup, setBackup] = useState(false)
+  // no authenticator app (a passkey-only account): backup codes are the way
+  const [backup, setBackup] = useState(
+    () => Boolean(methods) && !methods.includes('totp'),
+  )
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [trustDevice, setTrustDevice] = useState(false)
+  const hasTotp = !methods || methods.includes('totp')
+  const passkeys = usePasskeys()
+  const hasPasskey =
+    passkeys.usable && (!methods || methods.includes('passkey'))
+
+  async function passkey() {
+    setBusy(true)
+    setError(null)
+    const result = await signInWithPasskey()
+    setBusy(false)
+    if (result === null) return refresh()
+    if (result === 'unavailable') {
+      passkeys.giveUp()
+      setBackup(true)
+      return setError(
+        "Passkeys don't work on this phone yet. Use a backup code instead.",
+      )
+    }
+    if (result !== 'cancelled') setError(result)
+  }
 
   async function check(value: string) {
     setBusy(true)
     setError(null)
     const { error } = backup
-      ? await authClient.twoFactor.verifyBackupCode({ code: value.trim() })
-      : await authClient.twoFactor.verifyTotp({ code: value })
+      ? await authClient.twoFactor.verifyBackupCode({
+          code: value.trim(),
+          trustDevice,
+        })
+      : await authClient.twoFactor.verifyTotp({ code: value, trustDevice })
     setBusy(false)
     if (error) {
       setCode('')
@@ -38,26 +72,31 @@ export default function TwoFactor() {
     await refresh()
   }
 
-  // a passkey as the only second step can't be used here yet
-  if (!methods.includes('totp')) {
+  const passkeyButton = (label: string) => (
+    <Button variant="outline" size="lg" onPress={passkey} isDisabled={busy}>
+      <Icon name="KeyRound" size={18} />
+      <Button.Label>{label}</Button.Label>
+    </Button>
+  )
+
+  if (!hasTotp && hasPasskey) {
     return (
       <AuthShell
-        title={['One more', 'step.']}
-        lead="Your account's second step is a passkey, which the app can't use yet. Sign in on the website, or add an authenticator app there."
+        title={['Two-step', 'verification.']}
+        lead="Confirm it's you with the passkey you set up."
       >
-        <Text className="font-normal text-sm text-muted">
-          Account → Two-step verification on misri-chess-club.vercel.app.
-        </Text>
+        {passkeyButton('Continue with your passkey')}
+        <FormError message={error} />
       </AuthShell>
     )
   }
 
   return (
     <AuthShell
-      title={['One more', 'step.']}
+      title={['Two-step', 'verification.']}
       lead={
         backup
-          ? 'Enter one of the backup codes you saved. Each works once.'
+          ? 'Enter one of the backup codes you saved when you turned this on.'
           : 'Enter the 6-digit code from your authenticator app.'
       }
     >
@@ -82,7 +121,7 @@ export default function TwoFactor() {
             {busy ? (
               <Spinner color={onAccent} />
             ) : (
-              <Button.Label>Continue</Button.Label>
+              <Button.Label>Verify</Button.Label>
             )}
           </Button>
         </>
@@ -118,17 +157,28 @@ export default function TwoFactor() {
           {busy && <Spinner className="self-center" />}
         </>
       )}
-      <Button
-        variant="ghost"
-        size="sm"
-        onPress={() => {
-          setBackup(!backup)
-          setCode('')
-          setError(null)
-        }}
-      >
-        {backup ? 'Use my authenticator app' : 'Use a backup code'}
-      </Button>
+      <ControlField isSelected={trustDevice} onSelectedChange={setTrustDevice}>
+        <ControlField.Indicator>
+          <Checkbox />
+        </ControlField.Indicator>
+        <Label>Trust this device for 30 days</Label>
+      </ControlField>
+      {hasPasskey && passkeyButton('Use a passkey instead')}
+      {hasTotp && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onPress={() => {
+            setBackup(!backup)
+            setCode('')
+            setError(null)
+          }}
+        >
+          {backup
+            ? 'Use your authenticator app instead'
+            : 'Use a backup code instead'}
+        </Button>
+      )}
     </AuthShell>
   )
 }

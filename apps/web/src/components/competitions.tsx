@@ -1,3 +1,9 @@
+import {
+  CREATE_CHOICES,
+  FORMAT_INFO,
+  FORMAT_LABEL,
+  STATUS_LABEL,
+} from '@misri/core/formats'
 import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { useServerFn } from '@tanstack/react-start'
 import { useState } from 'react'
@@ -10,52 +16,7 @@ import { cn } from '#/lib/utils'
 import type { CompetitionSummary } from '#/server/competition-view.server'
 import { joinCompetitionFn } from '#/server/competitions.functions'
 
-export const FORMAT_LABEL = {
-  league: 'League',
-  knockout: 'Tournament',
-  challenge: '1v1 challenge',
-  groups: 'Groups + knockout',
-}
-
-/** What each format is, in plain words, wherever people choose or join one. */
-export const FORMAT_INFO = {
-  league: {
-    summary: 'Everyone plays everyone. Most points wins.',
-    points: [
-      'Every player meets every other player, once or home & away.',
-      'Each result earns points; the table ranks everyone.',
-      'Top of the table at the end wins.',
-      'Can take new players after it starts, if the organiser allows it.',
-    ],
-  },
-  knockout: {
-    summary: "Knockout rounds. Lose once and you're out.",
-    points: [
-      'Players are paired up; the winner of each game goes through.',
-      'Each round halves the field until the final.',
-      'One game per tie, or home & away on aggregate with a decider if level.',
-      'Closed to new players once it starts.',
-    ],
-  },
-  challenge: {
-    summary: 'You against one player, best of 1, 3, 5 or 7.',
-    points: [
-      'Send your opponent the link; it starts when they join.',
-      'Play every game before the deadline.',
-      'A win is a point, a draw half. First out of reach wins.',
-      'Level after every game is a drawn match.',
-    ],
-  },
-  groups: {
-    summary: 'Group tables first, then a knockout of the best.',
-    points: [
-      'Players are drawn into groups, top seeds spread out.',
-      'Everyone in a group plays everyone; each group has a table.',
-      'The top of every group goes into a knockout bracket.',
-      'Group-mates are kept apart in the first knockout round.',
-    ],
-  },
-} as const
+export { FORMAT_INFO, FORMAT_LABEL, STATUS_LABEL }
 
 /** "How a league works": the format's rules, folded unless `open`. */
 export function FormatExplainer({
@@ -82,12 +43,6 @@ export function FormatExplainer({
     </details>
   )
 }
-export const STATUS_LABEL = {
-  open: 'Taking players',
-  running: 'Under way',
-  finished: 'Finished',
-}
-
 /** One competition in a list: name, format, players and where it stands. */
 export function CompetitionCard({
   competition,
@@ -218,32 +173,11 @@ export function OpenCompetitions({
 }
 
 /** Every way to start a competition, for the start page and home. */
-export const CHOICES = [
-  {
-    to: '/competitions/new',
-    search: { format: 'league' as const },
-    title: 'Create a league',
-    description: FORMAT_INFO.league.summary,
-  },
-  {
-    to: '/competitions/new',
-    search: { format: 'knockout' as const },
-    title: 'Create a tournament',
-    description: FORMAT_INFO.knockout.summary,
-  },
-  {
-    to: '/competitions/new',
-    search: { format: 'challenge' as const },
-    title: 'Challenge a player',
-    description: FORMAT_INFO.challenge.summary,
-  },
-  {
-    to: '/competitions/new',
-    search: { format: 'groups' as const },
-    title: 'Create groups + knockout',
-    description: FORMAT_INFO.groups.summary,
-  },
-] as const
+export const CHOICES = CREATE_CHOICES.map((choice) => ({
+  ...choice,
+  to: '/competitions/new' as const,
+  search: { format: choice.format },
+}))
 
 /** Create a league, create a tournament, or join with a code. */
 export function StartChoices() {

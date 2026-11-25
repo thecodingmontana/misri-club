@@ -1,5 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient'
-import type { ReactNode } from 'react'
+import { Alert } from 'heroui-native'
+import { type ReactNode, useEffect } from 'react'
 import {
   ImageBackground,
   KeyboardAvoidingView,
@@ -9,6 +10,7 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { play } from '@/lib/sound'
 
 /**
  * The sign-in and setup screens: the welcome photo behind, the headline over
@@ -71,13 +73,16 @@ export function AuthShell({
 
 /** A refusal from the server, under the form. */
 export function FormError({ message }: { message: string | null }) {
+  useEffect(() => {
+    if (message) play('error')
+  }, [message])
   if (!message) return null
   return (
-    <Text
-      className="font-normal text-sm text-danger"
-      accessibilityLiveRegion="polite"
-    >
-      {message}
-    </Text>
+    <Alert status="danger" accessibilityLiveRegion="polite">
+      <Alert.Indicator />
+      <Alert.Content>
+        <Alert.Description>{message}</Alert.Description>
+      </Alert.Content>
+    </Alert>
   )
 }
