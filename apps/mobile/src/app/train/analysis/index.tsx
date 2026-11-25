@@ -85,7 +85,7 @@ export default function Analysis() {
 
 function Games({ games }: { games: MyGame[] }) {
   const { api } = useSession()
-  const { engine, host } = useEngine()
+  const { engine, host, restart } = useEngine()
   const urls = useMemo(() => games.map((g) => g.chessComUrl), [games])
   const { data: saved } = useLoad(
     () => (api ? api.savedAnalyses(urls) : Promise.resolve({})),
@@ -104,6 +104,13 @@ function Games({ games }: { games: MyGame[] }) {
     positions: number
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // analysed here but not yet kept with the account: retried without Stockfish
+  const [unsaved, setUnsaved] = useState<Record<string, Score[]>>({})
+  const save = (url: string, scores: Score[]) =>
+    api
+      ?.act('saveAnalysis', { url, scores })
+      .then(() => setUnsaved(({ [url]: _, ...rest }) => rest))
+      .catch(() => setUnsaved((current) => ({ ...current, [url]: scores })))
   const running = useRef(0)
   useEffect(
     () => () => {
@@ -165,9 +172,7 @@ function Games({ games }: { games: MyGame[] }) {
         if (running.current !== run) return
         setFresh((current) => ({ ...current, [game.chessComUrl]: scores }))
         // kept with the account, for the website and other phones
-        void api
-          ?.act('saveAnalysis', { url: game.chessComUrl, scores })
-          .catch(() => {})
+        void save(game.chessComUrl, scores)
       }
       if (skipped > 0) {
         setError(
@@ -176,6 +181,8 @@ function Games({ games }: { games: MyGame[] }) {
       }
     } catch (failure) {
       if (running.current === run) setError((failure as Error).message)
+      // the next try gets a fresh engine
+      restart()
     } finally {
       if (running.current === run) setProgress(null)
     }
@@ -267,6 +274,23 @@ function Games({ games }: { games: MyGame[] }) {
           )}
           {error && (
             <Text className="font-normal text-xs text-danger">{error}</Text>
+          )}
+          {Object.keys(unsaved).length > 0 && (
+            <View className="flex-row items-center gap-2">
+              <Text className="flex-1 font-normal text-xs text-danger">
+                {`${Object.keys(unsaved).length} analysed game${Object.keys(unsaved).length === 1 ? " wasn't" : "s weren't"} saved to your account.`}
+              </Text>
+              <Button
+                size="sm"
+                variant="secondary"
+                onPress={() => {
+                  for (const [url, scores] of Object.entries(unsaved))
+                    void save(url, scores)
+                }}
+              >
+                Save again
+              </Button>
+            </View>
           )}
           {!progress && (
             <Text className="font-normal text-xs text-muted">

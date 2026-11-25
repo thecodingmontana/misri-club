@@ -25,7 +25,10 @@ export class Engine {
 
   private transport: (command: string) => void
 
-  constructor(transport: (command: string) => void) {
+  constructor(
+    transport: (command: string) => void,
+    loadTimeoutMs = LOAD_TIMEOUT_MS,
+  ) {
     this.transport = transport
     this.send('uci')
     this.send('isready')
@@ -34,20 +37,21 @@ export class Engine {
         this.fail(
           'The chess engine did not load. Check your connection and try again.',
         ),
-      LOAD_TIMEOUT_MS,
+      loadTimeoutMs,
     )
   }
 
   /** A line from the engine page. */
   receive(line: string) {
     if (line === 'loaded') {
+      // the page is up; the timeout runs on until Stockfish itself answers
       this.ready = true
-      clearTimeout(this.loading)
       for (const command of this.waiting) this.transport(command)
       this.waiting = []
       return
     }
     if (line.startsWith('error ')) return this.fail(line.slice(6))
+    if (line === 'readyok') clearTimeout(this.loading)
     for (const listener of this.listeners) listener(line)
   }
 

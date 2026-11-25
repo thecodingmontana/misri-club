@@ -53,7 +53,7 @@ function moveSound(pgn: string, colour: Colour, mine: boolean) {
 /** A game against Stockfish on this phone, kept between visits, as on the website. */
 export default function Play() {
   const accent = useThemeColor('accent')
-  const { engine, host } = useEngine()
+  const { engine, host, restart } = useEngine()
   const [game, setGame] = useState<SavedGame>(FRESH)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -179,6 +179,18 @@ export default function Play() {
             {error ?? status}
           </Text>
         </View>
+        {error && (
+          // a fresh engine; it picks the game up where it stopped
+          <Button
+            variant="secondary"
+            onPress={() => {
+              setError(null)
+              restart()
+            }}
+          >
+            Try again
+          </Button>
+        )}
 
         <View className="flex-row gap-2">
           <Button

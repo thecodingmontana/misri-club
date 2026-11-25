@@ -35,7 +35,7 @@ export default function Lesson() {
   const { url } = useLocalSearchParams<{ url: string }>()
   const { api } = useSession()
   const accent = useThemeColor('accent')
-  const { engine, host } = useEngine()
+  const { engine, host, restart } = useEngine()
   const { data: game, error } = useLoad(
     async () => {
       if (!api) return null
@@ -56,6 +56,13 @@ export default function Lesson() {
     fresh ?? (saved as Record<string, Score[]> | null)?.[url] ?? null
   const [progress, setProgress] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
+  // the lesson works without it, but the website and other phones need it
+  const [unsaved, setUnsaved] = useState<Score[] | null>(null)
+  const save = (scores: Score[]) =>
+    api
+      ?.act('saveAnalysis', { url, scores })
+      .then(() => setUnsaved(null))
+      .catch(() => setUnsaved(scores))
 
   const lesson = useMemo(
     () =>
@@ -82,9 +89,11 @@ export default function Lesson() {
         out.push(await engine.evaluate(fen, MOVETIME_MS))
       }
       setFresh(out)
-      void api?.act('saveAnalysis', { url, scores: out }).catch(() => {})
+      void save(out)
     } catch (e) {
       setFailure((e as Error).message)
+      // the next try gets a fresh engine
+      restart()
     } finally {
       setProgress(null)
     }
@@ -195,6 +204,20 @@ export default function Lesson() {
                 {lesson.quiz.map((question) => (
                   <Quiz key={question.question} question={question} />
                 ))}
+              </View>
+            )}
+            {unsaved && (
+              <View className="flex-row items-center gap-2">
+                <Text className="flex-1 font-normal text-xs text-danger">
+                  This analysis wasn't saved to your account.
+                </Text>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onPress={() => void save(unsaved)}
+                >
+                  Save again
+                </Button>
               </View>
             )}
             <Completed url={game.chessComUrl} />
