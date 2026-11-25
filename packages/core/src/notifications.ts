@@ -2,7 +2,9 @@ import { db } from '@misri/db/client'
 import {
   chessAccounts,
   competitionMembers,
+  competitionRequests,
   competitions,
+  competitionViews,
   matches,
   notifications,
   user,
@@ -548,6 +550,65 @@ export async function notifyJoined(competitionId: string, joinerId: string) {
         url: `/c/${row.slug}`,
       },
     ],
+    'news',
+  )
+}
+
+/** A signed-in player looked at a public competition they haven't joined. */
+export async function recordView(competitionId: string, userId: string) {
+  await db
+    .insert(competitionViews)
+    .values({ competitionId, userId })
+    .onConflictDoNothing()
+}
+
+/**
+ * After a join: with one or two places left in an open public competition,
+ * tells each player who looked at it but hasn't joined or asked to, once.
+ */
+export async function notifyNearlyFull(
+  competitionId: string,
+  now = new Date(),
+) {
+  const [row] = await db
+    .select({
+      name: competitions.name,
+      slug: competitions.slug,
+      maxPlayers: competitions.maxPlayers,
+      members: sql<number>`(select count(*)::int from ${competitionMembers} where ${competitionMembers.competitionId} = ${competitions.id})`,
+    })
+    .from(competitions)
+    .where(
+      and(
+        eq(competitions.id, competitionId),
+        eq(competitions.visibility, 'public'),
+        eq(competitions.status, 'open'),
+      ),
+    )
+    .limit(1)
+  if (!row?.maxPlayers) return
+  const left = row.maxPlayers - row.members
+  if (left < 1 || left > 2) return
+  // claim first, so two joins at once can't both send it
+  const claimed = await db
+    .update(competitionViews)
+    .set({ notifiedAt: now })
+    .where(
+      and(
+        eq(competitionViews.competitionId, competitionId),
+        isNull(competitionViews.notifiedAt),
+        sql`not exists (select 1 from ${competitionMembers} where ${competitionMembers.competitionId} = ${competitionId} and ${competitionMembers.userId} = ${competitionViews.userId})`,
+        sql`not exists (select 1 from ${competitionRequests} where ${competitionRequests.competitionId} = ${competitionId} and ${competitionRequests.userId} = ${competitionViews.userId})`,
+      ),
+    )
+    .returning({ userId: competitionViews.userId })
+  await bestEffort(
+    claimed.map(({ userId }) => ({
+      userId,
+      title: `Only ${left === 1 ? 'one place' : 'two places'} left in ${row.name}`,
+      body: 'Join before it fills up.',
+      url: `/c/${row.slug}`,
+    })),
     'news',
   )
 }

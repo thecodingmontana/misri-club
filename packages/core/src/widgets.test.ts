@@ -55,8 +55,16 @@ test('deadlines and places read naturally', () => {
   assert.equal(timeLeft(now + 3 * 3600_000 + 60_000, now), '3h left')
   assert.equal(timeLeft(now + 40 * 60_000, now), '40m left')
   assert.equal(timeLeft(now - 1, now), 'Deadline passed')
-  assert.deepEqual(
-    [1, 2, 3, 4, 11, 12, 13, 21, 22, 101].map(ordinal),
-    ['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '101st'],
-  )
+  assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 101].map(ordinal), [
+    '1st',
+    '2nd',
+    '3rd',
+    '4th',
+    '11th',
+    '12th',
+    '13th',
+    '21st',
+    '22nd',
+    '101st',
+  ])
 })

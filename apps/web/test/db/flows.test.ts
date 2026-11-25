@@ -1007,3 +1007,28 @@ test('tidy-up: catch-up games from before the redraw move into the byes, automat
   assert.equal(told.filter((n) => n.title.includes('moved to round')).length, 2)
   assert.equal(await tidyLateGames(c.row.id), 0, 'nothing more to move')
 })
+
+test('a public competition tells people who looked, once, when nearly full', async () => {
+  const c = await competition('league', ['o', 'a'], { visibility: 'public', maxPlayers: 5 })
+  const tag = c.slug.slice(2)
+  const [x, y, z] = ['x', 'y', 'z'].map((n) => `t${tag}${n}`)
+  made.push(x, y, z)
+  await db.insert(user).values([x, y, z].map((id) => ({ id, name: id, email: `${id}@test.local` })))
+  await linkChess([x, y, z])
+  // x and y look; the organiser looking doesn't count
+  await getCompetition(c.slug, v(x))
+  await getCompetition(c.slug, v(y))
+  await getCompetition(c.slug, c.organiser)
+  const told = async (id: string) =>
+    (await db.select().from(notifications).where(eq(notifications.userId, id))).filter((n) =>
+      n.title.includes('left in'),
+    )
+  // y joins: two places left, so x hears, y (now in) doesn't
+  await joinCompetition(y, { slug: c.slug })
+  assert.equal((await told(x))[0]?.title, `Only two places left in T ${tag}`)
+  assert.equal((await told(y)).length, 0)
+  assert.equal((await told(c.ids[0])).length, 0)
+  // z joins: one place left, but x was already told
+  await joinCompetition(z, { slug: c.slug })
+  assert.equal((await told(x)).length, 1)
+})

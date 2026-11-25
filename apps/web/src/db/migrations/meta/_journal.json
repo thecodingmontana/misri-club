@@ -246,6 +246,13 @@
       "when": 1795588445254,
       "tag": "0034_start_reminder",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1795607337774,
+      "tag": "0035_competition_views",
+      "breakpoints": true
     }
   ]
 }
