@@ -430,8 +430,13 @@ function Notifications() {
             status === 'blocked'
               ? Linking.openSettings()
               : run('on', async () => {
-                  if (api) await registerForPush(api)
+                  const saved = api ? await registerForPush(api) : false
                   await reload()
+                  if (!saved) {
+                    throw new Error(
+                      "This phone isn't set up for notifications yet. Allow them when asked, check your connection, then try again.",
+                    )
+                  }
                 })
           }
         >
