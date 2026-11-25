@@ -467,8 +467,8 @@ function Notifications() {
         </Text>
       </View>
       <Text className="font-normal text-xs text-muted">
-        Games and deadlines, results, join requests and competition news each
-        have their own switch in your phone's settings.
+        Games and deadlines, results, join requests, competition news and the
+        weekly summary each have their own switch in your phone's settings.
       </Text>
       <FormError message={error} />
       <Done message={done} />

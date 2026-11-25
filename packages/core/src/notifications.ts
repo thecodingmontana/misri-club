@@ -24,9 +24,11 @@ import { alias } from 'drizzle-orm/pg-core'
 import { awaitsDecision } from './decisions.ts'
 import { type PushMessage, sendPushes } from './push.ts'
 import type { PushKind } from './push-kinds.ts'
+import { takeAllowance } from './rate-limit.ts'
 import { reminderPushes } from './reminders.ts'
 import { resultPushes } from './result-pushes.ts'
 import { rankStandings } from './standings.ts'
+import { weeklySummary } from './weekly.ts'
 
 // What reaches people's phones. Each sender is best-effort: a push that fails
 // never fails the action that caused it.
@@ -840,4 +842,68 @@ export async function remindOrganisers(now = new Date()) {
   })
   await bestEffort(nudges, 'results')
   return nudges.length
+}
+
+/**
+ * Monday morning: each player in a running competition hears how last week
+ * went, where they stand and what's due this week; nothing when there's
+ * nothing to say. Once per Monday, however often the cron runs.
+ */
+export async function sendWeeklySummaries(now = new Date()) {
+  if (now.getUTCDay() !== 1) return 0
+  const day = now.toISOString().slice(0, 10)
+  if (!(await takeAllowance(`weekly-summary:${day}`, 1, 1, 6 * 86_400_000)))
+    return 0
+  const running = await db
+    .select()
+    .from(competitions)
+    .where(eq(competitions.status, 'running'))
+  const messages: PushMessage[] = []
+  for (const competition of running) {
+    const [all, members] = await Promise.all([
+      db
+        .select()
+        .from(matches)
+        .where(eq(matches.competitionId, competition.id)),
+      db
+        .select({
+          id: competitionMembers.userId,
+          name: sql<string>`coalesce(${chessAccounts.username}, ${user.name})`,
+        })
+        .from(competitionMembers)
+        .innerJoin(user, eq(user.id, competitionMembers.userId))
+        .leftJoin(chessAccounts, eq(chessAccounts.userId, user.id))
+        .where(eq(competitionMembers.competitionId, competition.id)),
+    ])
+    const names = new Map(members.map((m) => [m.id, m.name]))
+    // a place only where there's a table, ranked as the page ranks it
+    const table =
+      competition.format === 'league'
+        ? rankStandings(
+            all,
+            members.map((m) => m.id),
+            now,
+            {
+              unplayed: competition.unplayedRule,
+              points: competition.points,
+              walkoverWinsBreakTies: competition.walkoverWinsBreakTies,
+            },
+            competition.tieBreaks,
+            (id) => names.get(id) ?? id,
+          )
+        : []
+    for (const member of members) {
+      const i = table.findIndex((row) => row.id === member.id)
+      const message = weeklySummary(
+        competition,
+        all,
+        member.id,
+        i < 0 ? null : i + 1,
+        now,
+      )
+      if (message) messages.push(message)
+    }
+  }
+  await bestEffort(messages, 'weekly')
+  return messages.length
 }
