@@ -4,78 +4,30 @@ import { getContentUriAsync } from 'expo-file-system/legacy'
 import * as IntentLauncher from 'expo-intent-launcher'
 import * as Notifications from 'expo-notifications'
 import { AppState, Platform } from 'react-native'
+import { type Update, updateFrom } from './releases'
 import * as SecureStore from './storage'
 
-const LATEST =
-  'https://api.github.com/repos/thecodingmontana/misri-club/releases/latest'
+export type { Note, Update } from './releases'
+
+// recent releases, enough to cover any version someone skipped
+const RELEASES =
+  'https://api.github.com/repos/thecodingmontana/misri-club/releases?per_page=30'
 const LATER_KEY = 'misri.update-later'
 
-export type Note = { kind: 'new' | 'fix'; text: string }
-
-export type Update = {
-  /** the release tag, e.g. mobile-v0.1.16 */
-  tag: string
-  version: string
-  /** what's new and what's fixed, from the release's "## New" and "## Fixes" */
-  notes: Note[]
-  apk: string
-  /** the APK's download size in bytes */
-  size: number
-  /** when it was released, ISO */
-  date: string | null
-}
-
-/** The APK's versionCode, written into the notes by the workflow; older releases: the tag's last number. */
-const buildOf = (tag: string, body: string) =>
-  Number(
-    /<!-- build: (\d+) -->/.exec(body)?.[1] ?? /(\d+)$/.exec(tag)?.[1] ?? 0,
-  )
-
 /**
- * A newer app on GitHub Releases than this one, with its notes; null when
- * up to date or on a build that isn't a release.
+ * A newer app on GitHub Releases than this one, with what changed since
+ * yours; null when up to date or on a build that isn't a release.
  */
 export async function checkForUpdate(): Promise<Update | null> {
   if (Platform.OS !== 'android') return null
   const installed = Number(Application.nativeBuildVersion ?? 0)
   if (!installed) return null
-  const res = await fetch(LATEST, {
+  const res = await fetch(RELEASES, {
     headers: { accept: 'application/vnd.github+json' },
   })
   // a failed check keeps whatever update is already known
   if (!res.ok) throw new Error(`GitHub answered ${res.status}`)
-  const release = (await res.json()) as {
-    tag_name?: string
-    body?: string | null
-    published_at?: string | null
-    assets?: Array<{ name: string; browser_download_url: string; size: number }>
-  }
-  const tag = release.tag_name ?? ''
-  if (
-    !tag.startsWith('mobile-v') ||
-    buildOf(tag, release.body ?? '') <= installed
-  )
-    return null
-  const apk = release.assets?.find((a) => a.name.endsWith('.apk'))
-  if (!apk) return null
-  const notes: Note[] = []
-  let kind: Note['kind'] = 'new'
-  for (const line of (release.body ?? '').split('\n')) {
-    if (/^##\s*fix/i.test(line)) kind = 'fix'
-    else if (/^##/.test(line)) kind = 'new'
-    else if (line.startsWith('- '))
-      notes.push({ kind, text: line.slice(2).trim() })
-  }
-  return {
-    tag,
-    version: tag.replace('mobile-v', ''),
-    notes: notes.length
-      ? notes
-      : [{ kind: 'fix', text: 'Improvements and fixes.' }],
-    apk: apk.browser_download_url,
-    size: apk.size,
-    date: release.published_at ?? null,
-  }
+  return updateFrom(await res.json(), installed)
 }
 
 /** "Later": the page doesn't open by itself again for this release. */

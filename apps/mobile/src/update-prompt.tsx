@@ -83,6 +83,8 @@ export function UpdatePrompt() {
   }
   const facts = [
     `Version ${update.version}`,
+    // versions skipped: one install brings them all
+    ...(update.releases > 1 ? [`${update.releases} updates in one`] : []),
     megabytes(update.size),
     ...(update.date ? [formatDate(update.date)] : []),
   ]
