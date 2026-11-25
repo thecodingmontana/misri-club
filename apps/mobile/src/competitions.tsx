@@ -145,7 +145,7 @@ export function JoinButton({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   return (
-    <View className={size === 'lg' ? 'gap-2' : undefined}>
+    <View className="gap-2">
       <Button
         size={size}
         isDisabled={busy || !api}
@@ -168,7 +168,7 @@ export function JoinButton({
       >
         {busy ? <Spinner size="sm" /> : <Button.Label>{label}</Button.Label>}
       </Button>
-      {size === 'lg' && <FormError message={error} />}
+      <FormError message={error} />
     </View>
   )
 }

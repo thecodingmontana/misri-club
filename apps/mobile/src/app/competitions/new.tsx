@@ -276,6 +276,7 @@ export default function NewCompetition() {
               )}
 
               <NumberField
+                live
                 label={challenge ? 'Days to play' : 'Days per round'}
                 value={matchdayDays}
                 onChange={(n) => n !== null && setMatchdayDays(n)}
@@ -340,6 +341,7 @@ export default function NewCompetition() {
 
               {!challenge && (
                 <NumberField
+                  live
                   label="Most players"
                   value={maxPlayers}
                   onChange={setMaxPlayers}
@@ -397,6 +399,7 @@ export default function NewCompetition() {
                     <View className="flex-row gap-2">
                       {POINT_KEYS.map((key) => (
                         <NumberField
+                          live
                           key={key}
                           compact
                           label={POINT_LABEL[key]}

@@ -24,7 +24,7 @@ export default function Join() {
   const [error, setError] = useState<string | null>(null)
 
   async function submit() {
-    if (!api) return
+    if (!api || busy) return
     setBusy(true)
     setError(null)
     try {

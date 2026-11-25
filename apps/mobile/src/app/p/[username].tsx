@@ -40,14 +40,14 @@ export default function Player() {
     `${Boolean(api)}:${username}`,
   )
 
-  if (error && data === undefined) {
+  if (error && !data) {
     return (
       <Screen>
         <Problem message={error} onRetry={reload} />
       </Screen>
     )
   }
-  if (data === undefined) {
+  if (loading && !data) {
     return (
       <Screen>
         <Loading />
