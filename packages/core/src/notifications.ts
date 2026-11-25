@@ -1,5 +1,7 @@
 import { db } from '@misri/db/client'
 import {
+  allowance,
+  appMeta,
   chessAccounts,
   competitionMembers,
   competitionRequests,
@@ -7,6 +9,7 @@ import {
   competitionViews,
   matches,
   notifications,
+  pushSubscriptions,
   user,
 } from '@misri/db/schema'
 import {
@@ -22,11 +25,14 @@ import {
 } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { awaitsDecision } from './decisions.ts'
+import { FCM_PREFIX } from './fcm.ts'
 import { type PushMessage, sendPushes } from './push.ts'
 import type { PushKind } from './push-kinds.ts'
+import { takeAllowance } from './rate-limit.ts'
 import { reminderPushes } from './reminders.ts'
 import { resultPushes } from './result-pushes.ts'
 import { rankStandings } from './standings.ts'
+import { weeklySummary } from './weekly.ts'
 
 // What reaches people's phones. Each sender is best-effort: a push that fails
 // never fails the action that caused it.
@@ -840,4 +846,123 @@ export async function remindOrganisers(now = new Date()) {
   })
   await bestEffort(nudges, 'results')
   return nudges.length
+}
+
+/**
+ * Monday morning: each player in a running competition hears how last week
+ * went, where they stand and what's due this week; nothing when there's
+ * nothing to say. Once per Monday, however often the cron runs.
+ */
+export async function sendWeeklySummaries(now = new Date()) {
+  if (now.getUTCDay() !== 1) return 0
+  const claim = `weekly-summary:${now.toISOString().slice(0, 10)}`
+  if (!(await takeAllowance(claim, 1, 1, 6 * 86_400_000))) return 0
+  let messages: PushMessage[]
+  try {
+    messages = await weeklyMessages(now)
+  } catch (error) {
+    // nothing sent yet: let a rerun this Monday try again
+    await db.delete(allowance).where(eq(allowance.key, claim))
+    throw error
+  }
+  await bestEffort(messages, 'weekly')
+  return messages.length
+}
+
+async function weeklyMessages(now: Date) {
+  const running = await db
+    .select()
+    .from(competitions)
+    .where(eq(competitions.status, 'running'))
+  const messages: PushMessage[] = []
+  for (const competition of running) {
+    const [all, members] = await Promise.all([
+      db
+        .select()
+        .from(matches)
+        .where(eq(matches.competitionId, competition.id)),
+      db
+        .select({
+          id: competitionMembers.userId,
+          name: sql<string>`coalesce(${chessAccounts.username}, ${user.name})`,
+        })
+        .from(competitionMembers)
+        .innerJoin(user, eq(user.id, competitionMembers.userId))
+        .leftJoin(chessAccounts, eq(chessAccounts.userId, user.id))
+        .where(eq(competitionMembers.competitionId, competition.id)),
+    ])
+    const names = new Map(members.map((m) => [m.id, m.name]))
+    // a place only where there's a table, ranked as the page ranks it
+    const table =
+      competition.format === 'league'
+        ? rankStandings(
+            all,
+            members.map((m) => m.id),
+            now,
+            {
+              unplayed: competition.unplayedRule,
+              points: competition.points,
+              walkoverWinsBreakTies: competition.walkoverWinsBreakTies,
+            },
+            competition.tieBreaks,
+            (id) => names.get(id) ?? id,
+          )
+        : []
+    for (const member of members) {
+      const i = table.findIndex((row) => row.id === member.id)
+      const message = weeklySummary(
+        competition,
+        all,
+        member.id,
+        i < 0 ? null : i + 1,
+        now,
+      )
+      if (message) messages.push(message)
+    }
+  }
+  return messages
+}
+
+const LATEST_APP =
+  'https://api.github.com/repos/thecodingmontana/misri-club/releases/latest'
+
+/**
+ * A new phone app on GitHub Releases: every phone with the app hears once that
+ * it's ready (not browsers, not the inbox). Called by the daily cron.
+ */
+export async function announceAppRelease(now = new Date()) {
+  const res = await fetch(LATEST_APP, {
+    headers: { accept: 'application/vnd.github+json' },
+    signal: AbortSignal.timeout(8000),
+  })
+  if (!res.ok) throw new Error(`GitHub answered ${res.status}`)
+  const { tag_name: tag } = (await res.json()) as { tag_name?: string }
+  if (!tag?.startsWith('mobile-v')) return 0
+  // claim the tag first, so two runs can't both announce it
+  const claimed = await db
+    .insert(appMeta)
+    .values({ key: 'announced-app-release', value: tag, updatedAt: now })
+    .onConflictDoUpdate({
+      target: appMeta.key,
+      set: { value: tag, updatedAt: now },
+      setWhere: sql`${appMeta.value} <> ${tag}`,
+    })
+    .returning({ value: appMeta.value })
+  if (claimed.length === 0) return 0
+  const phones = await db
+    .selectDistinct({ userId: pushSubscriptions.userId })
+    .from(pushSubscriptions)
+    .where(sql`${pushSubscriptions.endpoint} like ${`${FCM_PREFIX}%`}`)
+  const version = tag.replace('mobile-v', '')
+  return sendPushes(
+    phones.map(({ userId }) => ({
+      userId,
+      title: `Misri ${version} is ready to install`,
+      body: "See what's new and update in a tap.",
+      url: '/update',
+      tag: 'app-update',
+      kind: 'updates' as const,
+      appOnly: true,
+    })),
+  )
 }

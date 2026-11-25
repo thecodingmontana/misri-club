@@ -9,9 +9,11 @@ import {
   startScheduled,
 } from '#/server/competitions.server'
 import {
+  announceAppRelease,
   remindDeadlines,
   remindOrganisers,
   remindStarts,
+  sendWeeklySummaries,
 } from '#/server/notifications.server'
 import { syncResults } from '#/server/results.server'
 
@@ -90,6 +92,21 @@ export const Route = createFileRoute('/api/cron/deadlines')({
           )
           return 0
         })
+        // after this run's results, so last week is complete
+        const weekly = await sendWeeklySummaries().catch((error) => {
+          console.error(
+            '[cron] weekly summaries failed',
+            (error as Error).message,
+          )
+          return 0
+        })
+        const announced = await announceAppRelease().catch((error) => {
+          console.error(
+            '[cron] app release announcement failed',
+            (error as Error).message,
+          )
+          return 0
+        })
         await pruneAllowances().catch((error) =>
           console.error('[cron] prune failed', (error as Error).message),
         )
@@ -100,6 +117,8 @@ export const Route = createFileRoute('/api/cron/deadlines')({
           reminded,
           starting,
           nudged,
+          weekly,
+          announced,
         })
       },
     },
