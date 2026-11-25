@@ -41,6 +41,7 @@ const MODES: Array<{
     title: 'Openings',
     description:
       'Learn the Italian, Queen’s Gambit, Sicilian and more, then drill them.',
+    href: '/train/openings',
   },
   {
     icon: 'Trophy',
