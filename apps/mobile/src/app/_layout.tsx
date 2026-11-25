@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useUniwind } from 'uniwind'
 import { Loading, Screen } from '@/components'
 import { introSeen } from '@/lib/intro'
+import { openTappedNotifications, registerForPush } from '@/lib/notifications'
 import { SessionProvider, useSession } from '@/lib/session'
 import { loadSoundSetting } from '@/lib/sound'
 import { loadTheme } from '@/lib/theme'
@@ -38,7 +39,14 @@ export default function RootLayout() {
  * new: onboarding. Otherwise everything else.
  */
 function Gate() {
-  const { token, me } = useSession()
+  const { token, me, api } = useSession()
+  const ready = Boolean(api && me?.onboarded)
+  // signed in and set up: this phone gets pushes, and tapping one opens it
+  useEffect(() => {
+    if (!ready || !api) return
+    void registerForPush(api).catch(() => {})
+    return openTappedNotifications()
+  }, [ready, api])
   const segments = useSegments()
   const [seen, setSeen] = useState<boolean | undefined>(undefined)
   useEffect(() => {

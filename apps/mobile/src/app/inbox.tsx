@@ -6,6 +6,7 @@ import { RefreshControl, ScrollView, Text, View } from 'react-native'
 import { EmptyCard, PageTitle } from '@/competitions'
 import { Problem, Screen } from '@/components'
 import { relativeTime } from '@/lib/format'
+import { appRoute } from '@/lib/notifications'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
 
@@ -63,13 +64,7 @@ export default function Inbox() {
 
 /** One notification; its link opens the app's page for it when there is one. */
 function Notice({ item }: { item: InboxItem }) {
-  const competition = /^\/c\/([^/?#]+)/.exec(item.url)?.[1]
-  const invite = /^\/join\/([^/?#]+)/.exec(item.url)?.[1]
-  const target = competition
-    ? `/c/${competition}`
-    : invite
-      ? `/join/${invite}`
-      : null
+  const target = appRoute(item.url)
   return (
     <Card className="p-0">
       <PressableFeedback
