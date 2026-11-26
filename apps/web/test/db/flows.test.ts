@@ -37,7 +37,7 @@ import {
   refuseIfOwner,
   removePlayer,
 } from '#/server/membership.server'
-import { announceAppRelease, remindDeadlines, remindOrganisers, remindStarts, sendWeeklySummaries } from '#/server/notifications.server'
+import { announceAppRelease, dueWithinTheHour, remindDeadlines, remindLastHour, remindOrganisers, remindStarts, sendWeeklySummaries } from '#/server/notifications.server'
 import {
   concedeMatch,
   decideMatch,
@@ -677,6 +677,21 @@ test('reminders: a deadline just past 24 hours away is still reminded, once', as
   const [m] = await c.rows()
   assert.ok(m.remindedAt, 'reminded')
   assert.equal(await remindDeadlines(new Date(now)), 0, 'not twice')
+})
+
+test('reminders: a last word about an hour before the deadline, once', async () => {
+  const c = await competition('league', ['o', 'a'], { legs: 1 })
+  await startCompetition(c.slug, c.organiser)
+  const now = Date.now()
+  await db.update(matches).set({ dueAt: new Date(now + 3 * 3_600_000) }).where(eq(matches.competitionId, c.row.id))
+  assert.ok(!(await dueWithinTheHour(new Date(now))).includes(c.row.id), 'three hours out: not yet')
+  await db.update(matches).set({ dueAt: new Date(now + 50 * 60_000) }).where(eq(matches.competitionId, c.row.id))
+  assert.ok((await dueWithinTheHour(new Date(now))).includes(c.row.id))
+  assert.equal(await remindLastHour(new Date(now)), 1)
+  const told = await db.select().from(notifications).where(inArray(notifications.userId, c.ids))
+  assert.equal(told.filter((n) => n.title === `About an hour left in ${c.row.name}`).length, 2, 'both players')
+  assert.equal(await remindLastHour(new Date(now)), 0, 'not twice')
+  assert.ok(!(await dueWithinTheHour(new Date(now))).includes(c.row.id), 'sent: nothing to sync')
 })
 
 test('reminders: everyone hears the day before a scheduled start, once', async () => {

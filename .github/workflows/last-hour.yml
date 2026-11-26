@@ -1,0 +1,29 @@
+name: Last-hour reminders
+
+# Vercel's cron here runs once a day, too rarely to catch the hour before a
+# game's deadline; this asks the site to send those reminders every hour.
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send the last-hour reminders
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://misri-chess-club.vercel.app' }}
+        run: |
+          # until the secret is added the job does nothing, rather than fail hourly
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning::Add the CRON_SECRET repository secret to send last-hour reminders"
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --max-time 240 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SITE_URL/api/cron/last-hour"
