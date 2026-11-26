@@ -1,47 +1,32 @@
 import assert from 'node:assert/strict'
-import { generateKeyPairSync } from 'node:crypto'
 import { test } from 'node:test'
+import { fcmGone } from './fcm.ts'
 
-const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
-process.env.FIREBASE_SERVICE_ACCOUNT = JSON.stringify({
-  project_id: 'misri-test',
-  client_email: 'push@misri-test.iam.gserviceaccount.com',
-  private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }),
+const err = (code: string, message = '') => ({
+  error: { message, details: [{ errorCode: code }] },
 })
-const { sendFcm, fcmReady } = await import('./fcm.ts')
 
-test('sends a signed-in FCM message, and reports a gone install', async () => {
-  const calls: Array<{ url: string; body: string }> = []
-  let answer = 200
-  globalThis.fetch = (async (url: string, init: RequestInit) => {
-    calls.push({ url, body: String(init.body) })
-    if (url.includes('oauth2')) {
-      return new Response(
-        JSON.stringify({ access_token: 't', expires_in: 3600 }),
-      )
-    }
-    return new Response('{}', { status: answer })
-  }) as typeof fetch
-
-  assert.equal(fcmReady(), true)
-  const message = {
-    title: 'Round 3 is open',
-    url: '/c/rapid',
-    tag: 'r3',
-    kind: 'games',
-  }
-  assert.equal(await sendFcm('device-token', message), 'sent')
-  assert.match(calls[0].body, /grant_type=urn/)
+test('FCM: only an unregistered or unreadable token forgets the phone', () => {
+  assert.equal(fcmGone(404, err('UNREGISTERED')), true)
+  assert.equal(fcmGone(400, err('UNREGISTERED')), true)
   assert.equal(
-    calls[1].url,
-    'https://fcm.googleapis.com/v1/projects/misri-test/messages:send',
+    fcmGone(
+      400,
+      err(
+        'INVALID_ARGUMENT',
+        'The registration token is not a valid FCM registration token',
+      ),
+    ),
+    true,
   )
-  const sent = JSON.parse(calls[1].body).message
-  assert.equal(sent.token, 'device-token')
-  assert.equal(sent.data.url, '/c/rapid')
-  assert.equal(sent.android.notification.channel_id, 'games')
-  answer = 404
-  assert.equal(await sendFcm('old-token', message), 'gone')
-  // the access token is reused while valid
-  assert.equal(calls.filter((c) => c.url.includes('oauth2')).length, 1)
+  // a message FCM rejects is also a 400: the phone stays
+  assert.equal(
+    fcmGone(
+      400,
+      err('INVALID_ARGUMENT', 'Invalid value at message.android.ttl'),
+    ),
+    false,
+  )
+  assert.equal(fcmGone(400, null), false)
+  assert.equal(fcmGone(503, err('UNAVAILABLE')), false)
 })

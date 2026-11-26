@@ -85,6 +85,7 @@ export async function sendPushes(messages: PushMessage[]) {
             ).catch(() => 'failed' as const)
             if (result === 'sent') sent++
             if (result === 'gone') {
+              console.warn('[push] forgot an app install FCM no longer knows')
               await db
                 .delete(pushSubscriptions)
                 .where(eq(pushSubscriptions.id, s.id))
@@ -117,5 +118,14 @@ export async function sendPushes(messages: PushMessage[]) {
         }),
     ),
   )
+  const tried = messages.reduce(
+    (n, m) =>
+      n +
+      subs.filter((s) => s.userId === m.userId && (!m.appOnly || app(s)))
+        .length,
+    0,
+  )
+  // in the logs: a message that reached no device is visible, not silent
+  console.log(`[push] ${sent} of ${tried} delivered for ${messages.length}`)
   return sent
 }

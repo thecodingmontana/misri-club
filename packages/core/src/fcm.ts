@@ -103,10 +103,32 @@ export async function sendFcm(
     },
   )
   if (res.ok) return 'sent'
-  // UNREGISTERED (404) or an invalid token (400): the install is gone
-  if (res.status === 404 || res.status === 400) return 'gone'
-  console.error(`[push] FCM answered ${res.status}`)
+  const error = (await res.json().catch(() => null)) as FcmError
+  if (fcmGone(res.status, error)) return 'gone'
+  // anything else (a message FCM didn't like, a hiccup) keeps the device
+  console.error(
+    `[push] FCM answered ${res.status}: ${error?.error?.message ?? 'no detail'}`,
+  )
   return 'failed'
+}
+
+type FcmError = {
+  error?: { message?: string; details?: Array<{ errorCode?: string }> }
+} | null
+
+/**
+ * Whether FCM says this install is gone for good: unregistered, or a token it
+ * can't read. A 400 alone isn't enough: a message it rejects is a 400 too,
+ * and forgetting the phone for that would silence every push after it.
+ */
+export function fcmGone(status: number, error: FcmError) {
+  const codes = error?.error?.details?.map((d) => d.errorCode) ?? []
+  if (status === 404 || codes.includes('UNREGISTERED')) return true
+  return (
+    status === 400 &&
+    codes.includes('INVALID_ARGUMENT') &&
+    /registration token/i.test(error?.error?.message ?? '')
+  )
 }
 
 /** The app's devices are stored with the browsers', marked by this prefix. */
