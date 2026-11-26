@@ -10,7 +10,8 @@
     "check": "biome check",
     "bundle": "expo export --platform android --output-dir dist",
     "icons": "node scripts/icons.mjs",
-    "preview": "expo export --platform web --output-dir dist-web"
+    "preview": "expo export --platform web --output-dir dist-web",
+    "test": "node --test --experimental-strip-types 'src/**/*.test.ts'"
   },
   "dependencies": {
     "@better-auth/expo": "1.7.18",
