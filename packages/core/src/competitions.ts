@@ -313,7 +313,6 @@ async function createRows(
       .values({
         ...settings,
         nameKey,
-        legs: settings.format === 'knockout' ? 1 : settings.legs,
         slug,
         ownerId,
         inviteCode: generateInviteCode(),
