@@ -11,11 +11,15 @@ on:
     paths:
       - 'apps/mobile/**'
       - 'packages/api-client/**'
+      - 'packages/core/**'
+      - 'packages/db/**'
       - '.github/workflows/android.yml'
   pull_request:
     paths:
       - 'apps/mobile/**'
       - 'packages/api-client/**'
+      - 'packages/core/**'
+      - 'packages/db/**'
       - '.github/workflows/android.yml'
   workflow_dispatch:
 
@@ -74,6 +78,9 @@ jobs:
       # without these secrets the APK is signed with Expo's debug key: it
       # installs, but can't be updated by a properly signed one later
       - name: Signing key
+        # pull requests build debug-signed: the release key is only on disk for
+        # main and tags, never where a pull request's dependencies run
+        if: github.event_name != 'pull_request'
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
