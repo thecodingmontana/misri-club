@@ -30,7 +30,7 @@ import {
 } from '#/components/ui/select'
 import type { EarlyRounds } from '#/lib/early-rounds'
 import type { LeaveRule } from '#/lib/leave'
-import { sendOrQueue } from '#/lib/sync/outbox'
+import { sendOrQueue, useWaiting } from '#/lib/sync/outbox'
 import { toast } from '#/lib/toast'
 import {
   answerRequestFn,
@@ -195,6 +195,8 @@ export function ConcedeButton({
 }) {
   const concede = useServerFn(concedeMatchFn)
   const router = useRouter()
+  // the match shows what's waiting (MatchReport); nothing more to offer here
+  if (useWaiting(matchId)) return null
   return (
     <Confirm
       trigger={
@@ -509,25 +511,46 @@ export function JoinRequests({
           className="flex items-center justify-between gap-2 rounded-xl bg-background px-3 py-2"
         >
           <span className="min-w-0 truncate text-sm font-medium">{r.name}</span>
-          <div className="flex shrink-0 gap-1.5">
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busy === r.id}
-              onClick={() => reply(r.id, r.name, false)}
-            >
-              Decline
-            </Button>
-            <Button
-              size="sm"
-              disabled={busy === r.id}
-              onClick={() => reply(r.id, r.name, true)}
-            >
-              Approve
-            </Button>
-          </div>
+          <RequestAnswer
+            userId={r.id}
+            busy={busy === r.id}
+            onReply={(approve) => reply(r.id, r.name, approve)}
+          />
         </div>
       ))}
+    </div>
+  )
+}
+
+function RequestAnswer({
+  userId,
+  busy,
+  onReply,
+}: {
+  userId: string
+  busy: boolean
+  onReply: (approve: boolean) => void
+}) {
+  if (useWaiting(userId)) {
+    return (
+      <span role="status" className="shrink-0 text-xs text-muted-foreground">
+        Waiting to send
+      </span>
+    )
+  }
+  return (
+    <div className="flex shrink-0 gap-1.5">
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={busy}
+        onClick={() => onReply(false)}
+      >
+        Decline
+      </Button>
+      <Button size="sm" disabled={busy} onClick={() => onReply(true)}>
+        Approve
+      </Button>
     </div>
   )
 }
