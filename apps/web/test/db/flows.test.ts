@@ -39,6 +39,7 @@ import {
 } from '#/server/membership.server'
 import { announceAppRelease, dueWithinTheHour, remindDeadlines, remindLastHour, remindOrganisers, remindStarts, sendWeeklySummaries } from '#/server/notifications.server'
 import {
+  advance,
   concedeMatch,
   decideMatch,
   answerReport,
@@ -665,6 +666,16 @@ test('account deletion: opponents keep their results; finished ones stay final',
   const [row] = await db.select().from(matches).where(eq(matches.id, ab.id))
   assert.equal(row.winnerUserId, b)
   assert.ok([row.homeUserId, row.awayUserId].includes('former-player'))
+})
+
+test('players report: a passed deadline finishes the league on the daily run', async () => {
+  // no chess.com to read: the daily run calls advance for these
+  const c = await competition('league', ['o', 'a'], { legs: 1, resultSource: 'manual', unplayedRule: 'void' })
+  await startCompetition(c.slug, c.organiser)
+  await db.update(matches).set({ dueAt: new Date(Date.now() - 60_000) }).where(eq(matches.competitionId, c.row.id))
+  await advance(c.row.id)
+  const [after] = await db.select().from(competitions).where(eq(competitions.id, c.row.id))
+  assert.equal(after.status, 'finished')
 })
 
 test('reminders: a deadline just past 24 hours away is still reminded, once', async () => {
