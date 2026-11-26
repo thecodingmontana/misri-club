@@ -24,6 +24,7 @@ import { useSession } from '@/lib/session'
 import { play } from '@/lib/sound'
 import * as Store from '@/lib/storage'
 import { useLoad } from '@/lib/use-load'
+import { SpeakButton } from '@/speak'
 
 const MOVETIME_MS = 120
 
@@ -168,22 +169,28 @@ export default function Lesson() {
               </Text>
             </View>
             <Card className="border-l-4 border-accent">
-              <Card.Body>
-                <Text className="font-normal text-sm text-foreground">
+              <Card.Body className="flex-row items-start gap-3">
+                <Text className="flex-1 font-normal text-sm text-foreground">
                   <Text className="font-bold text-accent">
                     The mental model:{' '}
                   </Text>
                   {lesson.mentalModel}
                 </Text>
+                <SpeakButton text={`The mental model. ${lesson.mentalModel}`} />
               </Card.Body>
             </Card>
             <Text className="font-normal text-sm italic text-muted">
               {lesson.summary}
             </Text>
             <View className="gap-1.5">
-              <Text className="font-display text-xl uppercase text-foreground">
-                {lesson.principle.heading}
-              </Text>
+              <View className="flex-row items-center justify-between gap-2">
+                <Text className="flex-1 font-display text-xl uppercase text-foreground">
+                  {lesson.principle.heading}
+                </Text>
+                <SpeakButton
+                  text={`${lesson.principle.heading}. ${lesson.principle.body}`}
+                />
+              </View>
               <Text className="font-normal text-sm text-foreground">
                 {lesson.principle.body}
               </Text>
@@ -289,6 +296,7 @@ function Moment({
             <Text className="font-bold text-accent">Theory: </Text>
             {moment.theory}
           </Text>
+          <SpeakButton text={moment.theory} />
         </Card.Body>
       </Card>
       <Text className="font-normal text-xs text-muted">{moment.prompt}</Text>
