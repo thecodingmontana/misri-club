@@ -6,7 +6,7 @@ import { HeroUINativeProvider, useThemeColor } from 'heroui-native'
 import { useEffect, useState } from 'react'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useUniwind } from 'uniwind'
-import { Loading, Screen } from '@/components'
+import { Loading, Problem, Screen } from '@/components'
 import { trackScreen, trackUser } from '@/lib/analytics'
 import { introSeen } from '@/lib/intro'
 import { openTappedNotifications, registerForPush } from '@/lib/notifications'
@@ -42,7 +42,7 @@ export default function RootLayout() {
  * new: onboarding. Otherwise everything else.
  */
 function Gate() {
-  const { token, me, api } = useSession()
+  const { token, me, api, unreachable, refresh } = useSession()
   const ready = Boolean(api && me?.onboarded)
   // signed in and set up: this phone gets pushes, and tapping one opens it
   useEffect(() => {
@@ -83,6 +83,17 @@ function Gate() {
   const signedOutPage = ['welcome', 'sign-in', 'verify', 'two-factor'].includes(
     page,
   )
+  // signed in on this phone, just offline with nothing kept yet
+  if (token && !me && unreachable) {
+    return (
+      <Screen>
+        <Problem
+          message="Can't reach Misri. You're still signed in; check your connection and try again."
+          onRetry={refresh}
+        />
+      </Screen>
+    )
+  }
   if (!token || !me) {
     if (!signedOutPage)
       return <Redirect href={seen ? '/sign-in' : '/welcome'} />

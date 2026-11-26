@@ -19,6 +19,8 @@ type Session = {
   api: ApiClient | null
   /** who is signed in; undefined while loading */
   me: Me | null | undefined
+  /** signed in, but the server couldn't be reached and nothing was kept */
+  unreachable: boolean
   /** re-read the stored session (after signing in, onboarding…) */
   refresh: () => Promise<void>
   signOut: () => Promise<void>
@@ -29,6 +31,7 @@ const SessionContext = createContext<Session | null>(null)
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null | undefined>(undefined)
   const [me, setMe] = useState<Me | null | undefined>(undefined)
+  const [unreachable, setUnreachable] = useState(false)
 
   const api = useMemo(
     () => (token ? createApiClient({ url: API_URL, token }) : null),
@@ -41,6 +44,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (!next) return setMe(null)
     const client = createApiClient({ url: API_URL, token: next })
     const since = cacheGeneration()
+    setUnreachable(false)
     try {
       // null: a token the server no longer knows (signed out elsewhere)
       const fresh = await client.me()
@@ -49,7 +53,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       writeCached('me', fresh, since)
     } catch {
       // unreachable (offline): still signed in, as last seen
-      setMe((await readCached<Me>('me'))?.data ?? null)
+      const kept = (await readCached<Me>('me'))?.data ?? null
+      setMe(kept)
+      // still signed in: say we can't reach Misri, don't ask to sign in again
+      if (!kept) setUnreachable(true)
     }
   }, [])
 
@@ -64,10 +71,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     await clearGames()
     setToken(null)
     setMe(null)
+    setUnreachable(false)
   }, [])
 
   return (
-    <SessionContext.Provider value={{ token, api, me, refresh, signOut }}>
+    <SessionContext.Provider
+      value={{ token, api, me, unreachable, refresh, signOut }}
+    >
       {children}
     </SessionContext.Provider>
   )
