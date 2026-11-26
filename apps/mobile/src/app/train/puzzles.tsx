@@ -12,12 +12,13 @@ import {
 } from '@misri/core/puzzle'
 import { Chess } from 'chess.js'
 import { Stack, useLocalSearchParams } from 'expo-router'
-import { Button, Chip, Skeleton, useThemeColor } from 'heroui-native'
+import { Button, Skeleton, useThemeColor } from 'heroui-native'
 import { useEffect, useRef, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { Board } from '@/board'
 import { Kicker } from '@/competitions'
 import { Problem, Screen } from '@/components'
+import { SelectField } from '@/form'
 import { Icon } from '@/icon'
 import { recordPuzzle } from '@/lib/progress'
 import { play } from '@/lib/sound'
@@ -68,41 +69,30 @@ export default function Puzzles() {
           </Text>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerClassName="gap-2"
-        >
-          <Chip
-            variant={theme === undefined ? 'soft' : 'tertiary'}
-            color={theme === undefined ? 'accent' : 'default'}
-            onPress={() => setTheme(undefined)}
-          >
-            Any theme
-          </Chip>
-          {THEME_GROUPS.flatMap((group) => group.themes).map((value) => (
-            <Chip
-              key={value}
-              variant={theme === value ? 'soft' : 'tertiary'}
-              color={theme === value ? 'accent' : 'default'}
-              onPress={() => setTheme(value)}
-            >
-              {THEMES[value]}
-            </Chip>
-          ))}
-        </ScrollView>
-        <View className="flex-row flex-wrap gap-2">
-          {DIFFICULTIES.map((value) => (
-            <Chip
-              key={value}
-              size="sm"
-              variant={difficulty === value ? 'soft' : 'tertiary'}
-              color={difficulty === value ? 'accent' : 'default'}
-              onPress={() => setDifficulty(value)}
-            >
-              {DIFFICULTY_LABEL[value]}
-            </Chip>
-          ))}
+        <View className="flex-row gap-3">
+          <SelectField
+            label="Theme"
+            value={theme ?? 'any'}
+            options={[
+              { value: 'any', label: 'Any theme' },
+              ...THEME_GROUPS.flatMap((group) => group.themes).map((value) => ({
+                value,
+                label: THEMES[value],
+              })),
+            ]}
+            onChange={(value) =>
+              setTheme(value === 'any' ? undefined : (value as Theme))
+            }
+          />
+          <SelectField
+            label="Difficulty"
+            value={difficulty}
+            options={DIFFICULTIES.map((value) => ({
+              value,
+              label: DIFFICULTY_LABEL[value],
+            }))}
+            onChange={setDifficulty}
+          />
         </View>
 
         {error && !data ? (
