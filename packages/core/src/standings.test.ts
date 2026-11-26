@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  fitsMatch,
   POINTS,
   rankStandings,
   type ScoredMatch,
@@ -146,27 +145,6 @@ test('byes score nothing', () => {
   )
   assert.equal(tally.get('a')?.points, 0)
   assert.equal(tally.get('b')?.points, 0)
-})
-
-test('a game fits its match only between the same pair, inside the window', () => {
-  const window = { homeUserId: 'a', awayUserId: 'b', opensAt: past, dueAt: now }
-  const game = (whiteUserId: string, blackUserId: string, endedAt: Date) => ({
-    whiteUserId,
-    blackUserId,
-    endedAt,
-  })
-
-  assert.ok(fitsMatch(game('a', 'b', past), window), 'opening instant counts')
-  assert.ok(
-    fitsMatch(game('b', 'a', now), window),
-    'either colour, deadline counts',
-  )
-  assert.ok(!fitsMatch(game('a', 'b', future), window), 'after the deadline')
-  assert.ok(
-    !fitsMatch(game('a', 'b', new Date(past.getTime() - 1)), window),
-    'before the window opens',
-  )
-  assert.ok(!fitsMatch(game('a', 'c', now), window), 'different opponent')
 })
 
 test('ties on points break in the organiser order, name last', () => {

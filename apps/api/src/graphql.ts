@@ -125,16 +125,9 @@ export const schema = createSchema<Context>({
     Mutation: Object.fromEntries(
       mutations.map((name) => [
         name,
-        async (_: unknown, args: { input?: unknown }, context: Context) => {
+        (_: unknown, args: { input?: unknown }, context: Context) => {
           const viewer = signedIn(context)
-          try {
-            return await runAction(name, viewer, args.input)
-          } catch (error) {
-            // a message for the player passes; anything else stays masked
-            if (error instanceof UserError)
-              throw new GraphQLError(error.message)
-            throw error
-          }
+          return passMessages(() => runAction(name, viewer, args.input))
         },
       ]),
     ),

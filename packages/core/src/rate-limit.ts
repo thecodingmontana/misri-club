@@ -37,3 +37,12 @@ export async function pruneAllowances(now = Date.now()) {
     .delete(allowance)
     .where(sql`${allowance.lastRequest} < ${now - 24 * 60 * 60_000}`)
 }
+
+/**
+ * Who is asking, for a rate limit. Vercel sets these headers itself (a client
+ * can't forge them); locally they're absent. The website and the API share it.
+ */
+export const clientIp = (headers: Headers) =>
+  headers.get('x-real-ip') ??
+  headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+  'unknown'
