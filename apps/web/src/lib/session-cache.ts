@@ -46,15 +46,16 @@ export const ownerChanged = (previous: string | null, userId: string) =>
  * the account that made them. Signing in as someone else, even when the last
  * one's session just expired or was ended elsewhere, wipes them first.
  */
-export async function claimDevice(userId: string) {
+export async function claimDevice(userId: string): Promise<boolean> {
   let previous: string | null = null
   try {
     previous = localStorage.getItem(DEVICE_USER)
   } catch {}
   // the new owner is written only once the last one's copies are gone, so a
   // wipe that failed is tried again on the next page
-  if (ownerChanged(previous, userId) && !(await forgetSession())) return
+  if (ownerChanged(previous, userId) && !(await forgetSession())) return false
   try {
     localStorage.setItem(DEVICE_USER, userId)
   } catch {}
+  return true
 }

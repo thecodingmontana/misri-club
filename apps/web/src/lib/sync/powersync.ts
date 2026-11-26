@@ -234,15 +234,18 @@ async function uploadData({ database }: UploadMutationsOptions): Promise<void> {
 let db: PowerSyncDatabase | null = null
 const authenticator = new BetterAuthAuthenticator()
 
+const openDatabase = () =>
+  new PowerSyncDatabase({
+    schema: AppSchema,
+    // OPFS where the browser has it, else in memory (PowerSync's 'auto')
+    database: { dbFilename: 'misri.sqlite', vfs: 'auto' },
+  })
+
 /** The local database, connected to sync; null on the server or without an instance. */
 export function startSync(): PowerSyncDatabase | null {
   if (typeof window === 'undefined' || !ENDPOINT) return null
   if (!db) {
-    db = new PowerSyncDatabase({
-      schema: AppSchema,
-      // OPFS where the browser has it, else in memory (PowerSync's 'auto')
-      database: { dbFilename: 'misri.sqlite', vfs: 'auto' },
-    })
+    db = openDatabase()
     void db.connect({
       powerSyncEndpoint: ENDPOINT,
       authenticator,
@@ -280,8 +283,11 @@ export async function saveAnalysisOnDevice(url: string, scores: unknown[]) {
 /** Signing out: stop syncing and wipe this device's copy, queue included. */
 export async function stopSync() {
   authenticator.invalidateCredentials()
-  if (!db) return
-  const closing = db
+  if (typeof window === 'undefined' || !ENDPOINT) return
+  // no open copy (a new page, or an earlier wipe that failed): the file on
+  // disk may still hold the last account's rows, so it's opened to be wiped
+  const closing =
+db ?? openDatabase()
   db = null
   await closing.disconnectAndClear()
   await closing.close()

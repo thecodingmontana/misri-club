@@ -30,7 +30,10 @@ export const Route = createFileRoute('/_authed')({
     const session =
       fresh && last.checked ? last.checked.session : await getSessionFn()
     // someone else's offline copies go before anything of theirs is shown
-    if (inBrowser && session.user) await claimDevice(session.user.id)
+    if (inBrowser && session.user && !(await claimDevice(session.user.id)))
+      throw new Error(
+        "The last account's offline copies couldn't be cleared. Reload the page.",
+      )
     if (inBrowser && !fresh) last.checked = { at: Date.now(), session }
     if (!session.user) {
       // a visitor arriving at the front door gets the introduction first

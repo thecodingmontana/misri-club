@@ -46,7 +46,7 @@ export async function sendOrQueue(
   api: ApiClient,
   name: Queueable,
   input: unknown,
-): Promise<'sent' | 'queued'> {
+): Promise<'sent' | 'queued' | 'dropped'> {
   const mine = generation
   try {
     await api.act(name as never, input as never)
@@ -55,8 +55,8 @@ export async function sendOrQueue(
     // the server answered: its "no" is for the player now, not later
     if (error instanceof ApiError || !isQueueable(name)) throw error
     // signed out while it was sending: it belonged to that account, so it's
-    // not kept for whoever signs in next (the player has left the page anyway)
-    if (mine !== generation) return 'queued'
+    // not kept for whoever signs in next, and not shown as saved either
+    if (mine !== generation) return 'dropped'
     const id = `${Date.now()}:${Math.random().toString(36).slice(2)}`
     await locked(async () =>
       write([...(await read()), { name, input, at: Date.now(), id }]),
