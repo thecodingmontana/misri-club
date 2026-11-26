@@ -11,6 +11,7 @@ import { generateInviteCode } from '@misri/db/utils'
 import { and, eq, inArray, ne, or } from 'drizzle-orm'
 import { authorize, roleOf, type Viewer } from './access.ts'
 import { normalizeName } from './competition-names.ts'
+import { FORMER_PLAYER_ID } from './competition-progress.ts'
 import {
   admit,
   authorizeManage,
@@ -64,7 +65,7 @@ export async function refuseIfOwner(userId: string) {
 }
 
 /** Who a deleted account's played games belong to (migration 0029 adds the row). */
-export const FORMER_PLAYER_ID = 'former-player'
+export { FORMER_PLAYER_ID }
 
 /**
  * Before an account is deleted: they leave every competition still going,
@@ -95,6 +96,7 @@ export async function prepareAccountDeletion(userId: string) {
     for (const column of [
       'homeUserId',
       'awayUserId',
+      'byeUserId',
       'whiteUserId',
       'winnerUserId',
     ] as const) {
