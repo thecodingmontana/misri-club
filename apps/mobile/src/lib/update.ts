@@ -1,5 +1,5 @@
 import * as Application from 'expo-application'
-import { File, Paths } from 'expo-file-system'
+import { DownloadTask, File, Paths } from 'expo-file-system'
 import { getContentUriAsync } from 'expo-file-system/legacy'
 import * as IntentLauncher from 'expo-intent-launcher'
 import * as Notifications from 'expo-notifications'
@@ -45,8 +45,9 @@ export async function wasPutOff(tag: string) {
 export type Download =
   | { status: 'idle' }
   | { status: 'downloading'; written: number; total: number }
+  | { status: 'paused'; written: number; total: number }
   | { status: 'ready' }
-  | { status: 'failed'; error: string }
+  | { status: 'failed'; error: string; written: number; total: number }
 type State = { update: Update | null; open: boolean; download: Download }
 let state: State = { update: null, open: false, download: { status: 'idle' } }
 const listeners = new Set<() => void>()
@@ -67,66 +68,160 @@ export const updateStore = {
 const apkFile = (update: Update) =>
   new File(Paths.cache, `misri-${update.version}.apk`)
 
-/** Whether this update's APK is already fully downloaded. */
-export function downloaded(update: Update) {
+/**
+ * Where this update's download stands on this phone: ready, part-way (paused,
+ * say before the app was closed; it carries on from there), or not started.
+ */
+export function keptDownload(update: Update): Download {
   const file = apkFile(update)
-  return file.exists && file.size === update.size
+  if (!file.exists) return { status: 'idle' }
+  if (file.size === update.size) return { status: 'ready' }
+  if (file.size > update.size) {
+    file.delete()
+    return { status: 'idle' }
+  }
+  return { status: 'paused', written: file.size, total: update.size }
 }
 
+// a dropped connection is tried again by itself this many times, waiting longer
+const RETRY_AFTER_MS = [3_000, 10_000, 30_000]
+let task: DownloadTask | null = null
+let stopping: 'pause' | 'cancel' | null = null
+const wait = (ms: number) => new Promise((done) => setTimeout(done, ms))
+
 /**
- * Downloads the update in the app, reporting progress to the store. It keeps
- * going while the page is closed; once done, a notification offers the install
- * if the app is in the background.
+ * Downloads the update in the app, reporting progress to the store, carrying
+ * on from whatever part is already on the phone. It keeps going while the page
+ * is closed; once done, a notification offers the install if the app is in the
+ * background.
  */
 export async function startDownload(update: Update) {
   if (state.download.status === 'downloading') return
   const file = apkFile(update)
-  if (downloaded(update)) {
-    updateStore.set({ download: { status: 'ready' } })
-    return
-  }
-  updateStore.set({
-    download: { status: 'downloading', written: 0, total: update.size },
-  })
-  let shown = 0
-  try {
-    await File.downloadFileAsync(update.apk, file, {
-      idempotent: true,
-      onProgress: ({ bytesWritten, totalBytes }) => {
-        // a redraw per whole percent, not per network packet
-        const total = totalBytes > 0 ? totalBytes : update.size
-        const percent = Math.floor((bytesWritten / total) * 100)
-        if (percent === shown) return
-        shown = percent
-        updateStore.set({
-          download: { status: 'downloading', written: bytesWritten, total },
-        })
-      },
-    })
-    // a cut-off download must never reach the installer
-    if (file.size !== update.size) throw new Error('The download was cut off.')
-    updateStore.set({ download: { status: 'ready' } })
-    if (AppState.currentState !== 'active') {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: `Misri ${update.version} is ready to install`,
-          body: 'Tap to update. Your account and settings stay.',
-          data: { install: true },
-        },
-        trigger: null,
-      }).catch(() => {})
-    }
-  } catch (error) {
-    if (file.exists) file.delete()
+  const kept = keptDownload(update)
+  if (kept.status === 'ready') return updateStore.set({ download: kept })
+  stopping = null
+  for (let attempt = 0; ; attempt++) {
+    // Android resumes from the partial file's length (a Range request)
+    const from = file.exists ? file.size : 0
     updateStore.set({
+      download: { status: 'downloading', written: from, total: update.size },
+    })
+    let shown = Math.floor((from / update.size) * 100)
+    const onProgress = ({
+      bytesWritten,
+      totalBytes,
+    }: {
+      bytesWritten: number
+      totalBytes: number
+    }) => {
+      // a redraw per whole percent, not per network packet
+      const total = totalBytes > 0 ? totalBytes : update.size
+      const percent = Math.floor((bytesWritten / total) * 100)
+      if (percent === shown) return
+      shown = percent
+      updateStore.set({
+        download: { status: 'downloading', written: bytesWritten, total },
+      })
+    }
+    const current =
+      from > 0
+        ? DownloadTask.fromSavable(
+            {
+              url: update.apk,
+              fileUri: file.uri,
+              isDirectory: false,
+              resumeData: String(from),
+            },
+            { onProgress },
+          )
+        : File.createDownloadTask(update.apk, file, { onProgress })
+    task = current
+    try {
+      const done =
+        from > 0 ? await current.resumeAsync() : await current.downloadAsync()
+      // null: paused; the part downloaded stays for Resume
+      if (!done) return paused(update)
+      break
+    } catch {
+      if (stopping === 'cancel') return cancelled(update)
+      if (stopping === 'pause') return paused(update)
+      const delay = RETRY_AFTER_MS[attempt]
+      if (delay === undefined) {
+        return updateStore.set({
+          download: {
+            status: 'failed',
+            error:
+              'The download stopped. Check your connection; it carries on from where it got to.',
+            written: file.exists ? file.size : 0,
+            total: update.size,
+          },
+        })
+      }
+      await wait(delay)
+      // paused or cancelled while waiting to try again
+      if (stopping === 'cancel') return cancelled(update)
+      if (stopping === 'pause') return paused(update)
+    } finally {
+      if (task === current) task = null
+      current.release()
+    }
+  }
+  // a wrong-sized file must never reach the installer: start again next time
+  if (file.size !== update.size) {
+    if (file.exists) file.delete()
+    return updateStore.set({
       download: {
         status: 'failed',
-        error: (error as Error).message.includes('cut off')
-          ? 'The download was cut off. Check your connection and try again.'
-          : "The download didn't finish. Check your connection and try again.",
+        error: "The download didn't come through whole. Try again.",
+        written: 0,
+        total: update.size,
       },
     })
   }
+  updateStore.set({ download: { status: 'ready' } })
+  if (AppState.currentState !== 'active') {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Misri ${update.version} is ready to install`,
+        body: 'Tap to update. Your account and settings stay.',
+        data: { install: true },
+      },
+      trigger: null,
+    }).catch(() => {})
+  }
+}
+
+function paused(update: Update) {
+  const file = apkFile(update)
+  updateStore.set({
+    download: {
+      status: 'paused',
+      written: file.exists ? file.size : 0,
+      total: update.size,
+    },
+  })
+}
+
+function cancelled(update: Update) {
+  const file = apkFile(update)
+  if (file.exists) file.delete()
+  updateStore.set({ download: { status: 'idle' } })
+}
+
+/** Stops the download for now; Resume carries on from the same point. */
+export function pauseDownload() {
+  stopping = 'pause'
+  task?.pause()
+}
+
+/** Stops the download and throws away what came down. */
+export function cancelDownload() {
+  stopping = 'cancel'
+  const { update, download } = state
+  if (task) return task.cancel()
+  // paused, failed or waiting to try again: nothing running to stop
+  if (update && download.status !== 'downloading') cancelled(update)
 }
 
 /** Opens Android's "update this app?" screen for the downloaded APK. */

@@ -1,6 +1,6 @@
 import { Button, Card, CloseButton, useThemeColor } from 'heroui-native'
 import { useEffect, useSyncExternalStore } from 'react'
-import { AppState, Modal, ScrollView, Text, View } from 'react-native'
+import { Alert, AppState, Modal, ScrollView, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Circle } from 'react-native-svg'
 import { IconBadge, Kicker } from '@/competitions'
@@ -8,11 +8,13 @@ import { Icon } from '@/icon'
 import { formatDate } from '@/lib/format'
 import { play } from '@/lib/sound'
 import {
+  cancelDownload,
   checkForUpdate,
   clearOldDownloads,
   type Download,
-  downloaded,
   installUpdate,
+  keptDownload,
+  pauseDownload,
   putOff,
   startDownload,
   updateStore,
@@ -55,11 +57,14 @@ export function UpdatePrompt() {
           const opens = !(await wasPutOff(found.tag))
           if (!active) return
           if (opens) play('navigate')
+          const { download } = updateStore.get()
           updateStore.set({
             update: found,
             open: opens,
-            // downloaded before the app was closed: ready to install
-            ...(downloaded(found) ? { download: { status: 'ready' } } : {}),
+            // from before the app was closed: ready, or part-way to carry on
+            ...(download.status === 'downloading'
+              ? {}
+              : { download: keptDownload(found) }),
           })
         })
         .catch(() => {})
@@ -75,7 +80,7 @@ export function UpdatePrompt() {
   }, [])
 
   if (!update || !open) return null
-  const busy = download.status === 'downloading' || download.status === 'ready'
+  const busy = ['downloading', 'paused', 'ready'].includes(download.status)
   // while downloading, closing just minimises: the top bar shows the progress
   const later = () => {
     if (!busy) void putOff(update.tag)
@@ -158,25 +163,36 @@ function Actions({
 }) {
   const { update } = useUpdate()
   if (!update) return null
-  if (download.status === 'downloading') {
-    const share = download.total ? download.written / download.total : 0
+  if (download.status === 'downloading' || download.status === 'paused') {
+    const running = download.status === 'downloading'
     return (
       <>
-        <View className="gap-1.5">
-          <View className="h-2 overflow-hidden rounded-full bg-default">
-            <View
-              className="h-full rounded-full bg-accent"
-              style={{ width: `${Math.round(share * 100)}%` }}
-            />
-          </View>
-          <Text
-            className="font-normal text-center text-xs text-muted"
-            accessibilityLiveRegion="polite"
+        <Progress
+          written={download.written}
+          total={download.total}
+          label={running ? 'Downloading' : 'Paused'}
+        />
+        <View className="flex-row gap-2">
+          <Button
+            className="flex-1"
+            variant={running ? 'secondary' : 'primary'}
+            onPress={() =>
+              running ? pauseDownload() : void startDownload(update)
+            }
           >
-            {`Downloading · ${megabytes(download.written)} of ${megabytes(download.total)} · ${Math.round(share * 100)}%`}
-          </Text>
+            <Button.Label numberOfLines={1}>
+              {running ? 'Pause' : 'Resume'}
+            </Button.Label>
+          </Button>
+          <Button
+            className="flex-1"
+            variant="secondary"
+            onPress={confirmCancel}
+          >
+            <Button.Label numberOfLines={1}>Cancel</Button.Label>
+          </Button>
         </View>
-        <Button variant="secondary" onPress={later}>
+        <Button variant="ghost" onPress={later}>
           Keep using Misri
         </Button>
       </>
@@ -194,6 +210,8 @@ function Actions({
       </>
     )
   }
+  // stopped part-way: carries on from where it got to
+  const partWay = download.status === 'failed' && download.written > 0
   return (
     <>
       {download.status === 'failed' && (
@@ -201,15 +219,74 @@ function Actions({
           {download.error}
         </Text>
       )}
+      {partWay && (
+        <Progress
+          written={download.written}
+          total={download.total}
+          label="Stopped"
+        />
+      )}
       <Button size="lg" onPress={() => void startDownload(update)}>
-        {download.status === 'failed'
-          ? 'Try again'
-          : `Update now · ${megabytes(size)}`}
+        {partWay
+          ? 'Resume download'
+          : download.status === 'failed'
+            ? 'Try again'
+            : `Update now · ${megabytes(size)}`}
       </Button>
-      <Button variant="ghost" onPress={later}>
-        Update later
-      </Button>
+      {partWay ? (
+        <Button variant="ghost" onPress={confirmCancel}>
+          Cancel download
+        </Button>
+      ) : (
+        <Button variant="ghost" onPress={later}>
+          Update later
+        </Button>
+      )}
     </>
+  )
+}
+
+/** Asks first: cancelling throws away what has come down so far. */
+function confirmCancel() {
+  Alert.alert(
+    'Cancel the download?',
+    'What has downloaded so far is deleted. You can start again any time.',
+    [
+      { text: 'Keep downloading', style: 'cancel' },
+      {
+        text: 'Cancel download',
+        style: 'destructive',
+        onPress: cancelDownload,
+      },
+    ],
+  )
+}
+
+function Progress({
+  written,
+  total,
+  label,
+}: {
+  written: number
+  total: number
+  label: string
+}) {
+  const percent = Math.round((total ? written / total : 0) * 100)
+  return (
+    <View className="gap-1.5">
+      <View className="h-2 overflow-hidden rounded-full bg-default">
+        <View
+          className={`h-full rounded-full ${label === 'Downloading' ? 'bg-accent' : 'bg-muted'}`}
+          style={{ width: `${percent}%` }}
+        />
+      </View>
+      <Text
+        className="font-normal text-center text-xs text-muted"
+        accessibilityLiveRegion="polite"
+      >
+        {`${label} · ${megabytes(written)} of ${megabytes(total)} · ${percent}%`}
+      </Text>
+    </View>
   )
 }
 
@@ -223,15 +300,16 @@ export function UpdateButton() {
   const { update, download } = useUpdate()
   const [accent, track] = useThemeColor(['accent', 'border'])
   if (!update) return null
-  if (download.status === 'downloading') {
+  if (download.status === 'downloading' || download.status === 'paused') {
     const share = download.total ? download.written / download.total : 0
     const around = 2 * Math.PI * 13
+    const running = download.status === 'downloading'
     return (
       <Button
         size="sm"
         variant="ghost"
         isIconOnly
-        accessibilityLabel={`Downloading the update, ${Math.round(share * 100)}%`}
+        accessibilityLabel={`${running ? 'Downloading' : 'Paused'}: the update, ${Math.round(share * 100)}%`}
         onPress={() => updateStore.set({ open: true })}
       >
         <View className="items-center justify-center">
@@ -257,7 +335,11 @@ export function UpdateButton() {
             />
           </Svg>
           <View className="absolute">
-            <Icon name="Download" size={14} color={accent} />
+            <Icon
+              name={running ? 'Download' : 'Pause'}
+              size={14}
+              color={accent}
+            />
           </View>
         </View>
       </Button>
