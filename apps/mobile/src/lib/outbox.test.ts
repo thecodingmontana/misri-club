@@ -12,7 +12,9 @@ const STUBS: Record<string, string> = {
     export const getItemAsync = async (k) => s.get(k) ?? null
     export const setItemAsync = async (k, v) => { s.set(k, v) }
     export const deleteItemAsync = async (k) => { s.delete(k) }`),
-  'expo-notifications': stub('export const scheduleNotificationAsync = async () => {}'),
+  'expo-notifications': stub(
+    'export const scheduleNotificationAsync = async () => {}',
+  ),
   'react-native': stub(`export const Platform = { OS: 'android' }`),
   '@misri/api-client': stub(`export class ApiError extends Error {
     constructor(m, refused = false) { super(m); this.refused = refused } }`),

@@ -13,6 +13,7 @@ import {
   cancelDownload,
   type Download,
   installUpdate,
+  megabytes,
   pauseDownload,
   putOff,
   refreshUpdate,
@@ -34,8 +35,6 @@ const onWifi = () =>
   Network.getNetworkStateAsync()
     .then((n) => n.type === Network.NetworkStateType.WIFI)
     .catch(() => false)
-
-const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
 
 /**
  * Offers a newer app as soon as one is released: checked when the app opens

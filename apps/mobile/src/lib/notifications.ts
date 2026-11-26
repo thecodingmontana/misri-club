@@ -96,8 +96,12 @@ export function openTappedNotifications() {
     const route = typeof url === 'string' ? appRoute(url) : null
     router.push((route ?? '/inbox') as never)
   }
+  // the tap that opened the app, once: not again when this runs after a sign-in
   const last = Notifications.getLastNotificationResponse()
-  if (last) open(last)
+  if (last) {
+    Notifications.clearLastNotificationResponse()
+    open(last)
+  }
   const sub = Notifications.addNotificationResponseReceivedListener(open)
   return () => sub.remove()
 }
