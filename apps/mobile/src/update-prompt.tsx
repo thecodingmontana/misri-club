@@ -7,6 +7,7 @@ import { IconBadge, Kicker } from '@/competitions'
 import { Icon } from '@/icon'
 import { formatDate } from '@/lib/format'
 import { play } from '@/lib/sound'
+import { speedLabel, timeLeft } from '@/lib/time-left'
 import {
   cancelDownload,
   type Download,
@@ -160,6 +161,7 @@ function Actions({
           written={download.written}
           total={download.total}
           label={running ? 'Downloading' : 'Paused'}
+          speed={running ? download.speed : 0}
         />
         <View className="flex-row gap-2">
           <Button
@@ -255,12 +257,16 @@ function Progress({
   written,
   total,
   label,
+  speed = 0,
 }: {
   written: number
   total: number
   label: string
+  /** bytes a second while downloading; 0 hides the estimate */
+  speed?: number
 }) {
   const percent = Math.round((total ? written / total : 0) * 100)
+  const left = timeLeft(total - written, speed)
   return (
     <View className="gap-1.5">
       <View className="h-2 overflow-hidden rounded-full bg-default">
@@ -275,6 +281,13 @@ function Progress({
       >
         {`${label} · ${megabytes(written)} of ${megabytes(total)} · ${percent}%`}
       </Text>
+      {label === 'Downloading' && (
+        <Text className="font-normal text-center text-xs text-muted">
+          {left
+            ? `${speedLabel(speed)} · ${left}`
+            : 'Working out the time left…'}
+        </Text>
+      )}
     </View>
   )
 }

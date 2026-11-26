@@ -46,7 +46,13 @@ export async function wasPutOff(tag: string) {
 // top bar's Update button, so an update stays one tap away until installed.
 export type Download =
   | { status: 'idle' }
-  | { status: 'downloading'; written: number; total: number }
+  | {
+      status: 'downloading'
+      written: number
+      total: number
+      /** bytes a second over this stretch; 0 until there's enough to tell */
+      speed: number
+    }
   | { status: 'paused'; written: number; total: number }
   | { status: 'ready' }
   | { status: 'failed'; error: string; written: number; total: number }
@@ -139,6 +145,22 @@ let task: DownloadTask | null = null
 let stopping: 'pause' | 'cancel' | null = null
 const wait = (ms: number) => new Promise((done) => setTimeout(done, ms))
 
+// Android may cut the connection while Misri is in the background (another
+// app opened): that's not a failure, the download carries on on return.
+let awaySince = 0
+AppState.addEventListener('change', (next) => {
+  if (next !== 'active' && !awaySince) awaySince = Date.now()
+})
+const whenActive = () =>
+  new Promise<void>((done) => {
+    if (AppState.currentState === 'active') return done()
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') return
+      sub.remove()
+      done()
+    })
+  })
+
 /**
  * Downloads the update in the app, reporting progress to the store, carrying
  * on from whatever part is already on the phone. It keeps going while the page
@@ -158,7 +180,14 @@ export async function startDownload(update: Update) {
     if (superseded()) return
     // Android resumes from the partial file's length (a Range request)
     const from = file.exists ? file.size : 0
-    setFor(update, { status: 'downloading', written: from, total: update.size })
+    const startedAt = Date.now()
+    awaySince = AppState.currentState === 'active' ? 0 : startedAt
+    setFor(update, {
+      status: 'downloading',
+      written: from,
+      total: update.size,
+      speed: 0,
+    })
     let shown = Math.floor((from / update.size) * 100)
     const onProgress = ({
       bytesWritten,
@@ -172,7 +201,15 @@ export async function startDownload(update: Update) {
       const percent = Math.floor((bytesWritten / total) * 100)
       if (percent === shown) return
       shown = percent
-      setFor(update, { status: 'downloading', written: bytesWritten, total })
+      // this stretch's average: steady enough for an estimate, after a moment
+      const seconds = (Date.now() - startedAt) / 1000
+      const speed = seconds >= 2 ? (bytesWritten - from) / seconds : 0
+      setFor(update, {
+        status: 'downloading',
+        written: bytesWritten,
+        total,
+        speed,
+      })
     }
     const current =
       from > 0
@@ -197,6 +234,15 @@ export async function startDownload(update: Update) {
       if (superseded()) return
       if (stopping === 'cancel') return cancelled(update)
       if (stopping === 'pause') return paused(update)
+      // cut off while in another app: carry on once back, not a failed try
+      if (awaySince) {
+        await whenActive()
+        if (superseded()) return
+        if (stopping === 'cancel') return cancelled(update)
+        if (stopping === 'pause') return paused(update)
+        attempt = -1
+        continue
+      }
       const delay = RETRY_AFTER_MS[attempt]
       if (delay === undefined) {
         return setFor(update, {
