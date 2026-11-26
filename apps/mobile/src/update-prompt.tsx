@@ -1,3 +1,4 @@
+import * as Network from 'expo-network'
 import { Button, Card, CloseButton, useThemeColor } from 'heroui-native'
 import { useEffect, useSyncExternalStore } from 'react'
 import { Alert, AppState, Modal, ScrollView, Text, View } from 'react-native'
@@ -29,6 +30,11 @@ const SECTIONS = [
   { kind: 'fix', title: 'Bug fixes', icon: 'Bug' },
 ] as const
 
+const onWifi = () =>
+  Network.getNetworkStateAsync()
+    .then((n) => n.type === Network.NetworkStateType.WIFI)
+    .catch(() => false)
+
 const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
 
 /**
@@ -45,7 +51,15 @@ export function UpdatePrompt() {
     const check = () => {
       refreshUpdate(EVERY)
         .then(async (found) => {
-          if (!active || !found || updateStore.get().open) return
+          if (!active || !found) return
+          // on Wi-Fi it downloads by itself; on mobile data it waits to be asked
+          if (
+            updateStore.get().download.status === 'idle' &&
+            (await onWifi())
+          ) {
+            void startDownload(found)
+          }
+          if (!active || updateStore.get().open) return
           // the page opens by itself once per version; the top bar keeps it after
           if (await wasPutOff(found.tag)) return
           if (!active) return
