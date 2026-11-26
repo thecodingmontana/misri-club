@@ -9,21 +9,19 @@ import { formatDate } from '@/lib/format'
 import { play } from '@/lib/sound'
 import {
   cancelDownload,
-  checkForUpdate,
-  clearOldDownloads,
   type Download,
   installUpdate,
-  keptDownload,
   pauseDownload,
   putOff,
+  refreshUpdate,
   startDownload,
   updateStore,
   wasPutOff,
 } from '@/lib/update'
 
-const EVERY = 6 * 60 * 60 * 1000
-// survives the page remounting on sign-in or navigation
-let lastCheck = 0
+// opening the app or coming back to it checks at most this often; opening
+// the update page always looks again (refreshUpdate's own minute aside)
+const EVERY = 30 * 60 * 1000
 
 const SECTIONS = [
   { kind: 'new', title: "What's new", icon: 'Stars' },
@@ -44,28 +42,14 @@ export function UpdatePrompt() {
   useEffect(() => {
     let active = true
     const check = () => {
-      if (Date.now() - lastCheck < EVERY) return
-      lastCheck = Date.now()
-      checkForUpdate()
+      refreshUpdate(EVERY)
         .then(async (found) => {
-          if (!active) return
-          if (!found) {
-            clearOldDownloads()
-            return updateStore.set({ update: null, open: false })
-          }
+          if (!active || !found || updateStore.get().open) return
           // the page opens by itself once per version; the top bar keeps it after
-          const opens = !(await wasPutOff(found.tag))
+          if (await wasPutOff(found.tag)) return
           if (!active) return
-          if (opens) play('navigate')
-          const { download } = updateStore.get()
-          updateStore.set({
-            update: found,
-            open: opens,
-            // from before the app was closed: ready, or part-way to carry on
-            ...(download.status === 'downloading'
-              ? {}
-              : { download: keptDownload(found) }),
-          })
+          play('navigate')
+          updateStore.set({ open: true })
         })
         .catch(() => {})
     }
@@ -78,6 +62,11 @@ export function UpdatePrompt() {
       sub.remove()
     }
   }, [])
+
+  // opened (top bar, notification): the newest release, not the last one seen
+  useEffect(() => {
+    if (open) void refreshUpdate().catch(() => {})
+  }, [open])
 
   if (!update || !open) return null
   const busy = ['downloading', 'paused', 'ready'].includes(download.status)
