@@ -13,6 +13,7 @@ import type {
   getCompetition,
   getInvite,
 } from '@misri/core/competition-view'
+import { TRY_LATER } from '@misri/core/errors'
 import type { getPlayer } from '@misri/core/player'
 
 /**
@@ -79,12 +80,14 @@ export function createApiClient(options: ApiClientOptions) {
     })
     const body = (await res.json().catch(() => null)) as {
       data?: T
-      errors?: Array<{ message: string }>
+      errors?: Array<{ message: string; extensions?: { code?: string } }>
       error?: string
     } | null
     if (body?.errors?.length) {
-      const { message } = body.errors[0]
-      throw new ApiError(message, res.ok && message !== MASKED)
+      const { message, extensions } = body.errors[0]
+      // a limit for now ("Too many tries") is not a refusal for good
+      const later = extensions?.code === TRY_LATER
+      throw new ApiError(message, res.ok && message !== MASKED && !later)
     }
     if (!res.ok || !body?.data) {
       throw new ApiError(body?.error ?? `The API answered ${res.status}.`)

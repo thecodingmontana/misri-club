@@ -1,5 +1,5 @@
 import { ApiError } from '@misri/api-client'
-import { UserError } from '@misri/core/errors'
+import { TryLater, UserError } from '@misri/core/errors'
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 import { QUEUEABLE } from '#/lib/sync/queueable'
@@ -21,6 +21,8 @@ export const runQueuedActionFn = createServerFn({ method: 'POST' })
       await perform(data.name, context.viewer, data.input as never)
       return { refused: null }
     } catch (error) {
+      // a limit for now: the device keeps it and tries again later
+      if (error instanceof TryLater) throw error
       if (
         error instanceof UserError ||
         (error instanceof ApiError && error.refused)

@@ -130,16 +130,10 @@ async function callBackendApi(
       })
       return { status: 'success' }
     } catch (error) {
-      // can't reach the server: try again later. Anything else is the server
-      // refusing it; this device keeps its own copy, so it's safe to drop.
-      if (error instanceof TypeError || !navigator.onLine) {
-        return { status: 'retryable_error', message: String(error) }
-      }
-      return {
-        status: 'fatal_error',
-        errorCode: 'analysis_refused',
-        message: String(error),
-      }
+      // offline, signed out for now or a server error: try again. Dropping it
+      // would lose the analysis, since sync then replaces the device's copy;
+      // the day-long give-up below keeps one bad entry from blocking the rest.
+      return { status: 'retryable_error', message: String(error) }
     }
   }
   return {

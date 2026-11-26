@@ -20,7 +20,7 @@ import {
   startCompetition,
   updateCompetitionSettings,
 } from './competitions.ts'
-import { UserError } from './errors.ts'
+import { TryLater, UserError } from './errors.ts'
 import { FCM_PREFIX } from './fcm.ts'
 import {
   answerRequest,
@@ -89,7 +89,7 @@ const code = z
 
 async function allow(kind: string, userId: string, max = 10, windowMs = HOUR) {
   if (!(await takeAllowance(`${kind}:${userId}`, 1, max, windowMs))) {
-    throw new UserError('Too many tries. Wait an hour and try again.')
+    throw new TryLater('Too many tries. Wait an hour and try again.')
   }
 }
 
