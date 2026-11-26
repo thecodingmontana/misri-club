@@ -100,7 +100,8 @@ export function legPoints(m: MatchView, playerId: string): number | null {
 }
 
 /** Points with halves as "1½", for aggregate scores. */
-export const halves = (n: number) => (n % 1 ? `${Math.floor(n) || ''}½` : String(n))
+export const halves = (n: number) =>
+  n % 1 ? `${Math.floor(n) || ''}½` : String(n)
 
 /**
  * A tie's state: one game (its winner), or home & away (the aggregate, with
