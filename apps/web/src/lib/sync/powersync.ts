@@ -286,8 +286,7 @@ export async function stopSync() {
   if (typeof window === 'undefined' || !ENDPOINT) return
   // no open copy (a new page, or an earlier wipe that failed): the file on
   // disk may still hold the last account's rows, so it's opened to be wiped
-  const closing =
-db ?? openDatabase()
+  const closing = db ?? openDatabase()
   db = null
   await closing.disconnectAndClear()
   await closing.close()
