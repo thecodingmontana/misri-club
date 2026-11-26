@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { Kicker } from '@/competitions'
 import { Screen } from '@/components'
+import { SelectField } from '@/form'
 
 const TAGS = [...new Set(MASTER_GAMES.flatMap((game) => game.tags))] as Tag[]
 
@@ -28,25 +29,18 @@ export default function MasterGames() {
             Replay famous games, learn the key moves, guess them yourself.
           </Text>
         </View>
-        <View className="flex-row flex-wrap gap-2">
-          <Chip
-            variant={tag === null ? 'soft' : 'tertiary'}
-            color={tag === null ? 'accent' : 'default'}
-            onPress={() => setTag(null)}
-          >
-            All
-          </Chip>
-          {TAGS.map((value) => (
-            <Chip
-              key={value}
-              variant={tag === value ? 'soft' : 'tertiary'}
-              color={tag === value ? 'accent' : 'default'}
-              onPress={() => setTag(value)}
-            >
-              {value[0].toUpperCase() + value.slice(1)}
-            </Chip>
-          ))}
-        </View>
+        <SelectField
+          label="Theme"
+          value={tag ?? 'all'}
+          options={[
+            { value: 'all', label: 'All themes' },
+            ...TAGS.map((value) => ({
+              value,
+              label: value[0].toUpperCase() + value.slice(1),
+            })),
+          ]}
+          onChange={(value) => setTag(value === 'all' ? null : (value as Tag))}
+        />
         {shown.map((game) => (
           <Card key={game.slug} className="p-0">
             <PressableFeedback

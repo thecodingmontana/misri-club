@@ -76,6 +76,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [refresh])
 
   const signOut = useCallback(async () => {
+    // a session check still on its way must not bring the old account back
+    latestRun.current++
     await authClient.signOut().catch(() => {})
     // pages kept for offline belong to this account only
     clearCached()

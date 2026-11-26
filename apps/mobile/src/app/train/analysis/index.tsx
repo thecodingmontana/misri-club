@@ -7,12 +7,13 @@ import {
 } from '@misri/core/analysis'
 import { GAME_COUNTS, type MyGame } from '@misri/core/my-games'
 import { router, Stack } from 'expo-router'
-import { Button, Card, Chip, PressableFeedback } from 'heroui-native'
+import { Button, Card, PressableFeedback } from 'heroui-native'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { Kicker } from '@/competitions'
 import { Problem, Screen } from '@/components'
 import { useEngine } from '@/engine-host'
+import { SelectField } from '@/form'
 import { Icon } from '@/icon'
 import { relativeTime } from '@/lib/format'
 import { useSession } from '@/lib/session'
@@ -46,18 +47,15 @@ export default function Analysis() {
               : 'Your latest games on chess.com.'}
           </Text>
         </View>
-        <View className="flex-row justify-center gap-2">
-          {GAME_COUNTS.map((option) => (
-            <Chip
-              key={option}
-              variant={count === option ? 'soft' : 'tertiary'}
-              color={count === option ? 'accent' : 'default'}
-              onPress={() => setCount(option)}
-            >
-              {`${option} games`}
-            </Chip>
-          ))}
-        </View>
+        <SelectField
+          label="How many games"
+          value={String(count)}
+          options={GAME_COUNTS.map((option) => ({
+            value: String(option),
+            label: `Your last ${option} games`,
+          }))}
+          onChange={(value) => setCount(Number(value))}
+        />
         {error && !data ? (
           <Problem message={error} onRetry={reload} />
         ) : !data ? (

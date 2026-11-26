@@ -83,6 +83,9 @@ function tieWinner(legs: ProgressMatch[]): string | null | 'decider' {
   return legs.some((l) => (l.leg ?? 1) >= 3) ? null : 'decider'
 }
 
+/** Who a deleted account's games are kept under (a real user row, see migration 0029). */
+export const FORMER_PLAYER_ID = 'former-player'
+
 /**
  * The latest round decides: all ties settled → next round, or the champion.
  * `gone` are players who left: a tie they already won sends their opponent
@@ -93,6 +96,8 @@ export function knockoutStep(
   gone: Set<string> = new Set(),
 ): KnockoutStep {
   if (matches.length === 0) return { kind: 'waiting' }
+  // a deleted account has left too, even after its leaver record went with it
+  const left = (id: string) => gone.has(id) || id === FORMER_PLAYER_ID
   const latest = Math.max(...matches.map((m) => m.round))
   // ties in bracket order (neighbours meet next), each with its legs in order
   const byPosition = new Map<number, ProgressMatch[]>()
@@ -118,10 +123,10 @@ export function knockoutStep(
   if (winners.some((w) => !w)) return { kind: 'waiting' }
   const through = ties.map(([first], i) => {
     const winner = winners[i] as string
-    if (!gone.has(winner)) return winner
+    if (!left(winner)) return winner
     const other =
       winner === first.homeUserId ? first.awayUserId : first.homeUserId
-    return other && !gone.has(other) ? other : null
+    return other && !left(other) ? other : null
   })
   if (ties.length === 1) {
     return through[0]

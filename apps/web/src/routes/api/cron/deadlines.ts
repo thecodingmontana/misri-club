@@ -15,7 +15,7 @@ import {
   remindStarts,
   sendWeeklySummaries,
 } from '#/server/notifications.server'
-import { syncResults } from '#/server/results.server'
+import { advance, syncResults } from '#/server/results.server'
 
 const SYNC_BATCH = 5
 
@@ -43,23 +43,24 @@ export const Route = createFileRoute('/api/cron/deadlines')({
         })
         // results first, so a game already played gets no reminder
         const running = await db
-          .select({ id: competitions.id })
+          .select({ id: competitions.id, source: competitions.resultSource })
           .from(competitions)
           .where(eq(competitions.status, 'running'))
         // a few at a time: chess.com calls queue anyway, the database stays calm
         for (let i = 0; i < running.length; i += SYNC_BATCH) {
           await Promise.all(
-            running
-              .slice(i, i + SYNC_BATCH)
-              .map(({ id }) =>
-                syncResults(id).catch((error) =>
+            running.slice(i, i + SYNC_BATCH).map(({ id, source }) =>
+              // players' own reports: no chess.com to read, but a passed
+              // deadline still settles games and moves the competition on
+              (source === 'chesscom' ? syncResults(id) : advance(id)).catch(
+                (error) =>
                   console.error(
                     '[cron] sync failed',
                     id,
                     (error as Error).message,
                   ),
-                ),
               ),
+            ),
           )
         }
         const reminded = await remindDeadlines().catch((error) => {

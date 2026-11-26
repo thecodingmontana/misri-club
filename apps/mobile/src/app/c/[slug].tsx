@@ -81,7 +81,12 @@ export default function Competition() {
       <Stack.Screen options={{ title: '' }} />
       <RefreshScroll
         contentContainerClassName="gap-5 p-4 pb-10"
-        onRefresh={reload}
+        onRefresh={() =>
+          // new chess.com results first, as the website does on its own
+          (api?.act('syncMine', {}) ?? Promise.resolve())
+            .catch(() => {})
+            .then(reload)
+        }
       >
         <SavedNote savedAt={savedAt} error={error} />
         <View className="items-center gap-1">

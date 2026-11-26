@@ -27,7 +27,8 @@ export function useLoad<T>(load: () => Promise<T>, key: string, keep?: string) {
   const name = keep && me ? `${me.id}.${keep}` : null
 
   const reload = useCallback(async () => {
-    const mine = run.current
+    // each load its own number: a pull to refresh during the first load wins
+    const mine = ++run.current
     const since = cacheGeneration()
     setLoading(true)
     try {
@@ -55,7 +56,6 @@ export function useLoad<T>(load: () => Promise<T>, key: string, keep?: string) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: key decides when to reload
   useEffect(() => {
     let live = true
-    run.current++
     fresh.current = false
     // the kept copy first, so the page shows while the fresh one comes
     if (name)

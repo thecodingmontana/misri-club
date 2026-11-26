@@ -23,11 +23,35 @@ function account(): Account | null {
 
 export const fcmReady = () => account() !== null
 
-let cached: { token: string; until: number } | null = null
+let cached: { token: Promise<string>; until: number } | null = null
 
-/** A Google OAuth token for FCM, from a JWT signed with the service account. */
-async function accessToken(sa: Account) {
+/**
+ * A Google OAuth token for FCM. The request itself is kept, so a burst of
+ * pushes (a weekly summary on a cold start) shares one, not one each.
+ */
+function accessToken(sa: Account) {
   if (cached && cached.until > Date.now()) return cached.token
+  const asked = requestToken(sa)
+  const entry = {
+    token: asked.then((t) => t.token),
+    // until Google says how long it lasts
+    until: Number.POSITIVE_INFINITY,
+  }
+  cached = entry
+  asked.then(
+    (t) => {
+      entry.until = Date.now() + (t.expiresIn - 120) * 1000
+    },
+    // a failed request isn't kept: the next push asks again
+    () => {
+      if (cached === entry) cached = null
+    },
+  )
+  return entry.token
+}
+
+/** A JWT signed with the service account, exchanged for a token. */
+async function requestToken(sa: Account) {
   const now = Math.floor(Date.now() / 1000)
   const part = (value: object) =>
     Buffer.from(JSON.stringify(value)).toString('base64url')
@@ -54,11 +78,7 @@ async function accessToken(sa: Account) {
     access_token: string
     expires_in: number
   }
-  cached = {
-    token: body.access_token,
-    until: Date.now() + (body.expires_in - 120) * 1000,
-  }
-  return cached.token
+  return { token: body.access_token, expiresIn: body.expires_in }
 }
 
 export type FcmMessage = {

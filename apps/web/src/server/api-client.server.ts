@@ -6,6 +6,7 @@ import {
   type ActionResult,
   runAction,
 } from '@misri/core/actions'
+import { clientIp } from '@misri/core/rate-limit'
 import { getRequestHeaders } from '@tanstack/react-start/server'
 import { getSessionCookie } from 'better-auth/cookies'
 
@@ -25,10 +26,7 @@ export function apiClient(): ApiClient | null {
     headers: process.env.INTERNAL_API_SECRET
       ? {
           'x-misri-internal': process.env.INTERNAL_API_SECRET,
-          'x-misri-client-ip':
-            headers.get('x-real-ip') ??
-            headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-            'unknown',
+          'x-misri-client-ip': clientIp(headers),
         }
       : {},
   })

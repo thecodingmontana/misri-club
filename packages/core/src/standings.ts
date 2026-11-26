@@ -35,24 +35,6 @@ export interface Tally {
   walkoverWins: number
 }
 
-/**
- * A game counts for a match when it is between the same two players (either
- * colour) and finished inside the match's window, both ends included.
- */
-export function fitsMatch(
-  game: { whiteUserId: string; blackUserId: string; endedAt: Date },
-  match: Pick<Match, 'homeUserId' | 'awayUserId' | 'opensAt' | 'dueAt'>,
-): boolean {
-  return (
-    game.endedAt >= match.opensAt &&
-    game.endedAt <= match.dueAt &&
-    ((match.homeUserId === game.whiteUserId &&
-      match.awayUserId === game.blackUserId) ||
-      (match.homeUserId === game.blackUserId &&
-        match.awayUserId === game.whiteUserId))
-  )
-}
-
 const COUNTER = {
   win: 'wins',
   draw: 'draws',

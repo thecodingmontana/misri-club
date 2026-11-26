@@ -17,7 +17,7 @@ import {
   listMyCompetitions,
   listOpenCompetitions,
 } from '@misri/core/competition-view'
-import { UserError } from '@misri/core/errors'
+import { TRY_LATER, TryLater, UserError } from '@misri/core/errors'
 import { getPlayer } from '@misri/core/player'
 import { db } from '@misri/db/client'
 import { chessAccounts, user } from '@misri/db/schema'
@@ -98,6 +98,10 @@ async function passMessages<T>(run: () => Promise<T>): Promise<T> {
   try {
     return await run()
   } catch (error) {
+    // the device's offline queue keeps a "try later" for another go
+    if (error instanceof TryLater) {
+      throw new GraphQLError(error.message, { extensions: { code: TRY_LATER } })
+    }
     if (error instanceof UserError) throw new GraphQLError(error.message)
     throw error
   }
@@ -125,16 +129,9 @@ export const schema = createSchema<Context>({
     Mutation: Object.fromEntries(
       mutations.map((name) => [
         name,
-        async (_: unknown, args: { input?: unknown }, context: Context) => {
+        (_: unknown, args: { input?: unknown }, context: Context) => {
           const viewer = signedIn(context)
-          try {
-            return await runAction(name, viewer, args.input)
-          } catch (error) {
-            // a message for the player passes; anything else stays masked
-            if (error instanceof UserError)
-              throw new GraphQLError(error.message)
-            throw error
-          }
+          return passMessages(() => runAction(name, viewer, args.input))
         },
       ]),
     ),

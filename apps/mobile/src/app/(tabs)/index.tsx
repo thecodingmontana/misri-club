@@ -49,7 +49,15 @@ export default function Home() {
 
   return (
     <Screen>
-      <RefreshScroll contentContainerClassName="gap-5 p-4" onRefresh={reload}>
+      <RefreshScroll
+        contentContainerClassName="gap-5 p-4"
+        onRefresh={() =>
+          // new chess.com results first, as the website does on its own
+          (api?.act('syncMine', {}) ?? Promise.resolve())
+            .catch(() => {})
+            .then(reload)
+        }
+      >
         <SavedNote savedAt={savedAt} error={error} />
         {me && !me.chessUsername && (
           <Card className="p-0">

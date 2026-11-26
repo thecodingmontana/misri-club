@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
+  FORMER_PLAYER_ID,
   knockoutStep,
   leagueComplete,
   type ProgressMatch,
@@ -137,6 +138,39 @@ test('knockout: a bye holder who left hands their neighbour a bye', () => {
       awayId: null,
       byeId: 'd',
     })
+  }
+})
+
+test('knockout: a deleted account counts as gone, with no leaver record left', () => {
+  // its rows say former-player; the leaver record went with the account
+  const bye = knockoutStep([
+    m({
+      position: 0,
+      homeUserId: null,
+      awayUserId: null,
+      byeUserId: FORMER_PLAYER_ID,
+    }),
+    m({ position: 1, homeUserId: 'c', awayUserId: 'd', winnerUserId: 'd' }),
+  ])
+  assert.deepEqual(bye, {
+    kind: 'next',
+    matches: [{ round: 2, homeId: null, awayId: null, byeId: 'd' }],
+  })
+  const won = knockoutStep([
+    m({
+      position: 0,
+      homeUserId: FORMER_PLAYER_ID,
+      awayUserId: 'b',
+      winnerUserId: FORMER_PLAYER_ID,
+    }),
+    m({ position: 1, homeUserId: 'c', awayUserId: 'd', winnerUserId: 'd' }),
+  ])
+  assert.equal(won.kind, 'next')
+  if (won.kind === 'next') {
+    assert.deepEqual(
+      won.matches.map((x) => [x.homeId, x.awayId]),
+      [['b', 'd']],
+    )
   }
 })
 

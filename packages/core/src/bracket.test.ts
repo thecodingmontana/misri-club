@@ -4,10 +4,31 @@ import {
   type BracketMatch,
   generateKnockoutRound1,
   knockoutLegs,
-  nextRound,
 } from './bracket.ts'
+import { knockoutStep } from './competition-progress.ts'
 
 const players = (n: number) => Array.from({ length: n }, (_, i) => `p${i + 1}`)
+
+/** The next round as the app makes it, with every home player winning. */
+function homeWins(round: Array<BracketMatch>): Array<BracketMatch> {
+  const step = knockoutStep(
+    round.map((m, position) => ({
+      round: m.round,
+      position,
+      homeUserId: m.homeId,
+      awayUserId: m.awayId,
+      byeUserId: m.byeId,
+      result: null,
+      winnerUserId: m.homeId,
+      voided: false,
+      dueAt: new Date(0),
+    })),
+  )
+  if (step.kind === 'next') return step.matches
+  // nothing after the final, and only because it crowned someone
+  assert.equal(step.kind, 'champion')
+  return []
+}
 
 function assertNobodyTwice(round: Array<BracketMatch>, label: string) {
   const seen = new Set<string>()
@@ -43,7 +64,7 @@ test('brackets for 2 to 17 players halve each round down to a final', () => {
     let roundNumber = 1
     while (round.length > 1) {
       // The home player always wins, so the test is deterministic.
-      const next = nextRound(round.map((m) => ({ ...m, winnerId: m.homeId })))
+      const next = homeWins(round)
       roundNumber++
       assert.equal(next.length, round.length / 2, `n=${n}: field halves`)
       assertNobodyTwice(next, `n=${n} round ${roundNumber}`)
@@ -53,10 +74,7 @@ test('brackets for 2 to 17 players halve each round down to a final', () => {
       }
       round = next
     }
-    assert.equal(
-      nextRound(round.map((m) => ({ ...m, winnerId: m.homeId }))).length,
-      0,
-    )
+    assert.equal(homeWins(round).length, 0, `n=${n}: the final crowns`)
   }
 })
 
@@ -68,18 +86,8 @@ test('the top two seeds can only meet in the final', () => {
     awayId: 'p8',
     byeId: null,
   })
-  const final = nextRound(
-    nextRound(round1.map((m) => ({ ...m, winnerId: m.homeId }))).map((m) => ({
-      ...m,
-      winnerId: m.homeId,
-    })),
-  )
+  const final = homeWins(homeWins(round1))
   assert.deepEqual([final[0].homeId, final[0].awayId], ['p1', 'p2'])
-})
-
-test('a round without every winner cannot advance', () => {
-  const round1 = generateKnockoutRound1(players(4))
-  assert.throws(() => nextRound(round1.map((m) => ({ ...m, winnerId: null }))))
 })
 
 test('home & away ties get a swapped second leg; byes stay one row', () => {

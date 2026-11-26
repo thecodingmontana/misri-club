@@ -1,3 +1,5 @@
+import type { Score } from '@misri/core/analysis'
+import { mistakePuzzles } from '@misri/core/lesson'
 import {
   DIFFICULTIES,
   type Difficulty,
@@ -11,9 +13,14 @@ import {
   type Theme,
 } from '@misri/core/puzzle'
 import { Chess } from 'chess.js'
-import { Stack, useLocalSearchParams } from 'expo-router'
-import { Button, Skeleton, useThemeColor } from 'heroui-native'
-import { useEffect, useRef, useState } from 'react'
+import {
+  router,
+  Stack,
+  useFocusEffect,
+  useLocalSearchParams,
+} from 'expo-router'
+import { Button, Card, Skeleton, useThemeColor } from 'heroui-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { Board } from '@/board'
 import { Kicker } from '@/competitions'
@@ -21,6 +28,7 @@ import { Problem, Screen } from '@/components'
 import { SelectField } from '@/form'
 import { Icon } from '@/icon'
 import { recordPuzzle } from '@/lib/progress'
+import { useSession } from '@/lib/session'
 import { play } from '@/lib/sound'
 import { useLoad } from '@/lib/use-load'
 
@@ -44,6 +52,7 @@ export default function Puzzles() {
       : undefined,
   )
   const [difficulty, setDifficulty] = useState<Difficulty>('normal')
+  const [source, setSource] = useState<'lichess' | 'mine'>('lichess')
   const [round, setRound] = useState(0)
   const [solved, setSolved] = useState(0)
   const { data, error, loading, reload } = useLoad(async () => {
@@ -65,49 +74,68 @@ export default function Puzzles() {
             Puzzles
           </Text>
           <Text className="font-normal text-center text-sm text-muted">
-            Endless tactics from Lichess. Find the best move.
+            {source === 'mine'
+              ? 'The positions you got wrong in your own games.'
+              : 'Endless tactics from Lichess. Find the best move.'}
           </Text>
         </View>
 
-        <View className="flex-row gap-3">
-          <SelectField
-            label="Theme"
-            value={theme ?? 'any'}
-            options={[
-              { value: 'any', label: 'Any theme' },
-              ...THEME_GROUPS.flatMap((group) => group.themes).map((value) => ({
-                value,
-                label: THEMES[value],
-              })),
-            ]}
-            onChange={(value) =>
-              setTheme(value === 'any' ? undefined : (value as Theme))
-            }
-          />
-          <SelectField
-            label="Difficulty"
-            value={difficulty}
-            options={DIFFICULTIES.map((value) => ({
-              value,
-              label: DIFFICULTY_LABEL[value],
-            }))}
-            onChange={setDifficulty}
-          />
-        </View>
-
-        {error && !data ? (
-          <Problem message={error} onRetry={reload} />
-        ) : !data || loading ? (
-          // the board's shape while the next puzzle comes from Lichess
-          <Skeleton className="aspect-square w-full rounded-xl" />
+        <SelectField
+          label="Puzzles"
+          value={source}
+          options={[
+            { value: 'lichess', label: 'From Lichess' },
+            { value: 'mine', label: 'Your mistakes' },
+          ]}
+          onChange={setSource}
+        />
+        {source === 'mine' ? (
+          <MyPuzzles />
         ) : (
-          <Puzzle
-            key={data.puzzle.id}
-            data={data}
-            solvedCount={solved}
-            onSolved={() => setSolved((n) => n + 1)}
-            onNext={() => setRound((n) => n + 1)}
-          />
+          <>
+            <View className="flex-row gap-3">
+              <SelectField
+                label="Theme"
+                value={theme ?? 'any'}
+                options={[
+                  { value: 'any', label: 'Any theme' },
+                  ...THEME_GROUPS.flatMap((group) => group.themes).map(
+                    (value) => ({
+                      value,
+                      label: THEMES[value],
+                    }),
+                  ),
+                ]}
+                onChange={(value) =>
+                  setTheme(value === 'any' ? undefined : (value as Theme))
+                }
+              />
+              <SelectField
+                label="Difficulty"
+                value={difficulty}
+                options={DIFFICULTIES.map((value) => ({
+                  value,
+                  label: DIFFICULTY_LABEL[value],
+                }))}
+                onChange={setDifficulty}
+              />
+            </View>
+
+            {error && !data ? (
+              <Problem message={error} onRetry={reload} />
+            ) : !data || loading ? (
+              // the board's shape while the next puzzle comes from Lichess
+              <Skeleton className="aspect-square w-full rounded-xl" />
+            ) : (
+              <Puzzle
+                key={data.puzzle.id}
+                data={data}
+                solvedCount={solved}
+                onSolved={() => setSolved((n) => n + 1)}
+                onNext={() => setRound((n) => n + 1)}
+              />
+            )}
+          </>
         )}
       </ScrollView>
     </Screen>
@@ -119,13 +147,22 @@ function Puzzle({
   solvedCount,
   onSolved,
   onNext,
+  footer,
 }: {
-  data: Awaited<ReturnType<typeof fetchLichessPuzzle>> & {
+  data: {
+    puzzle: {
+      id: string
+      solution: string[]
+      themes: string[]
+      rating?: number
+    }
     start: ReturnType<typeof puzzleStart>
   }
   solvedCount: number
   onSolved: () => void
   onNext: () => void
+  /** under the buttons; Lichess's themes when not given */
+  footer?: string
 }) {
   const [accent, danger] = useThemeColor(['accent', 'danger'])
   const { solution } = data.puzzle
@@ -219,10 +256,14 @@ function Puzzle({
     <View className="gap-3">
       <View className="flex-row justify-between">
         <Text className="font-normal text-xs text-muted">
-          Rating{' '}
-          <Text className="font-semibold text-foreground">
-            {data.puzzle.rating}
-          </Text>
+          {data.puzzle.rating !== undefined && (
+            <>
+              Rating{' '}
+              <Text className="font-semibold text-foreground">
+                {data.puzzle.rating}
+              </Text>
+            </>
+          )}
         </Text>
         <Text className="font-normal text-xs text-muted">
           Solved this visit{' '}
@@ -275,11 +316,97 @@ function Puzzle({
       </View>
       <Button onPress={onNext}>Next puzzle</Button>
       <Text className="font-normal text-center text-xs text-muted">
-        Puzzles from Lichess · themes:{' '}
-        {data.puzzle.themes
-          .map((t) => t.replace(/([A-Z])/g, ' $1').toLowerCase())
-          .join(', ')}
+        {footer ??
+          `Puzzles from Lichess · themes: ${data.puzzle.themes
+            .map((t) => t.replace(/([A-Z])/g, ' $1').toLowerCase())
+            .join(', ')}`}
       </Text>
+    </View>
+  )
+}
+
+/**
+ * Every blunder and mistake from your analysed games (here or on the website:
+ * the engine results are kept with your account), one at a time.
+ */
+function MyPuzzles() {
+  const { api } = useSession()
+  const [index, setIndex] = useState(0)
+  const [solved, setSolved] = useState(0)
+  const { data, error, reload } = useLoad(
+    async () => {
+      if (!api) return null
+      const { games } = await api.myGames()
+      const saved = (await api.savedAnalyses(
+        games.map((g) => g.chessComUrl),
+      )) as Record<string, Score[]>
+      return games.flatMap((game) => {
+        const scores = saved[game.chessComUrl]
+        if (!scores) return []
+        try {
+          return mistakePuzzles(game, scores)
+        } catch {
+          return [] // an unreadable game simply gives no puzzles
+        }
+      })
+    },
+    String(Boolean(api)),
+  )
+
+  // back from analysing a game: its mistakes are puzzles now
+  const shown = useRef(false)
+  useFocusEffect(
+    useCallback(() => {
+      if (shown.current) void reload()
+      shown.current = true
+    }, [reload]),
+  )
+
+  if (error && !data) return <Problem message={error} onRetry={reload} />
+  if (!data) return <Skeleton className="aspect-square w-full rounded-xl" />
+  if (data.length === 0) {
+    return (
+      <Card>
+        <Card.Body className="items-center gap-3 py-6">
+          <Text className="font-semibold text-sm text-foreground">
+            No mistakes to practise yet
+          </Text>
+          <Text className="text-center font-normal text-xs text-muted">
+            Run Stockfish on your games first. Every blunder and mistake it
+            finds becomes a puzzle here.
+          </Text>
+          <Button onPress={() => router.push('/train/analysis')}>
+            Analyse your games
+          </Button>
+        </Card.Body>
+      </Card>
+    )
+  }
+  const at = index % data.length
+  const puzzle = data[at]
+  return (
+    <View className="gap-2">
+      <Text className="text-center font-normal text-xs text-muted">
+        Position {at + 1} of {data.length}
+      </Text>
+      <Puzzle
+        key={`${puzzle.id}-${index}`}
+        data={{
+          puzzle: { id: puzzle.id, solution: [puzzle.solution], themes: [] },
+          start: {
+            fen: puzzle.fen,
+            colour: puzzle.colour,
+            // squares from the game's own moves
+            lastMove: puzzle.lastMove as ReturnType<
+              typeof puzzleStart
+            >['lastMove'],
+          },
+        }}
+        solvedCount={solved}
+        onSolved={() => setSolved((n) => n + 1)}
+        onNext={() => setIndex((n) => n + 1)}
+        footer={`Your game vs ${puzzle.opponent}, move ${puzzle.moveNumber}`}
+      />
     </View>
   )
 }

@@ -44,35 +44,6 @@ export function generateKnockoutRound1(
   return matches
 }
 
-/** The next round from the previous one's winners (a bye's winner is its player). */
-export function nextRound(
-  previous: Array<{
-    round?: number
-    homeId: string | null
-    awayId: string | null
-    byeId: string | null
-    winnerId: string | null
-  }>,
-): Array<BracketMatch> {
-  if (previous.length < 2) return []
-  const round = (previous[0].round ?? 1) + 1
-  const winners = previous.map((match) => {
-    const winner = match.byeId ?? match.winnerId
-    if (!winner) throw new Error('Every match needs a winner first.')
-    return winner
-  })
-  const matches: Array<BracketMatch> = []
-  for (let i = 0; i < winners.length; i += 2) {
-    matches.push({
-      round,
-      homeId: winners[i],
-      awayId: winners[i + 1],
-      byeId: null,
-    })
-  }
-  return matches
-}
-
 /** A round's ties, as rows: home & away ties get a second leg, colours swapped. */
 export function knockoutLegs(
   ties: Array<{

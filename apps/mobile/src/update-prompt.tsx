@@ -1,3 +1,4 @@
+import * as Network from 'expo-network'
 import { Button, Card, CloseButton, useThemeColor } from 'heroui-native'
 import { useEffect, useSyncExternalStore } from 'react'
 import { Alert, AppState, Modal, ScrollView, Text, View } from 'react-native'
@@ -12,11 +13,13 @@ import {
   cancelDownload,
   type Download,
   installUpdate,
+  megabytes,
   pauseDownload,
   putOff,
   refreshUpdate,
   startDownload,
   updateStore,
+  wasCancelled,
   wasPutOff,
 } from '@/lib/update'
 
@@ -29,7 +32,10 @@ const SECTIONS = [
   { kind: 'fix', title: 'Bug fixes', icon: 'Bug' },
 ] as const
 
-const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
+const onWifi = () =>
+  Network.getNetworkStateAsync()
+    .then((n) => n.type === Network.NetworkStateType.WIFI)
+    .catch(() => false)
 
 /**
  * Offers a newer app as soon as one is released: checked when the app opens
@@ -45,7 +51,16 @@ export function UpdatePrompt() {
     const check = () => {
       refreshUpdate(EVERY)
         .then(async (found) => {
-          if (!active || !found || updateStore.get().open) return
+          if (!active || !found) return
+          // on Wi-Fi it downloads by itself; on mobile data it waits to be asked
+          // (not one the player cancelled: that waits to be started again)
+          const idle = () =>
+            active &&
+            updateStore.get().download.status === 'idle' &&
+            !wasCancelled(found.tag)
+          // checked again after the lookup: a tap may have started or paused it
+          if (idle() && (await onWifi()) && idle()) void startDownload(found)
+          if (!active || updateStore.get().open) return
           // the page opens by itself once per version; the top bar keeps it after
           if (await wasPutOff(found.tag)) return
           if (!active) return

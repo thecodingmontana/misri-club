@@ -99,7 +99,7 @@ export function keptDownload(update: Update): Download {
  * download's last words mustn't overwrite the new one's state.
  */
 function setFor(update: Update, download: Download) {
-  if (state.update && state.update.tag !== update.tag) return
+  if (state.update?.tag !== update.tag) return
   updateStore.set({ download })
   syncNotice(update, download)
 }
@@ -107,7 +107,8 @@ function setFor(update: Update, download: Download) {
 // Whether the ongoing "Downloading Misri…" notice (a foreground service) is
 // up: while it is, Android lets the download run with Misri in the background.
 let noticeOn = false
-const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
+export const megabytes = (bytes: number) =>
+  `${(bytes / 1024 / 1024).toFixed(1)} MB`
 
 function syncNotice(update: Update, download: Download) {
   if (download.status !== 'downloading') {
@@ -118,7 +119,7 @@ function syncNotice(update: Update, download: Download) {
   const { written, total, speed } = download
   const title = `Downloading Misri ${update.version}`
   const text = [
-    `${mb(written)} of ${mb(total)}`,
+    `${megabytes(written)} of ${megabytes(total)}`,
     timeLeft(total - written, speed),
   ]
     .filter(Boolean)
@@ -145,6 +146,12 @@ export async function refreshUpdate(minGap = MIN_CHECK_GAP_MS) {
   const found = await checkForUpdate()
   const known = state.update
   if (!found) {
+    // a release pulled mid-download: stop it before its file goes
+    run++
+    stopping = 'cancel'
+    task?.cancel()
+    downloadNotice.stop()
+    noticeOn = false
     clearOldDownloads()
     updateStore.set({ update: null, open: false, download: { status: 'idle' } })
     return null
@@ -172,6 +179,12 @@ export async function refreshUpdate(minGap = MIN_CHECK_GAP_MS) {
 // a dropped connection is tried again by itself this many times, waiting longer
 const RETRY_AFTER_MS = [3_000, 10_000, 30_000]
 let task: DownloadTask | null = null
+// each download run's number: a newer one, or a stop, ends an older one
+let run = 0
+// the release the player cancelled: no starting it again by itself on Wi-Fi
+// shortcut: kept until the app closes; persist it if a restart re-downloading bothers anyone
+let cancelledTag: string | null = null
+export const wasCancelled = (tag: string) => cancelledTag === tag
 let stopping: 'pause' | 'cancel' | null = null
 const wait = (ms: number) => new Promise((done) => setTimeout(done, ms))
 
@@ -199,13 +212,15 @@ const whenActive = () =>
  */
 export async function startDownload(update: Update) {
   if (state.download.status === 'downloading') return
+  cancelledTag = null
   const file = apkFile(update)
   const kept = keptDownload(update)
   if (kept.status === 'ready') return setFor(update, kept)
   stopping = null
-  // a newer release took this one's place (refreshUpdate): stop here
-  const superseded = () =>
-    state.update !== null && state.update.tag !== update.tag
+  const mine = ++run
+  // a newer release took this one's place, or this run was stopped while it
+  // waited to try again (pause, cancel, a pulled release): stop here
+  const superseded = () => mine !== run || state.update?.tag !== update.tag
   for (let attempt = 0; ; attempt++) {
     if (superseded()) return
     // Android resumes from the partial file's length (a Range request)
@@ -261,6 +276,8 @@ export async function startDownload(update: Update) {
       if (!done) return paused(update)
       break
     } catch {
+      // nothing runs while it waits to try again: Pause and Cancel act at once
+      if (task === current) task = null
       if (superseded()) return
       if (stopping === 'cancel') return cancelled(update)
       if (stopping === 'pause') return paused(update)
@@ -285,6 +302,7 @@ export async function startDownload(update: Update) {
         })
       }
       await wait(delay)
+      if (superseded()) return
       // paused or cancelled while waiting to try again
       if (stopping === 'cancel') return cancelled(update)
       if (stopping === 'pause') return paused(update)
@@ -334,27 +352,33 @@ function cancelled(update: Update) {
 /** Stops the download for now; Resume carries on from the same point. */
 export function pauseDownload() {
   stopping = 'pause'
-  task?.pause()
+  if (task) return task.pause()
+  // waiting to try again: nothing running, so pause at once
+  const { update, download } = state
+  if (update && download.status === 'downloading') {
+    run++
+    paused(update)
+  }
 }
 
 /** Stops the download and throws away what came down. */
 export function cancelDownload() {
   stopping = 'cancel'
-  const { update, download } = state
+  const { update } = state
+  cancelledTag = update?.tag ?? null
   if (task) return task.cancel()
-  // paused, failed or waiting to try again: nothing running to stop
-  if (update && download.status !== 'downloading') cancelled(update)
+  // paused, failed or waiting to try again: nothing running, so at once
+  run++
+  if (update) cancelled(update)
 }
 
 /** Opens Android's "update this app?" screen for the downloaded APK. */
 export async function installUpdate() {
   const { update } = state
   if (!update) return
+  // only a whole file, of the update on offer, ever reaches the installer
+  if (keptDownload(update).status !== 'ready') return startDownload(update)
   const file = apkFile(update)
-  if (!file.exists) {
-    updateStore.set({ download: { status: 'idle' } })
-    return startDownload(update)
-  }
   await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
     data: await getContentUriAsync(file.uri),
     type: 'application/vnd.android.package-archive',

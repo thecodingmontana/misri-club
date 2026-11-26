@@ -1,3 +1,5 @@
+// not from actions: that module loads the database client, server only
+import { MAX_SCORES } from '@misri/core/analysis'
 import type {
   Authenticator,
   CrudEntry,
@@ -6,6 +8,7 @@ import type {
   UploadMutationsOptions,
 } from '@powersync/web'
 import { PowerSyncDatabase, UpdateType } from '@powersync/web'
+import { deviceClaimed } from '#/lib/session-cache'
 import { toast } from '#/lib/toast'
 import { saveAnalysisFn } from '#/server/analysis.functions'
 import { markInboxReadFn } from '#/server/inbox.functions'
@@ -124,22 +127,19 @@ async function callBackendApi(
   ) {
     // ids are `${user_id}:${game_url}`, and user ids have no colon
     const url = mutation.id.slice(mutation.id.indexOf(':') + 1)
+    const scores = JSON.parse(mutation.opData.scores)
+    // longer than the server ever takes: retrying would block the queue a day
+    if (!Array.isArray(scores) || scores.length > MAX_SCORES) {
+      return { status: 'fatal_error', errorCode: 'analysis_too_long' }
+    }
     try {
-      await saveAnalysisFn({
-        data: { url, scores: JSON.parse(mutation.opData.scores) },
-      })
+      await saveAnalysisFn({ data: { url, scores } })
       return { status: 'success' }
     } catch (error) {
-      // can't reach the server: try again later. Anything else is the server
-      // refusing it; this device keeps its own copy, so it's safe to drop.
-      if (error instanceof TypeError || !navigator.onLine) {
-        return { status: 'retryable_error', message: String(error) }
-      }
-      return {
-        status: 'fatal_error',
-        errorCode: 'analysis_refused',
-        message: String(error),
-      }
+      // offline, signed out for now or a server error: try again. Dropping it
+      // would lose the analysis, since sync then replaces the device's copy;
+      // the day-long give-up below keeps one bad entry from blocking the rest.
+      return { status: 'retryable_error', message: String(error) }
     }
   }
   return {
@@ -236,15 +236,20 @@ async function uploadData({ database }: UploadMutationsOptions): Promise<void> {
 let db: PowerSyncDatabase | null = null
 const authenticator = new BetterAuthAuthenticator()
 
+const openDatabase = () =>
+  new PowerSyncDatabase({
+    schema: AppSchema,
+    // OPFS where the browser has it, else in memory (PowerSync's 'auto')
+    database: { dbFilename: 'misri.sqlite', vfs: 'auto' },
+  })
+
 /** The local database, connected to sync; null on the server or without an instance. */
 export function startSync(): PowerSyncDatabase | null {
-  if (typeof window === 'undefined' || !ENDPOINT) return null
+  // not before this browser's copies are known to be this account's
+  if (typeof window === 'undefined' || !ENDPOINT || !deviceClaimed())
+    return null
   if (!db) {
-    db = new PowerSyncDatabase({
-      schema: AppSchema,
-      // OPFS where the browser has it, else in memory (PowerSync's 'auto')
-      database: { dbFilename: 'misri.sqlite', vfs: 'auto' },
-    })
+    db = openDatabase()
     void db.connect({
       powerSyncEndpoint: ENDPOINT,
       authenticator,
@@ -282,9 +287,15 @@ export async function saveAnalysisOnDevice(url: string, scores: unknown[]) {
 /** Signing out: stop syncing and wipe this device's copy, queue included. */
 export async function stopSync() {
   authenticator.invalidateCredentials()
-  if (!db) return
-  const closing = db
+  if (typeof window === 'undefined' || !ENDPOINT) return
+  // no open copy (a new page, or an earlier wipe that failed): the file on
+  // disk may still hold the last account's rows, so it's opened to be wiped
+  const closing = db ?? openDatabase()
   db = null
-  await closing.disconnectAndClear()
-  await closing.close()
+  try {
+    await closing.disconnectAndClear()
+  } finally {
+    // a failed wipe still lets go of the file, so the retry opens it afresh
+    await closing.close()
+  }
 }

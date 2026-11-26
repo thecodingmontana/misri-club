@@ -629,8 +629,12 @@ export async function decideMatch(
     const knockout =
       competition.format === 'knockout' ||
       (competition.format === 'groups' && match.groupNo === null)
+    // a decider (leg 3) is one game that must have a winner, like a single tie
     const singleGame =
-      knockout && (competition.format === 'groups' || competition.legs === 1)
+      knockout &&
+      (competition.format === 'groups' ||
+        competition.legs === 1 ||
+        (match.leg ?? 1) >= 3)
     if (await groupStageClosed(tx, competition, match)) {
       throw new UserError('The group stage is over; its results are final.')
     }
@@ -878,7 +882,10 @@ async function openMatch(tx: Tx, slug: string, matchId: string) {
     competition.format === 'knockout' ||
     (competition.format === 'groups' && row.groupNo === null)
   const singleGame =
-    knockout && (competition.format === 'groups' || competition.legs === 1)
+    knockout &&
+    (competition.format === 'groups' ||
+      competition.legs === 1 ||
+      (row.leg ?? 1) >= 3)
   const match = {
     ...row,
     homeUserId: row.homeUserId,

@@ -43,7 +43,15 @@ class UpdateServiceModule : Module() {
     }
 
     Function("stop") {
-      context.stopService(Intent(context, UpdateDownloadService::class.java))
+      // handled by the service after its start (see onStartCommand)
+      try {
+        context.startService(
+          Intent(context, UpdateDownloadService::class.java)
+            .setAction(UpdateDownloadService.ACTION_STOP),
+        )
+      } catch (e: Exception) {
+        // not running (Android refused to start it): nothing to stop
+      }
     }
   }
 }

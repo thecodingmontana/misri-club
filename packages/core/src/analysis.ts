@@ -1,5 +1,8 @@
 import { Chess } from 'chess.js'
 
+/** Most engine scores one game keeps: a ply each, longer games aren't saved. */
+export const MAX_SCORES = 700
+
 /**
  * Turning engine scores into the numbers a player cares about. The win-chance
  * and accuracy curves are Lichess's published formulas, so an accuracy here

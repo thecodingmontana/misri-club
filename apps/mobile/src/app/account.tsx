@@ -22,6 +22,7 @@ import {
   AppState,
   Linking,
   Alert as NativeAlert,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -43,6 +44,7 @@ import {
 import { type Reminders, readReminders, saveReminders } from '@/lib/reminders'
 import { useSession } from '@/lib/session'
 import { play } from '@/lib/sound'
+import { refreshUpdate, updateStore } from '@/lib/update'
 import { useLoad } from '@/lib/use-load'
 import { AccountSkeleton } from '@/skeletons'
 
@@ -1148,6 +1150,7 @@ const CREDITS: Array<[string, string, string]> = [
 /** The version (as the release names it), who made it, and whose work it uses. */
 function About() {
   const build = Application.nativeBuildVersion
+  const { busy, error, done, run } = useTask()
   const open = (url: string) => Linking.openURL(url).catch(() => {})
   const link = 'font-medium text-xs text-accent'
   return (
@@ -1164,6 +1167,35 @@ function About() {
           thecodingmontana
         </Text>
       </Text>
+      {Platform.OS === 'android' && build && (
+        <>
+          <Button
+            size="sm"
+            variant="secondary"
+            isDisabled={busy !== null}
+            onPress={() =>
+              run('update', async () => {
+                // asks GitHub now, not on the usual half-hour
+                const found = await refreshUpdate(0).catch(() => {
+                  throw new Error(
+                    "Couldn't check. Check your connection and try again.",
+                  )
+                })
+                if (!found) return `You have the latest version, 0.1.${build}.`
+                updateStore.set({ open: true })
+                return null
+              })
+            }
+          >
+            <Busy on={busy === 'update'}>
+              <Icon name="Download" size={16} />
+              <Button.Label>Check for updates</Button.Label>
+            </Busy>
+          </Button>
+          <FormError message={error} />
+          <Done message={done} />
+        </>
+      )}
       <View className="w-full gap-1.5 rounded-2xl bg-surface px-4 py-3">
         {CREDITS.map(([what, who, url]) => (
           <View key={what} className="flex-row justify-between gap-3">

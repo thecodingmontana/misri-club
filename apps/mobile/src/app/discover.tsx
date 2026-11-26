@@ -1,6 +1,6 @@
 import { FORMAT_LABEL } from '@misri/core/formats'
 import { router } from 'expo-router'
-import { Button, Chip } from 'heroui-native'
+import { Button } from 'heroui-native'
 import { useState } from 'react'
 import { View } from 'react-native'
 import {
@@ -11,6 +11,7 @@ import {
   PageTitle,
 } from '@/competitions'
 import { Problem, Screen } from '@/components'
+import { SelectField } from '@/form'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
 import { RefreshScroll } from '@/refresh'
@@ -45,19 +46,15 @@ export default function Discover() {
           title="Open competitions"
           lead="Public leagues and tournaments taking players right now."
         />
-        <View className="flex-row flex-wrap justify-center gap-2">
-          {FILTERS.map((value) => (
-            <Chip
-              key={value}
-              variant={format === value ? 'soft' : 'tertiary'}
-              color={format === value ? 'accent' : 'default'}
-              onPress={() => setFormat(value)}
-              accessibilityState={{ selected: format === value }}
-            >
-              {value === 'all' ? 'All' : FORMAT_LABEL[value]}
-            </Chip>
-          ))}
-        </View>
+        <SelectField
+          label="Format"
+          value={format}
+          options={FILTERS.map((value) => ({
+            value,
+            label: value === 'all' ? 'All formats' : FORMAT_LABEL[value],
+          }))}
+          onChange={setFormat}
+        />
         {!shown ? (
           <CompetitionListSkeleton action />
         ) : shown.length === 0 ? (

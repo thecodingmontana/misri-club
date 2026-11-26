@@ -14,7 +14,7 @@ import {
   Skeleton,
   useThemeColor,
 } from 'heroui-native'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { Board } from '@/board'
 import { Screen } from '@/components'
@@ -24,20 +24,41 @@ import { useSession } from '@/lib/session'
 import { play } from '@/lib/sound'
 import * as Store from '@/lib/storage'
 import { useLoad } from '@/lib/use-load'
+import { SpeakButton } from '@/speak'
 
 const MOVETIME_MS = 120
 
 /**
  * A lesson from one of your games, built from Stockfish's verdict on every
- * move, as on the website: the mental model, the key moments, a quiz.
+ * move, as on the website: the mental model, the key moments, a quiz. The
+ * game is a chess.com one (`url`), or one just played here against Stockfish
+ * (`pgn`, `colour`, `outcome`, `opponent`), which lives on this phone only.
  */
 export default function Lesson() {
-  const { url } = useLocalSearchParams<{ url: string }>()
+  const params = useLocalSearchParams<{
+    url?: string
+    pgn?: string
+    colour?: 'white' | 'black'
+    outcome?: 'win' | 'draw' | 'loss'
+    opponent?: string
+  }>()
+  const url = params.url ?? ''
+  const local = params.pgn
+    ? {
+        pgn: params.pgn,
+        colour:
+          params.colour === 'black' ? ('black' as const) : ('white' as const),
+        outcome: params.outcome ?? ('loss' as const),
+        opponent: params.opponent ?? 'Stockfish',
+        chessComUrl: '',
+      }
+    : null
   const { api } = useSession()
   const accent = useThemeColor('accent')
   const { engine, host, restart } = useEngine()
   const { data: game, error } = useLoad(
     async () => {
+      if (local) return local
       if (!api) return null
       const listed = (await api.myGames()).games.find(
         (g) => g.chessComUrl === url,
@@ -45,10 +66,10 @@ export default function Lesson() {
       // an older competition game: fetched on its own, by its match
       return listed ?? (await api.matchGame(url))
     },
-    `${Boolean(api)}:${url}`,
+    `${Boolean(api)}:${url}:${params.pgn ?? ''}`,
   )
   const { data: saved } = useLoad(
-    () => (api ? api.savedAnalyses([url]) : Promise.resolve({})),
+    () => (api && url ? api.savedAnalyses([url]) : Promise.resolve({})),
     `${Boolean(api)}:${url}`,
   )
   const [fresh, setFresh] = useState<Score[] | null>(null)
@@ -58,7 +79,9 @@ export default function Lesson() {
   const [failure, setFailure] = useState<string | null>(null)
   // the lesson works without it, but the website and other phones need it
   const [unsaved, setUnsaved] = useState<Score[] | null>(null)
-  const save = (scores: Score[]) =>
+  const save = async (scores: Score[]) =>
+    // a game played here has no chess.com link to keep it under
+    url &&
     api
       ?.act('saveAnalysis', { url, scores })
       .then(() => setUnsaved(null))
@@ -98,6 +121,15 @@ export default function Lesson() {
       setProgress(null)
     }
   }
+
+  // a game just played here: straight into the lesson, no button to find
+  const autoStarted = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once, when the game is there
+  useEffect(() => {
+    if (!local || !game || scores || autoStarted.current) return
+    autoStarted.current = true
+    void analyse()
+  }, [game])
 
   return (
     <Screen>
@@ -168,22 +200,28 @@ export default function Lesson() {
               </Text>
             </View>
             <Card className="border-l-4 border-accent">
-              <Card.Body>
-                <Text className="font-normal text-sm text-foreground">
+              <Card.Body className="flex-row items-start gap-3">
+                <Text className="flex-1 font-normal text-sm text-foreground">
                   <Text className="font-bold text-accent">
                     The mental model:{' '}
                   </Text>
                   {lesson.mentalModel}
                 </Text>
+                <SpeakButton text={`The mental model. ${lesson.mentalModel}`} />
               </Card.Body>
             </Card>
             <Text className="font-normal text-sm italic text-muted">
               {lesson.summary}
             </Text>
             <View className="gap-1.5">
-              <Text className="font-display text-xl uppercase text-foreground">
-                {lesson.principle.heading}
-              </Text>
+              <View className="flex-row items-center justify-between gap-2">
+                <Text className="flex-1 font-display text-xl uppercase text-foreground">
+                  {lesson.principle.heading}
+                </Text>
+                <SpeakButton
+                  text={`${lesson.principle.heading}. ${lesson.principle.body}`}
+                />
+              </View>
               <Text className="font-normal text-sm text-foreground">
                 {lesson.principle.body}
               </Text>
@@ -220,7 +258,7 @@ export default function Lesson() {
                 </Button>
               </View>
             )}
-            <Completed url={game.chessComUrl} />
+            {game.chessComUrl ? <Completed url={game.chessComUrl} /> : null}
           </>
         )}
       </ScrollView>
@@ -289,6 +327,7 @@ function Moment({
             <Text className="font-bold text-accent">Theory: </Text>
             {moment.theory}
           </Text>
+          <SpeakButton text={moment.theory} />
         </Card.Body>
       </Card>
       <Text className="font-normal text-xs text-muted">{moment.prompt}</Text>
@@ -321,14 +360,20 @@ function Moment({
         ))}
       </View>
       <Text className="font-normal text-xs text-muted">{step.caption}</Text>
-      <Button
-        variant="ghost"
-        size="sm"
-        onPress={() => WebBrowser.openBrowserAsync(url)}
-      >
-        <Button.Label>From your game, move {moment.moveNumber}</Button.Label>
-        <Icon name="ExternalLink" size={12} />
-      </Button>
+      {url ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onPress={() => WebBrowser.openBrowserAsync(url)}
+        >
+          <Button.Label>From your game, move {moment.moveNumber}</Button.Label>
+          <Icon name="ExternalLink" size={12} />
+        </Button>
+      ) : (
+        <Text className="text-center font-normal text-xs text-muted">
+          From your game, move {moment.moveNumber}
+        </Text>
+      )}
     </View>
   )
 }

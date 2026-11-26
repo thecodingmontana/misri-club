@@ -57,6 +57,24 @@ test('games outside the window, against others, or aborted do not count', () => 
   assert.equal(found, null)
 })
 
+test('a game ending exactly at the opening or the deadline counts', () => {
+  for (const end of ['2026-11-10T00:00:00Z', '2026-11-12T00:00:00Z']) {
+    const found = findMatchResult(
+      [game('alice', 'win', 'bob', 'resigned', end)],
+      window,
+    )
+    assert.equal(found?.result, 'white', end)
+  }
+  assert.equal(
+    findMatchResult(
+      [game('alice', 'win', 'bob', 'resigned', '2026-11-12T00:00:01Z')],
+      window,
+    ),
+    null,
+    'a second after the deadline',
+  )
+})
+
 test('the first finished game in the window counts', () => {
   const found = findMatchResult(
     [
