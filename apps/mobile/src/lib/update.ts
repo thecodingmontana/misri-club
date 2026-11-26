@@ -4,8 +4,10 @@ import { getContentUriAsync } from 'expo-file-system/legacy'
 import * as IntentLauncher from 'expo-intent-launcher'
 import * as Notifications from 'expo-notifications'
 import { AppState, Platform } from 'react-native'
+import { downloadNotice } from '../../modules/update-service'
 import { type Update, updateFrom } from './releases'
 import * as SecureStore from './storage'
+import { timeLeft } from './time-left'
 
 export type { Note, Update } from './releases'
 
@@ -99,6 +101,32 @@ export function keptDownload(update: Update): Download {
 function setFor(update: Update, download: Download) {
   if (state.update && state.update.tag !== update.tag) return
   updateStore.set({ download })
+  syncNotice(update, download)
+}
+
+// Whether the ongoing "Downloading Misri…" notice (a foreground service) is
+// up: while it is, Android lets the download run with Misri in the background.
+let noticeOn = false
+const mb = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`
+
+function syncNotice(update: Update, download: Download) {
+  if (download.status !== 'downloading') {
+    if (noticeOn) downloadNotice.stop()
+    noticeOn = false
+    return
+  }
+  const { written, total, speed } = download
+  const title = `Downloading Misri ${update.version}`
+  const text = [
+    `${mb(written)} of ${mb(total)}`,
+    timeLeft(total - written, speed),
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const percent = total ? Math.round((written / total) * 100) : -1
+  // Android only lets it start while Misri is on screen; until then, retry
+  if (!noticeOn) noticeOn = downloadNotice.start(title, text, percent)
+  else downloadNotice.progress(title, text, percent)
 }
 
 // at most this often: GitHub allows 60 unauthenticated checks an hour
@@ -125,6 +153,8 @@ export async function refreshUpdate(minGap = MIN_CHECK_GAP_MS) {
     // superseded: stop and delete the older APK; the new one carries its notes
     stopping = 'cancel'
     task?.cancel()
+    downloadNotice.stop()
+    noticeOn = false
     const old = apkFile(known)
     if (old.exists) old.delete()
   }
@@ -234,8 +264,9 @@ export async function startDownload(update: Update) {
       if (superseded()) return
       if (stopping === 'cancel') return cancelled(update)
       if (stopping === 'pause') return paused(update)
-      // cut off while in another app: carry on once back, not a failed try
-      if (awaySince) {
+      // cut off while in another app (without the notice keeping Misri
+      // running): carry on once back, not a failed try
+      if (awaySince && !noticeOn) {
         await whenActive()
         if (superseded()) return
         if (stopping === 'cancel') return cancelled(update)
