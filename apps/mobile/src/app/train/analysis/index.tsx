@@ -375,7 +375,7 @@ function Games({ games }: { games: MyGame[] }) {
                   className={`size-7 items-center justify-center rounded-full ${game.outcome === 'win' ? 'bg-success/15' : game.outcome === 'draw' ? 'bg-background' : 'bg-danger/15'}`}
                 >
                   <Text
-                    className={`font-bold text-[11px] ${game.outcome === 'loss' ? 'text-danger' : 'text-foreground'}`}
+                    className={`font-bold text-2xs ${game.outcome === 'loss' ? 'text-danger' : 'text-foreground'}`}
                   >
                     {game.outcome === 'win'
                       ? 'W'
@@ -418,7 +418,7 @@ function Games({ games }: { games: MyGame[] }) {
                   >
                     {review ? `${review.accuracy.toFixed(1)}%` : '—'}
                   </Text>
-                  <Text className="font-normal text-[10px] text-muted">
+                  <Text className="font-normal text-2xs text-muted">
                     {relativeTime(new Date(game.endedAt).toISOString())}
                   </Text>
                 </View>
@@ -442,11 +442,11 @@ function Tile({
 }) {
   return (
     <Card className="grow basis-[45%] px-4 py-3">
-      <Text className="font-semibold text-[10px] uppercase tracking-widest text-muted">
+      <Text className="font-semibold text-2xs uppercase tracking-widest text-muted">
         {label}
       </Text>
       <Text className="font-display text-2xl text-accent">{value}</Text>
-      <Text className="font-normal text-[11px] text-muted">{hint}</Text>
+      <Text className="font-normal text-2xs text-muted">{hint}</Text>
     </Card>
   )
 }

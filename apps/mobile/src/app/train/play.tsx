@@ -10,7 +10,7 @@ import {
   withReply,
 } from '@misri/core/play'
 import { Stack } from 'expo-router'
-import { Button, Chip, useThemeColor } from 'heroui-native'
+import { Button, Select, useThemeColor } from 'heroui-native'
 import { useEffect, useMemo, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { Board } from '@/board'
@@ -155,18 +155,31 @@ export default function Play() {
         <Text className="font-medium text-sm text-foreground">
           Stockfish strength
         </Text>
-        <View className="flex-row flex-wrap gap-2">
-          {LEVELS.map((option, index) => (
-            <Chip
-              key={option.label}
-              variant={game.level === index ? 'soft' : 'tertiary'}
-              color={game.level === index ? 'accent' : 'default'}
-              onPress={() => setGame({ ...game, level: index })}
-            >
-              {option.label}
-            </Chip>
-          ))}
-        </View>
+        <Select
+          presentation="dialog"
+          value={{ value: String(game.level), label: level.label }}
+          onValueChange={(option) => {
+            const picked = option as { value: string } | undefined
+            if (picked) setGame({ ...game, level: Number(picked.value) })
+          }}
+        >
+          <Select.Trigger>
+            <Select.Value placeholder="Choose a strength" />
+            <Select.TriggerIndicator />
+          </Select.Trigger>
+          <Select.Portal>
+            <Select.Overlay />
+            <Select.Content presentation="dialog">
+              {LEVELS.map((option, index) => (
+                <Select.Item
+                  key={option.label}
+                  value={String(index)}
+                  label={option.label}
+                />
+              ))}
+            </Select.Content>
+          </Select.Portal>
+        </Select>
 
         <Board
           fen={chess.fen()}
@@ -204,27 +217,30 @@ export default function Play() {
         <View className="flex-row gap-2">
           <Button
             variant="secondary"
+            size="sm"
             className="flex-1"
             isDisabled={chess.history().length === 0}
             onPress={() =>
               setGame({ ...game, pgn: takeBack(game.pgn, game.colour) })
             }
           >
-            Take back
+            <Button.Label numberOfLines={1}>Take back</Button.Label>
           </Button>
           <Button
             variant="secondary"
+            size="sm"
             className="flex-1"
             onPress={() => newGame('white')}
           >
-            Play White
+            <Button.Label numberOfLines={1}>Play White</Button.Label>
           </Button>
           <Button
             variant="secondary"
+            size="sm"
             className="flex-1"
             onPress={() => newGame('black')}
           >
-            Play Black
+            <Button.Label numberOfLines={1}>Play Black</Button.Label>
           </Button>
         </View>
         <Text className="text-center font-normal text-xs text-muted">

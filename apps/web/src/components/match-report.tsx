@@ -5,7 +5,8 @@ import { Spinner } from '#/components/auth'
 import { Choice } from '#/components/competitions'
 import { displayName } from '#/components/match-card'
 import { Button } from '#/components/ui/button'
-import { sendOrQueue } from '#/lib/sync/outbox'
+import { sendOrQueue, useWaiting } from '#/lib/sync/outbox'
+import { QUEUED_LABEL, type Queueable } from '#/lib/sync/queueable'
 import { toast } from '#/lib/toast'
 import type { MatchView } from '#/server/competition-view.server'
 import { answerReportFn, reportResultFn } from '#/server/competitions.functions'
@@ -27,8 +28,10 @@ export function MatchReport({
   /** results come only from reports here, so reporting is the main action */
   primary?: boolean
 }) {
+  const waiting = useWaiting(match.id)
   const { home, away, report } = match
   if (!home || !away) return null
+  if (waiting) return <WaitingNote name={waiting} />
   if (match.status !== 'live' && match.status !== 'expired') return null
   const isPlayer = viewerId === home.id || viewerId === away.id
 
@@ -66,6 +69,19 @@ export function MatchReport({
   return isPlayer ? (
     <ReportForm slug={slug} matchId={match.id} primary={primary} />
   ) : null
+}
+
+/** Saved offline on this device, not sent yet. */
+export function WaitingNote({ name }: { name: Queueable }) {
+  return (
+    <p
+      role="status"
+      className="mt-2 rounded-xl bg-secondary/60 px-3 py-2 text-center text-xs text-muted-foreground"
+    >
+      {QUEUED_LABEL[name]} is waiting to send. It goes as soon as you're back
+      online.
+    </p>
+  )
 }
 
 function Answer({

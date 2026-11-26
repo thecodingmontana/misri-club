@@ -4,6 +4,8 @@ import {
   Description,
   Input,
   Label,
+  Radio,
+  RadioGroup,
   Tabs,
   TextField,
 } from 'heroui-native'
@@ -11,7 +13,15 @@ import { type ReactNode, useState } from 'react'
 import { Text, View } from 'react-native'
 import { play } from '@/lib/sound'
 
-/** The website's Choice: two to five exclusive options as one row (HeroUI Tabs). */
+// what still fits one row on a phone: a few short options, equal widths
+const fitsOneRow = (options: Array<{ label: string }>) =>
+  options.length <= 3 && options.reduce((n, o) => n + o.label.length, 0) <= 24
+
+/**
+ * The website's Choice: one exclusive option. A few short ones sit as one row
+ * of equal segments; anything longer is a list of radio buttons, so no label
+ * is ever cut off or scrolled out of sight.
+ */
 export function Choice<T extends string | number>({
   label,
   value,
@@ -25,33 +35,46 @@ export function Choice<T extends string | number>({
   onChange: (value: T) => void
   help?: ReactNode
 }) {
+  const pick = (next: string) => {
+    const picked = options.find((o) => String(o.value) === next)
+    if (picked) {
+      play('select')
+      onChange(picked.value)
+    }
+  }
   return (
     <View className="gap-1.5">
       <Label>{label}</Label>
-      <Tabs
-        value={String(value)}
-        onValueChange={(next) => {
-          const picked = options.find((o) => String(o.value) === next)
-          if (picked) {
-            play('select')
-            onChange(picked.value)
-          }
-        }}
-      >
-        <Tabs.List>
-          <Tabs.ScrollView scrollAlign="start">
+      {fitsOneRow(options) ? (
+        <Tabs value={String(value)} onValueChange={pick}>
+          <Tabs.List className="w-full">
             <Tabs.Indicator />
             {options.map((option) => (
               <Tabs.Trigger
                 key={String(option.value)}
                 value={String(option.value)}
+                className="flex-1"
               >
-                <Tabs.Label>{option.label}</Tabs.Label>
+                <Tabs.Label numberOfLines={1}>{option.label}</Tabs.Label>
               </Tabs.Trigger>
             ))}
-          </Tabs.ScrollView>
-        </Tabs.List>
-      </Tabs>
+          </Tabs.List>
+        </Tabs>
+      ) : (
+        <RadioGroup value={String(value)} onValueChange={pick}>
+          {options.map((option) => (
+            <RadioGroup.Item
+              key={String(option.value)}
+              value={String(option.value)}
+            >
+              <Text className="flex-1 font-normal text-sm text-foreground">
+                {option.label}
+              </Text>
+              <Radio />
+            </RadioGroup.Item>
+          ))}
+        </RadioGroup>
+      )}
       {help && <Hint>{help}</Hint>}
     </View>
   )
@@ -136,7 +159,8 @@ export function NumberField({
         {label}
       </Label>
       <Input
-        keyboardType="numbers-and-punctuation"
+        // digits only; a minus key only where the number can go below zero
+        keyboardType={min < 0 ? 'numeric' : 'number-pad'}
         value={draft ?? (value === null ? '' : String(value))}
         placeholder={placeholder}
         onChangeText={(text) => {

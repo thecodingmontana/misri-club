@@ -623,13 +623,51 @@ export async function notifyNearlyFull(
  * Open matches due within about a day that nobody has played: claims them (so a
  * second run sends nothing) and reminds both players.
  */
-export async function remindDeadlines(now = new Date()) {
-  const claimed = await db
-    .update(matches)
-    .set({ remindedAt: now })
+export function remindDeadlines(now = new Date()) {
+  // the cron runs daily at a slightly different second each time: a strict
+  // 24h window misses deadlines a few seconds past it
+  return remindDue(now, DAY + REMINDER_SLACK_MS, 'remindedAt', 'day')
+}
+
+/** The hourly run's late window: a scheduled run can start some minutes late. */
+const LAST_HOUR_MS = 80 * 60 * 1000
+
+/** The same, about an hour before the deadline (the hourly run; sent once). */
+export function remindLastHour(now = new Date()) {
+  return remindDue(now, LAST_HOUR_MS, 'lastHourRemindedAt', 'hour')
+}
+
+/** Running competitions with a game due within the hour, to sync first. */
+export async function dueWithinTheHour(now = new Date()) {
+  const rows = await db
+    .selectDistinct({ id: matches.competitionId })
+    .from(matches)
+    .innerJoin(competitions, eq(competitions.id, matches.competitionId))
     .where(
       and(
-        isNull(matches.remindedAt),
+        eq(competitions.status, 'running'),
+        isNull(matches.lastHourRemindedAt),
+        isNull(matches.result),
+        isNull(matches.winnerUserId),
+        gt(matches.dueAt, now),
+        lte(matches.dueAt, new Date(now.getTime() + LAST_HOUR_MS)),
+      ),
+    )
+  return rows.map((r) => r.id)
+}
+
+async function remindDue(
+  now: Date,
+  within: number,
+  column: 'remindedAt' | 'lastHourRemindedAt',
+  left: 'day' | 'hour',
+) {
+  const claimed = await db
+    .update(matches)
+    .set({ [column]: now })
+    .where(
+      and(
+        isNull(matches[column]),
         isNull(matches.result),
         isNull(matches.winnerUserId),
         eq(matches.voided, false),
@@ -644,9 +682,7 @@ export async function remindDeadlines(now = new Date()) {
         ),
         lte(matches.opensAt, now),
         gt(matches.dueAt, now),
-        // the cron runs daily at a slightly different second each time: a
-        // strict 24h window misses deadlines a few seconds past it
-        lte(matches.dueAt, new Date(now.getTime() + DAY + REMINDER_SLACK_MS)),
+        lte(matches.dueAt, new Date(now.getTime() + within)),
       ),
     )
     .returning({ id: matches.id })
@@ -674,7 +710,7 @@ export async function remindDeadlines(now = new Date()) {
         sql`, `,
       )})`,
     )
-  await bestEffort(reminderPushes(due), 'games')
+  await bestEffort(reminderPushes(due, left), 'games')
   return due.length
 }
 

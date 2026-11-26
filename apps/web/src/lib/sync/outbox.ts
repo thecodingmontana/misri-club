@@ -1,4 +1,5 @@
 import type { ActionInput } from '@misri/core/actions'
+import { useEffect, useState } from 'react'
 import { toast } from '#/lib/toast'
 import type { Queueable } from './queueable'
 
@@ -30,6 +31,7 @@ export async function sendOrQueue<N extends Queueable>(
     'INSERT INTO pending_actions (id, name, input) VALUES (uuid(), ?, ?)',
     [name, JSON.stringify(input)],
   )
+  window.dispatchEvent(new Event(QUEUED_EVENT))
   toast.info('Saved on this device', {
     desc: "It's sent as soon as you're back online.",
   })
@@ -59,4 +61,58 @@ export async function readyToSignOut(signOutAnyway: () => void) {
     },
   )
   return false
+}
+
+const QUEUED_EVENT = 'misri:queued'
+
+type Waiting = { name: Queueable; input: Record<string, unknown> }
+
+/** What's queued on this device and not sent yet (PowerSync's upload queue). */
+async function waiting(): Promise<Waiting[]> {
+  const { startSync } = await import('./powersync')
+  const db = startSync()
+  if (!db) return []
+  const rows = await db.getAll<{ data: string }>('SELECT data FROM ps_crud')
+  return rows.flatMap((row) => {
+    const entry = JSON.parse(row.data)
+    if (entry.type !== 'pending_actions') return []
+    return [{ name: entry.data.name, input: JSON.parse(entry.data.input) }]
+  })
+}
+
+/**
+ * The action queued offline for this match (or, for a join request, this
+ * player), while it waits to be sent; null once it's gone or there's none.
+ */
+export function useWaiting(id: string): Queueable | null {
+  const [name, setName] = useState<Queueable | null>(null)
+  useEffect(() => {
+    let live = true
+    const read = () =>
+      waiting()
+        .then((all) => {
+          const found = all.find((a) =>
+            a.name === 'answerRequest'
+              ? a.input.userId === id
+              : a.input.matchId === id,
+          )
+          if (live) setName(found?.name ?? null)
+        })
+        .catch(() => {})
+    let stop = () => {}
+    void import('./powersync').then(({ startSync }) => {
+      // uploads finishing change the sync status: read the queue again
+      const off = startSync()?.registerListener({ statusChanged: read })
+      if (!live) off?.()
+      else stop = () => off?.()
+    })
+    read()
+    window.addEventListener(QUEUED_EVENT, read)
+    return () => {
+      live = false
+      stop()
+      window.removeEventListener(QUEUED_EVENT, read)
+    }
+  }, [id])
+  return name
 }

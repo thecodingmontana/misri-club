@@ -31,12 +31,13 @@ import {
   TextField,
 } from 'heroui-native'
 import { useRef, useState } from 'react'
-import { Text, View } from 'react-native'
+import { Alert, Text, View } from 'react-native'
 import { FormError } from '@/auth-shell'
 import { Kicker } from '@/competitions'
 import { CheckField, Choice, Hint, NumberField } from '@/form'
 import { Icon } from '@/icon'
 import { SITE_URL } from '@/lib/config'
+import { sendOrQueue } from '@/lib/outbox'
 import { useSession } from '@/lib/session'
 import {
   Confirm,
@@ -566,7 +567,7 @@ function StartDate({
             value={draft}
             onChangeText={setDraft}
             placeholder="2026-12-01"
-            keyboardType="numbers-and-punctuation"
+            keyboardType="numeric"
             onBlur={() => valid && draft !== value && onChange(draft)}
           />
           {value && (
@@ -605,7 +606,14 @@ function JoinRequests({
   const reply = async (userId: string, approve: boolean) => {
     setBusy(userId)
     try {
-      await api?.act('answerRequest', { slug, userId, approve })
+      if (!api) return
+      const sent = await sendOrQueue(api, 'answerRequest', {
+        slug,
+        userId,
+        approve,
+      })
+      if (sent === 'queued')
+        Alert.alert('Saved offline', "It sends when you're back online.")
       onDone()
     } finally {
       setBusy(null)

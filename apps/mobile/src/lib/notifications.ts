@@ -3,7 +3,7 @@ import { PUSH_KINDS } from '@misri/core/push-kinds'
 import * as Notifications from 'expo-notifications'
 import { router } from 'expo-router'
 import { Platform } from 'react-native'
-import { checkForUpdate, installUpdate, updateStore } from '@/lib/update'
+import { installUpdate, refreshUpdate, updateStore } from '@/lib/update'
 
 // shown even while the app is open, as on the website
 Notifications.setNotificationHandler({
@@ -88,8 +88,8 @@ export function openTappedNotifications() {
     const url = data?.url
     // "a new Misri is ready": the update page, freshly checked
     if (url === '/update') {
-      void checkForUpdate()
-        .then((update) => update && updateStore.set({ update, open: true }))
+      void refreshUpdate(0)
+        .then((update) => update && updateStore.set({ open: true }))
         .catch(() => {})
       return
     }

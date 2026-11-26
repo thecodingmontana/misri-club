@@ -237,7 +237,7 @@ function Legend({ className, label }: { className: string; label: string }) {
   return (
     <View className="flex-row items-center gap-1.5">
       <View className={`size-2.5 rounded-sm ${className}`} />
-      <Text className="font-normal text-[11px] text-muted">{label}</Text>
+      <Text className="font-normal text-2xs text-muted">{label}</Text>
     </View>
   )
 }

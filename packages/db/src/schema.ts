@@ -451,6 +451,8 @@ export const matches = pgTable(
     note: text('note'),
     /** When the 24-hour reminder went out; null until then (sent once). */
     remindedAt: ts('reminded_at'),
+    /** When the last-hour reminder went out; null until then (sent once). */
+    lastHourRemindedAt: ts('last_hour_reminded_at'),
     /** Who goes through (knockout), or who was awarded a walkover. */
     winnerUserId: varchar('winner_user_id', { length: 16 }).references(
       () => user.id,

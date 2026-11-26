@@ -77,7 +77,11 @@ export function decisionFields(
       return { ...CLEARED, voided: true }
     case 'extend': {
       const from = Math.max(match.dueAt.getTime(), now)
-      return { dueAt: new Date(from + decision.days * DAY), remindedAt: null }
+      return {
+        dueAt: new Date(from + decision.days * DAY),
+        remindedAt: null,
+        lastHourRemindedAt: null,
+      }
     }
     case 'reopen':
       return { ...CLEARED, gameUrl: null, endedAt: null }

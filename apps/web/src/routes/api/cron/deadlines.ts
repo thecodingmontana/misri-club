@@ -1,4 +1,3 @@
-import { timingSafeEqual } from 'node:crypto'
 import { pruneAllowances } from '@misri/core/rate-limit'
 import { createFileRoute } from '@tanstack/react-router'
 import { eq } from 'drizzle-orm'
@@ -8,6 +7,7 @@ import {
   reconcileAllFixtures,
   startScheduled,
 } from '#/server/competitions.server'
+import { authorised } from '#/server/cron.server'
 import {
   announceAppRelease,
   remindDeadlines,
@@ -18,15 +18,6 @@ import {
 import { syncResults } from '#/server/results.server'
 
 const SYNC_BATCH = 5
-
-/** Vercel Cron sends `Authorization: Bearer $CRON_SECRET`; nothing else may run this. */
-function authorised(request: Request) {
-  const secret = process.env.CRON_SECRET
-  if (!secret) return false
-  const given = Buffer.from(request.headers.get('authorization') ?? '')
-  const wanted = Buffer.from(`Bearer ${secret}`)
-  return given.length === wanted.length && timingSafeEqual(given, wanted)
-}
 
 export const Route = createFileRoute('/api/cron/deadlines')({
   server: {

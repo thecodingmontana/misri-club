@@ -1,0 +1,6 @@
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["club.misri.updateservice.UpdateServiceModule"]
+  }
+}

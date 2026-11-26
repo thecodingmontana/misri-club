@@ -6,6 +6,7 @@ import { Bell, Search, ShieldCheck, UserRound } from '#/components/icons'
 import { SoundToggle } from '#/components/sound-toggle'
 import { ThemeToggle } from '#/components/theme-toggle'
 import { Button } from '#/components/ui/button'
+import { useSyncedQuery } from '#/lib/sync/use-synced'
 import { useAdmin } from '#/lib/use-admin'
 import { cn } from '#/lib/utils'
 import { getUnreadCountFn } from '#/server/inbox.functions'
@@ -65,15 +66,23 @@ export function TopBar() {
   )
 }
 
-/** The inbox, with how many are unread; checked on focus and every minute. */
+/**
+ * The inbox, with how many are unread: from this device's synced copy once it
+ * has one (offline too, clears the moment the inbox is read), else asked of
+ * the server on focus and every minute.
+ */
 function InboxBell() {
+  const local = useSyncedQuery<{ n: number }>(
+    'SELECT count(*) AS n FROM notifications WHERE read_at IS NULL',
+  )
   const getUnread = useServerFn(getUnreadCountFn)
   const unread = useQuery({
     queryKey: ['unread'],
     queryFn: () => getUnread(),
     refetchInterval: 60_000,
+    enabled: !local,
   })
-  const count = unread.data ?? 0
+  const count = (local ? local[0]?.n : unread.data) ?? 0
   const label = count > 0 ? `Inbox, ${count} unread` : 'Inbox'
   return (
     <Button

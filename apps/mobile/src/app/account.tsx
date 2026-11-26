@@ -9,7 +9,11 @@ import {
   Input,
   InputOTP,
   Label,
+  Radio,
+  RadioGroup,
+  Select,
   Spinner,
+  Switch,
   TextField,
   useThemeColor,
 } from 'heroui-native'
@@ -25,7 +29,6 @@ import {
 } from 'react-native'
 import { FormError } from '@/auth-shell'
 import { Screen } from '@/components'
-import { Choice } from '@/form'
 import { Icon } from '@/icon'
 import { authClient, authError } from '@/lib/auth'
 import { SITE_URL } from '@/lib/config'
@@ -39,6 +42,7 @@ import {
 } from '@/lib/passkey'
 import { type Reminders, readReminders, saveReminders } from '@/lib/reminders'
 import { useSession } from '@/lib/session'
+import { play } from '@/lib/sound'
 import { useLoad } from '@/lib/use-load'
 import { AccountSkeleton } from '@/skeletons'
 
@@ -505,13 +509,17 @@ function Notifications() {
   )
 }
 
-const PUZZLE_TIMES = [
-  { value: -1, label: 'Off' },
-  { value: 7, label: '7am' },
-  { value: 12, label: 'Noon' },
-  { value: 18, label: '6pm' },
-  { value: 21, label: '9pm' },
-]
+// once a day at one of these; the repeating choices keep to 8am–9pm
+const HOURS = Array.from({ length: 17 }, (_, i) => i + 6).map((h) => ({
+  value: String(h),
+  label: `${h % 12 || 12}:00 ${h < 12 ? 'am' : 'pm'}`,
+}))
+const HOW_OFTEN = [
+  { value: 'off', label: 'Off', hint: 'No puzzle reminders' },
+  { value: '24', label: 'Once a day', hint: 'At the time you choose' },
+  { value: '3', label: 'Every 3 hours', hint: '8am to 9pm' },
+  { value: '1', label: 'Every hour', hint: '8am to 9pm' },
+] as const
 
 function TrainingReminders() {
   const {
@@ -534,25 +542,86 @@ function TrainingReminders() {
     }
     await reload()
   }
+  const often = saved.puzzleAt === null ? 'off' : String(saved.every)
+  const time = HOURS.find((h) => h.value === String(saved.puzzleAt ?? 8))
   return (
     <>
-      <Choice
-        label="Daily puzzle"
-        value={saved.puzzleAt ?? -1}
-        options={PUZZLE_TIMES}
-        onChange={(hour) =>
-          change({ ...saved, puzzleAt: hour === -1 ? null : hour })
-        }
-      />
-      <Choice
-        label="Streak warning at 8pm if you haven't trained"
-        value={saved.streak ? 'on' : 'off'}
-        options={[
-          { value: 'off', label: 'Off' },
-          { value: 'on', label: 'On' },
-        ]}
-        onChange={(on) => change({ ...saved, streak: on === 'on' })}
-      />
+      <Label>Puzzle reminders</Label>
+      <RadioGroup
+        value={often}
+        onValueChange={(value) => {
+          play('select')
+          void change(
+            value === 'off'
+              ? { ...saved, puzzleAt: null }
+              : {
+                  ...saved,
+                  puzzleAt: saved.puzzleAt ?? 8,
+                  every: Number(value) as Reminders['every'],
+                },
+          )
+        }}
+      >
+        {HOW_OFTEN.map((o) => (
+          <RadioGroup.Item key={o.value} value={o.value}>
+            <View className="flex-1">
+              <Text className="font-medium text-sm text-foreground">
+                {o.label}
+              </Text>
+              <Text className="font-normal text-xs text-muted">{o.hint}</Text>
+            </View>
+            <Radio />
+          </RadioGroup.Item>
+        ))}
+      </RadioGroup>
+      {often === '24' && (
+        <View className="gap-1.5">
+          <Label>At</Label>
+          <Select
+            presentation="dialog"
+            value={time}
+            onValueChange={(option) => {
+              const picked = option as { value: string } | undefined
+              if (picked)
+                void change({ ...saved, puzzleAt: Number(picked.value) })
+            }}
+          >
+            <Select.Trigger>
+              <Select.Value placeholder="Choose a time" />
+              <Select.TriggerIndicator />
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Overlay />
+              <Select.Content presentation="dialog">
+                <ScrollView style={{ maxHeight: 280 }}>
+                  {HOURS.map((h) => (
+                    <Select.Item
+                      key={h.value}
+                      value={h.value}
+                      label={h.label}
+                    />
+                  ))}
+                </ScrollView>
+              </Select.Content>
+            </Select.Portal>
+          </Select>
+        </View>
+      )}
+      <View className="flex-row items-center gap-3 pt-1">
+        <View className="flex-1">
+          <Text className="font-medium text-sm text-foreground">
+            Streak warning
+          </Text>
+          <Text className="font-normal text-xs text-muted">
+            At 8pm on a day you haven't trained
+          </Text>
+        </View>
+        <Switch
+          isSelected={saved.streak}
+          onSelectedChange={(on) => void change({ ...saved, streak: on })}
+          accessibilityLabel="Streak warning"
+        />
+      </View>
       <FormError message={error} />
     </>
   )
@@ -1105,7 +1174,7 @@ function About() {
           </View>
         ))}
       </View>
-      <Text className="font-normal text-center text-[11px] text-muted">
+      <Text className="font-normal text-center text-2xs text-muted">
         Misri isn't made by or connected to chess.com.
       </Text>
       <View className="flex-row gap-4">

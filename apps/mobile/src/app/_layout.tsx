@@ -4,13 +4,15 @@ import { Redirect, Stack, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { HeroUINativeProvider, useThemeColor } from 'heroui-native'
 import { useEffect, useState } from 'react'
+import { AppState } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useUniwind } from 'uniwind'
-import { Loading, Screen } from '@/components'
+import { Loading, Problem, Screen } from '@/components'
 import { trackScreen, trackUser } from '@/lib/analytics'
 import { introSeen } from '@/lib/intro'
 import { openTappedNotifications, registerForPush } from '@/lib/notifications'
-import { scheduleReminders } from '@/lib/reminders'
+import { flushOutbox } from '@/lib/outbox'
+import { firstReminders, scheduleReminders } from '@/lib/reminders'
 import { SessionProvider, useSession } from '@/lib/session'
 import { loadSoundSetting } from '@/lib/sound'
 import { loadTheme } from '@/lib/theme'
@@ -42,16 +44,29 @@ export default function RootLayout() {
  * new: onboarding. Otherwise everything else.
  */
 function Gate() {
-  const { token, me, api } = useSession()
+  const { token, me, api, unreachable, refresh } = useSession()
   const ready = Boolean(api && me?.onboarded)
   // signed in and set up: this phone gets pushes, and tapping one opens it
   useEffect(() => {
     if (!ready || !api) return
-    void registerForPush(api).catch(() => {})
-    void scheduleReminders().catch(() => {})
+    // asks for notifications first; the reminder defaults follow the answer
+    void registerForPush(api)
+      .catch(() => false)
+      .then(firstReminders)
+      .then(scheduleReminders)
+      .catch(() => {})
+    // what was done offline goes now, and whenever the app comes back
+    void flushOutbox(api)
+    const back = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void flushOutbox(api)
+    })
     // fresh games and standings on the home screen whenever the app opens
     refreshWidgets()
-    return openTappedNotifications()
+    const stopTaps = openTappedNotifications()
+    return () => {
+      back.remove()
+      stopTaps()
+    }
   }, [ready, api])
   const segments = useSegments()
   // the route pattern, e.g. /c/[slug]: which pages get used, not whose
@@ -83,6 +98,17 @@ function Gate() {
   const signedOutPage = ['welcome', 'sign-in', 'verify', 'two-factor'].includes(
     page,
   )
+  // signed in on this phone, just offline with nothing kept yet
+  if (token && !me && unreachable) {
+    return (
+      <Screen>
+        <Problem
+          message="Can't reach Misri. You're still signed in; check your connection and try again."
+          onRetry={refresh}
+        />
+      </Screen>
+    )
+  }
   if (!token || !me) {
     if (!signedOutPage)
       return <Redirect href={seen ? '/sign-in' : '/welcome'} />

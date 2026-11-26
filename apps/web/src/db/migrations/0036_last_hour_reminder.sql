@@ -1,0 +1,1 @@
+ALTER TABLE "matches" ADD COLUMN "last_hour_reminded_at" timestamp (3) with time zone;

@@ -10,6 +10,7 @@ import { keepMine } from '#/lib/pwa'
 import { last } from '#/lib/session-cache'
 import { getSessionFn } from '#/server/auth.functions'
 import { getMyCompetitionsFn } from '#/server/competitions.functions'
+import { getMyGamesFn } from '#/server/my-games.functions'
 
 // The browser reuses the session it checked for up to five minutes while you
 // move around inside the app (Zadaci's pattern), so opening a page doesn't wait
@@ -58,8 +59,11 @@ function Signed() {
     // this player's pages, ready for offline
     navigator.serviceWorker?.ready
       .then(() =>
-        keepMine(getMyCompetitionsFn, (path) =>
-          router.preloadRoute({ to: path as never }),
+        keepMine(
+          getMyCompetitionsFn,
+          (path) => router.preloadRoute({ to: path as never }),
+          // recent games: Analysis and "your mistakes" puzzles offline
+          () => getMyGamesFn(),
         ),
       )
       .catch(() => {})

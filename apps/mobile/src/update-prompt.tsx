@@ -1,27 +1,28 @@
 import { Button, Card, CloseButton, useThemeColor } from 'heroui-native'
 import { useEffect, useSyncExternalStore } from 'react'
-import { AppState, Modal, ScrollView, Text, View } from 'react-native'
+import { Alert, AppState, Modal, ScrollView, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Circle } from 'react-native-svg'
 import { IconBadge, Kicker } from '@/competitions'
 import { Icon } from '@/icon'
 import { formatDate } from '@/lib/format'
 import { play } from '@/lib/sound'
+import { speedLabel, timeLeft } from '@/lib/time-left'
 import {
-  checkForUpdate,
-  clearOldDownloads,
+  cancelDownload,
   type Download,
-  downloaded,
   installUpdate,
+  pauseDownload,
   putOff,
+  refreshUpdate,
   startDownload,
   updateStore,
   wasPutOff,
 } from '@/lib/update'
 
-const EVERY = 6 * 60 * 60 * 1000
-// survives the page remounting on sign-in or navigation
-let lastCheck = 0
+// opening the app or coming back to it checks at most this often; opening
+// the update page always looks again (refreshUpdate's own minute aside)
+const EVERY = 30 * 60 * 1000
 
 const SECTIONS = [
   { kind: 'new', title: "What's new", icon: 'Stars' },
@@ -42,25 +43,14 @@ export function UpdatePrompt() {
   useEffect(() => {
     let active = true
     const check = () => {
-      if (Date.now() - lastCheck < EVERY) return
-      lastCheck = Date.now()
-      checkForUpdate()
+      refreshUpdate(EVERY)
         .then(async (found) => {
-          if (!active) return
-          if (!found) {
-            clearOldDownloads()
-            return updateStore.set({ update: null, open: false })
-          }
+          if (!active || !found || updateStore.get().open) return
           // the page opens by itself once per version; the top bar keeps it after
-          const opens = !(await wasPutOff(found.tag))
+          if (await wasPutOff(found.tag)) return
           if (!active) return
-          if (opens) play('navigate')
-          updateStore.set({
-            update: found,
-            open: opens,
-            // downloaded before the app was closed: ready to install
-            ...(downloaded(found) ? { download: { status: 'ready' } } : {}),
-          })
+          play('navigate')
+          updateStore.set({ open: true })
         })
         .catch(() => {})
     }
@@ -74,8 +64,13 @@ export function UpdatePrompt() {
     }
   }, [])
 
+  // opened (top bar, notification): the newest release, not the last one seen
+  useEffect(() => {
+    if (open) void refreshUpdate().catch(() => {})
+  }, [open])
+
   if (!update || !open) return null
-  const busy = download.status === 'downloading' || download.status === 'ready'
+  const busy = ['downloading', 'paused', 'ready'].includes(download.status)
   // while downloading, closing just minimises: the top bar shows the progress
   const later = () => {
     if (!busy) void putOff(update.tag)
@@ -158,25 +153,37 @@ function Actions({
 }) {
   const { update } = useUpdate()
   if (!update) return null
-  if (download.status === 'downloading') {
-    const share = download.total ? download.written / download.total : 0
+  if (download.status === 'downloading' || download.status === 'paused') {
+    const running = download.status === 'downloading'
     return (
       <>
-        <View className="gap-1.5">
-          <View className="h-2 overflow-hidden rounded-full bg-default">
-            <View
-              className="h-full rounded-full bg-accent"
-              style={{ width: `${Math.round(share * 100)}%` }}
-            />
-          </View>
-          <Text
-            className="font-normal text-center text-xs text-muted"
-            accessibilityLiveRegion="polite"
+        <Progress
+          written={download.written}
+          total={download.total}
+          label={running ? 'Downloading' : 'Paused'}
+          speed={running ? download.speed : 0}
+        />
+        <View className="flex-row gap-2">
+          <Button
+            className="flex-1"
+            variant={running ? 'secondary' : 'primary'}
+            onPress={() =>
+              running ? pauseDownload() : void startDownload(update)
+            }
           >
-            {`Downloading · ${megabytes(download.written)} of ${megabytes(download.total)} · ${Math.round(share * 100)}%`}
-          </Text>
+            <Button.Label numberOfLines={1}>
+              {running ? 'Pause' : 'Resume'}
+            </Button.Label>
+          </Button>
+          <Button
+            className="flex-1"
+            variant="secondary"
+            onPress={confirmCancel}
+          >
+            <Button.Label numberOfLines={1}>Cancel</Button.Label>
+          </Button>
         </View>
-        <Button variant="secondary" onPress={later}>
+        <Button variant="ghost" onPress={later}>
           Keep using Misri
         </Button>
       </>
@@ -194,6 +201,8 @@ function Actions({
       </>
     )
   }
+  // stopped part-way: carries on from where it got to
+  const partWay = download.status === 'failed' && download.written > 0
   return (
     <>
       {download.status === 'failed' && (
@@ -201,15 +210,85 @@ function Actions({
           {download.error}
         </Text>
       )}
+      {partWay && (
+        <Progress
+          written={download.written}
+          total={download.total}
+          label="Stopped"
+        />
+      )}
       <Button size="lg" onPress={() => void startDownload(update)}>
-        {download.status === 'failed'
-          ? 'Try again'
-          : `Update now · ${megabytes(size)}`}
+        {partWay
+          ? 'Resume download'
+          : download.status === 'failed'
+            ? 'Try again'
+            : `Update now · ${megabytes(size)}`}
       </Button>
-      <Button variant="ghost" onPress={later}>
-        Update later
-      </Button>
+      {partWay ? (
+        <Button variant="ghost" onPress={confirmCancel}>
+          Cancel download
+        </Button>
+      ) : (
+        <Button variant="ghost" onPress={later}>
+          Update later
+        </Button>
+      )}
     </>
+  )
+}
+
+/** Asks first: cancelling throws away what has come down so far. */
+function confirmCancel() {
+  Alert.alert(
+    'Cancel the download?',
+    'What has downloaded so far is deleted. You can start again any time.',
+    [
+      { text: 'Keep downloading', style: 'cancel' },
+      {
+        text: 'Cancel download',
+        style: 'destructive',
+        onPress: cancelDownload,
+      },
+    ],
+  )
+}
+
+function Progress({
+  written,
+  total,
+  label,
+  speed = 0,
+}: {
+  written: number
+  total: number
+  label: string
+  /** bytes a second while downloading; 0 hides the estimate */
+  speed?: number
+}) {
+  const percent = Math.round((total ? written / total : 0) * 100)
+  const left = timeLeft(total - written, speed)
+  return (
+    <View className="gap-1.5">
+      <View className="h-2 overflow-hidden rounded-full bg-default">
+        <View
+          className={`h-full rounded-full ${label === 'Downloading' ? 'bg-accent' : 'bg-muted'}`}
+          style={{ width: `${percent}%` }}
+        />
+      </View>
+      <Text
+        className="font-normal text-center text-xs text-muted"
+        accessibilityLiveRegion="polite"
+      >
+        {`${label} · ${megabytes(written)} of ${megabytes(total)} · ${percent}%`}
+      </Text>
+      {label === 'Downloading' && (
+        <Text className="font-normal text-center text-xs text-muted">
+          {left
+            ? `${speedLabel(speed)} · ${left}`
+            : 'Working out the time left…'}
+        </Text>
+      )}
+    </View>
   )
 }
 
@@ -223,15 +302,16 @@ export function UpdateButton() {
   const { update, download } = useUpdate()
   const [accent, track] = useThemeColor(['accent', 'border'])
   if (!update) return null
-  if (download.status === 'downloading') {
+  if (download.status === 'downloading' || download.status === 'paused') {
     const share = download.total ? download.written / download.total : 0
     const around = 2 * Math.PI * 13
+    const running = download.status === 'downloading'
     return (
       <Button
         size="sm"
         variant="ghost"
         isIconOnly
-        accessibilityLabel={`Downloading the update, ${Math.round(share * 100)}%`}
+        accessibilityLabel={`${running ? 'Downloading' : 'Paused'}: the update, ${Math.round(share * 100)}%`}
         onPress={() => updateStore.set({ open: true })}
       >
         <View className="items-center justify-center">
@@ -257,7 +337,11 @@ export function UpdateButton() {
             />
           </Svg>
           <View className="absolute">
-            <Icon name="Download" size={14} color={accent} />
+            <Icon
+              name={running ? 'Download' : 'Pause'}
+              size={14}
+              color={accent}
+            />
           </View>
         </View>
       </Button>

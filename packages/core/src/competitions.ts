@@ -498,7 +498,7 @@ export async function reconcileFixtures(
   if (openLate && window.dueAt > openLate.dueAt) {
     await tx
       .update(matches)
-      .set({ dueAt: window.dueAt, remindedAt: null })
+      .set({ dueAt: window.dueAt, remindedAt: null, lastHourRemindedAt: null })
       .where(
         and(
           eq(matches.competitionId, competition.id),
@@ -665,6 +665,7 @@ export async function tidyLateGames(competitionId: string) {
           leg: fixture.leg,
           opensAt: earlier(bye.opensAt, fixture.startedAt),
           remindedAt: null,
+          lastHourRemindedAt: null,
         })
         .where(eq(matches.id, matchId))
       await tx.delete(matches).where(eq(matches.id, fixture.matchId))
@@ -680,6 +681,7 @@ export async function tidyLateGames(competitionId: string) {
           opensAt: earlier(placed.opensAt, fixture.startedAt),
           dueAt: placed.dueAt,
           remindedAt: null,
+          lastHourRemindedAt: null,
         })
         .where(eq(matches.id, fixture.matchId))
       moved.push({ ...fixture, round: placed.round, dueAt: placed.dueAt })

@@ -3,13 +3,19 @@ import * as Store from '@/lib/storage'
 
 export interface Reminders {
   puzzleAt: number | null
+  every: 1 | 3 | 24
   streak: boolean
 }
 const KEY = 'misri.reminders.v1'
-export const NO_REMINDERS: Reminders = { puzzleAt: null, streak: false }
+export const DEFAULT_REMINDERS: Reminders = {
+  puzzleAt: 8,
+  every: 24,
+  streak: true,
+}
+const OFF: Reminders = { puzzleAt: null, every: 24, streak: false }
 export async function readReminders(): Promise<Reminders> {
   return {
-    ...NO_REMINDERS,
+    ...OFF,
     ...JSON.parse((await Store.getItemAsync(KEY)) ?? 'null'),
   }
 }
@@ -18,3 +24,4 @@ export async function saveReminders(next: Reminders) {
   return true
 }
 export async function scheduleReminders() {}
+export async function firstReminders() {}

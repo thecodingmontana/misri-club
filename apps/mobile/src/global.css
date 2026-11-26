@@ -71,4 +71,31 @@
   --font-semibold: "Bricolage-SemiBold";
   --font-bold: "Bricolage-Bold";
   --font-display: "BricolageCondensed-ExtraBold";
+
+  /* A phone-sized type scale, a step under Tailwind's: body at 15px, labels
+     at 13px, captions kept at the 12px floor. Line-heights by role: body
+     1.5, headings tighter, display 1.05-1.1. HeroUI's components read these
+     too, so every screen shifts together. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1.35;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.45;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: 1.45;
+  --text-xl: 1.1875rem;
+  --text-xl--line-height: 1.35;
+  --text-2xl: 1.375rem;
+  --text-2xl--line-height: 1.3;
+  --text-3xl: 1.625rem;
+  --text-3xl--line-height: 1.2;
+  --text-4xl: 1.875rem;
+  --text-4xl--line-height: 1.1;
+  --text-5xl: 2.25rem;
+  --text-5xl--line-height: 1.05;
+  --text-6xl: 2.75rem;
+  --text-6xl--line-height: 1;
 }

@@ -99,6 +99,9 @@ function Line({
   )
 }
 
+/** The widget's size on the home screen, in dp (from Android). */
+export type Size = { width: number; height: number }
+
 /** For anything that needs you signed in first. */
 export function SignedOut({ palette }: { palette: Palette }) {
   return (
@@ -106,6 +109,20 @@ export function SignedOut({ palette }: { palette: Palette }) {
       <Kicker palette={palette} text="Misri" />
       <Line palette={palette} text="Sign in to see your games" muted />
     </Shell>
+  )
+}
+
+function Big({ palette, text }: { palette: Palette; text: string }) {
+  return (
+    <TextWidget
+      text={text}
+      maxLines={1}
+      style={{
+        fontSize: 36,
+        fontWeight: '800',
+        color: palette.foreground as Hex,
+      }}
+    />
   )
 }
 
@@ -118,26 +135,36 @@ export function NextGameWidget({
 }) {
   if (!game) {
     return (
-      <Shell palette={palette} uri="misri://">
+      <Shell palette={palette} uri="misri://" gap={6}>
         <Kicker palette={palette} text="Your next game" />
-        <Line palette={palette} text="No games due" size={18} bold />
+        <Line palette={palette} text="No games due" size={20} bold />
         <Line palette={palette} text="You're all caught up." muted />
       </Shell>
     )
   }
   return (
-    <Shell palette={palette} uri={`misri://c/${game.slug}`}>
+    <Shell palette={palette} uri={`misri://c/${game.slug}`} gap={6}>
       <Kicker palette={palette} text="Your next game" />
-      <Line palette={palette} text={`vs ${game.opponent}`} size={18} bold />
+      <Line palette={palette} text={`vs ${game.opponent}`} size={20} bold />
       <Line palette={palette} text={game.competition} muted />
-      <TextWidget
-        text={timeLeft(game.dueAt)}
+      <FlexWidget
         style={{
-          fontSize: 13,
-          fontWeight: '600',
-          color: palette.accent as Hex,
+          backgroundColor: palette.surface as Hex,
+          borderRadius: 12,
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          marginTop: 4,
         }}
-      />
+      >
+        <TextWidget
+          text={timeLeft(game.dueAt)}
+          style={{
+            fontSize: 13,
+            fontWeight: '700',
+            color: palette.accent as Hex,
+          }}
+        />
+      </FlexWidget>
     </Shell>
   )
 }
@@ -151,82 +178,87 @@ export function StandingWidget({
 }) {
   if (!standing) {
     return (
-      <Shell palette={palette} uri="misri://">
+      <Shell palette={palette} uri="misri://" gap={6}>
         <Kicker palette={palette} text="My standing" />
         <Line palette={palette} text="No competition running" muted />
       </Shell>
     )
   }
   return (
-    <Shell palette={palette} uri={`misri://c/${standing.slug}`}>
+    <Shell palette={palette} uri={`misri://c/${standing.slug}`} gap={4}>
       <Kicker palette={palette} text="My standing" />
-      <FlexWidget style={{ flexDirection: 'row', flexGap: 8 }}>
-        <TextWidget
-          text={ordinal(standing.place)}
-          style={{
-            fontSize: 32,
-            fontWeight: '800',
-            color: palette.foreground as Hex,
-          }}
-        />
-        <FlexWidget
-          style={{ flexDirection: 'column', justifyContent: 'center' }}
-        >
-          <Line palette={palette} text={`of ${standing.of}`} muted />
-          <Line palette={palette} text={`${standing.points} pts`} bold />
-        </FlexWidget>
-      </FlexWidget>
-      <Line palette={palette} text={standing.competition} muted />
+      <Big palette={palette} text={ordinal(standing.place)} />
+      <Line
+        palette={palette}
+        text={`of ${standing.of} · ${standing.points} pts`}
+        bold
+      />
+      <TextWidget
+        text={standing.competition}
+        maxLines={2}
+        truncate="END"
+        style={{ fontSize: 13, color: palette.muted as Hex }}
+      />
     </Shell>
   )
 }
 
-/** The last four weeks as squares, as on the Progress screen. */
-function daysSvg(days: Array<string>, palette: Palette) {
+/** The last four weeks as two rows of squares, sized to fill `width`. */
+function daysSvg(days: Array<string>, palette: Palette, width: number) {
   const trained = new Set(days)
   const today = new Date()
+  const gap = 4
+  const cell = (width - gap * 13) / 14
   const squares: Array<string> = []
   for (let i = 0; i < 28; i++) {
     const day = new Date(today)
     day.setDate(today.getDate() - (27 - i))
     const on = trained.has(day.toLocaleDateString('en-CA'))
     squares.push(
-      `<rect x="${(i % 14) * 20}" y="${Math.floor(i / 14) * 20}" width="17" height="17" rx="4" fill="${on ? palette.accent : palette.surface}"/>`,
+      `<rect x="${(i % 14) * (cell + gap)}" y="${Math.floor(i / 14) * (cell + gap)}" width="${cell}" height="${cell}" rx="${cell / 4}" fill="${on ? palette.accent : palette.surface}"/>`,
     )
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 277 37">${squares.join('')}</svg>`
+  const height = cell * 2 + gap
+  return {
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}">${squares.join('')}</svg>`,
+    height,
+    count: squares.filter((sq) => sq.includes(palette.accent)).length,
+  }
 }
 
 export function StreakWidget({
   palette,
   streak,
   days,
+  size,
 }: {
   palette: Palette
   streak: number
   days: Array<string>
+  size: Size
 }) {
+  // the squares fill the card's width; the shell pads 16 each side
+  const grid = daysSvg(days, palette, Math.max(size.width - 32, 120))
   return (
     <Shell palette={palette} uri="misri://train/progress" gap={8}>
+      <Kicker palette={palette} text="Training streak" />
       <FlexWidget
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          width: 'match_parent',
-        }}
+        style={{ flexDirection: 'row', alignItems: 'center', flexGap: 8 }}
       >
-        <Kicker palette={palette} text="Training streak" />
-        <Line
-          palette={palette}
-          text={streak === 1 ? '1 day' : `${streak} days`}
-          bold
-        />
+        <Big palette={palette} text={String(streak)} />
+        <Line palette={palette} text={streak === 1 ? 'day' : 'days'} muted />
       </FlexWidget>
       <SvgWidget
-        svg={daysSvg(days, palette)}
-        style={{ width: 'match_parent', height: 40 }}
+        svg={grid.svg}
+        style={{ width: Math.max(size.width - 32, 120), height: grid.height }}
       />
+      {size.height >= 160 && (
+        <Line
+          palette={palette}
+          text={`Trained on ${grid.count} of the last 28 days`}
+          muted
+        />
+      )}
     </Shell>
   )
 }
@@ -235,31 +267,39 @@ export function PuzzleWidget({
   palette,
   board,
   colour,
+  size,
 }: {
   palette: Palette
   /** the board as SVG, or null when Lichess couldn't be reached */
   board: string | null
   colour: 'white' | 'black'
+  size: Size
 }) {
+  // square, as big as the card allows under its one header line
+  const side = Math.max(Math.min(size.width - 32, size.height - 64), 80)
   return (
-    <Shell palette={palette} uri="misri://train/puzzles?daily=1" gap={6}>
-      <Kicker palette={palette} text="Daily puzzle" />
+    <Shell palette={palette} uri="misri://train/puzzles?daily=1" gap={8}>
+      <FlexWidget
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          width: 'match_parent',
+        }}
+      >
+        <Kicker palette={palette} text="Daily puzzle" />
+        <Line
+          palette={palette}
+          text={`${colour === 'white' ? 'White' : 'Black'} to play`}
+          muted
+        />
+      </FlexWidget>
       {board ? (
-        // the board takes the space the two lines leave
-        <FlexWidget style={{ flex: 1, width: 'match_parent' }}>
-          <SvgWidget
-            svg={board}
-            style={{ width: 'match_parent', height: 'match_parent' }}
-          />
+        <FlexWidget style={{ width: 'match_parent', alignItems: 'center' }}>
+          <SvgWidget svg={board} style={{ width: side, height: side }} />
         </FlexWidget>
       ) : (
         <Line palette={palette} text="Tap to open today's puzzle" muted />
       )}
-      <Line
-        palette={palette}
-        text={`${colour === 'white' ? 'White' : 'Black'} to play`}
-        muted
-      />
     </Shell>
   )
 }
