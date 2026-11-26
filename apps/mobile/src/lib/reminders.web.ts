@@ -6,10 +6,11 @@ export interface Reminders {
   streak: boolean
 }
 const KEY = 'misri.reminders.v1'
-export const NO_REMINDERS: Reminders = { puzzleAt: null, streak: false }
+// on until switched off: a 6pm daily puzzle and the 8pm streak warning
+export const DEFAULT_REMINDERS: Reminders = { puzzleAt: 18, streak: true }
 export async function readReminders(): Promise<Reminders> {
   return {
-    ...NO_REMINDERS,
+    ...DEFAULT_REMINDERS,
     ...JSON.parse((await Store.getItemAsync(KEY)) ?? 'null'),
   }
 }

@@ -14,6 +14,7 @@ import {
   type Palette,
   PuzzleWidget,
   SignedOut,
+  type Size,
   StandingWidget,
   StreakWidget,
 } from './widgets'
@@ -43,26 +44,40 @@ async function puzzle(): Promise<{
 }
 
 /** The widget `name` as it should look now, in both themes. */
-export async function render(name: string): Promise<WidgetRepresentation> {
-  const draw = await drawing(name)
+export async function render(
+  name: string,
+  size: Size,
+): Promise<WidgetRepresentation> {
+  const draw = await drawing(name, size)
   return { light: draw(LIGHT), dark: draw(DARK) }
 }
 
 /** Fetches what the widget shows once, then draws it in any palette. */
 async function drawing(
   name: string,
+  size: Size,
 ): Promise<(p: Palette) => React.JSX.Element> {
   if (name === 'Streak') {
     const { days } = await readProgress()
     return (palette) => (
-      <StreakWidget palette={palette} streak={streak(days)} days={days} />
+      <StreakWidget
+        palette={palette}
+        streak={streak(days)}
+        days={days}
+        size={size}
+      />
     )
   }
   if (name === 'DailyPuzzle') {
     const { fen, colour } = await puzzle()
     const board = fen ? boardSvg(fen, colour) : null
     return (palette) => (
-      <PuzzleWidget palette={palette} board={board} colour={colour} />
+      <PuzzleWidget
+        palette={palette}
+        board={board}
+        colour={colour}
+        size={size}
+      />
     )
   }
   const data = await games()
@@ -82,5 +97,5 @@ export async function widgetTaskHandler({
 }: WidgetTaskHandlerProps) {
   if (widgetAction === 'WIDGET_DELETED' || widgetAction === 'WIDGET_CLICK')
     return
-  renderWidget(await render(widgetInfo.widgetName))
+  renderWidget(await render(widgetInfo.widgetName, widgetInfo))
 }

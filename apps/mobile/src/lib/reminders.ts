@@ -17,14 +17,15 @@ export interface Reminders {
 
 const KEY = 'misri.reminders.v1'
 const CHANNEL = 'training'
-export const NO_REMINDERS: Reminders = { puzzleAt: null, streak: false }
+// on until switched off: a 6pm daily puzzle and the 8pm streak warning
+export const DEFAULT_REMINDERS: Reminders = { puzzleAt: 18, streak: true }
 
 export async function readReminders(): Promise<Reminders> {
   try {
     const stored = JSON.parse((await Store.getItemAsync(KEY)) ?? 'null')
-    return { ...NO_REMINDERS, ...stored }
+    return { ...DEFAULT_REMINDERS, ...stored }
   } catch {
-    return NO_REMINDERS
+    return DEFAULT_REMINDERS
   }
 }
 

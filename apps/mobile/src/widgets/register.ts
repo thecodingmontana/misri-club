@@ -16,7 +16,7 @@ export function refreshWidgets(
   for (const widgetName of names) {
     void requestWidgetUpdate({
       widgetName,
-      renderWidget: () => render(widgetName),
+      renderWidget: (info) => render(widgetName, info),
     }).catch(() => {})
   }
 }
