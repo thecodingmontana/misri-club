@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { whenClaimed } from '#/lib/session-cache'
 
 /**
  * Rows of a local query, live, once this device has finished its first sync;
@@ -12,6 +13,9 @@ export function useSyncedQuery<T>(sql: string, params: unknown[] = []) {
   useEffect(() => {
     const abort = new AbortController()
     void import('./powersync').then(async ({ startSync }) => {
+      // a full page load claims the device after mounting: wait for it
+      await whenClaimed()
+      if (abort.signal.aborted) return
       const db = startSync()
       if (!db) return
       await db.waitForFirstSync(abort.signal)

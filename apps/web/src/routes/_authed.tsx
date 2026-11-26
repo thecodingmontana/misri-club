@@ -4,7 +4,7 @@ import {
   redirect,
   useRouter,
 } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRememberDevice } from '#/components/push-device'
 import { keepMine } from '#/lib/pwa'
 import { claimDevice, last } from '#/lib/session-cache'
@@ -17,6 +17,8 @@ import { getMyGamesFn } from '#/server/my-games.functions'
 // on a server round trip. Full page loads always check, and every server
 // function verifies the session again.
 const REUSE_MS = 5 * 60_000
+const CLAIM_FAILED =
+  "The last account's offline copies couldn't be cleared. Reload the page."
 
 /** Every page under `_authed.*` needs a signed-in account. */
 export const Route = createFileRoute('/_authed')({
@@ -31,9 +33,7 @@ export const Route = createFileRoute('/_authed')({
       fresh && last.checked ? last.checked.session : await getSessionFn()
     // someone else's offline copies go before anything of theirs is shown
     if (inBrowser && session.user && !(await claimDevice(session.user.id)))
-      throw new Error(
-        "The last account's offline copies couldn't be cleared. Reload the page.",
-      )
+      throw new Error(CLAIM_FAILED)
     if (inBrowser && !fresh) last.checked = { at: Date.now(), session }
     if (!session.user) {
       // a visitor arriving at the front door gets the introduction first
@@ -60,22 +60,26 @@ function Signed() {
   useRememberDevice()
   const router = useRouter()
   const { user } = Route.useRouteContext()
+  const [claimFailed, setClaimFailed] = useState(false)
   useEffect(() => {
-    // a full page load checked the session on the server: the claim runs here
+    // a full page load checked the session on the server: the claim runs here,
+    // and nothing of this account is synced or kept offline before it succeeds
     void claimDevice(user.id).then(async (ok) => {
-      if (ok) (await import('#/lib/sync/powersync')).startSync()
+      if (!ok) return setClaimFailed(true)
+      ;(await import('#/lib/sync/powersync')).startSync()
+      // this player's pages, ready for offline
+      navigator.serviceWorker?.ready
+        .then(() =>
+          keepMine(
+            getMyCompetitionsFn,
+            (path) => router.preloadRoute({ to: path as never }),
+            // recent games: Analysis and "your mistakes" puzzles offline
+            () => getMyGamesFn(),
+          ),
+        )
+        .catch(() => {})
     })
-    // this player's pages, ready for offline
-    navigator.serviceWorker?.ready
-      .then(() =>
-        keepMine(
-          getMyCompetitionsFn,
-          (path) => router.preloadRoute({ to: path as never }),
-          // recent games: Analysis and "your mistakes" puzzles offline
-          () => getMyGamesFn(),
-        ),
-      )
-      .catch(() => {})
   }, [router, user.id])
+  if (claimFailed) throw new Error(CLAIM_FAILED)
   return <Outlet />
 }

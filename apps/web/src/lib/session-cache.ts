@@ -13,7 +13,12 @@ export const last: { checked: { at: number; session: Session } | null } = {
  */
 export function forgetSession() {
   last.checked = null
-  claimed = false
+  if (claimed) {
+    claimed = false
+    claim = new Promise<void>((done) => {
+      markClaimed = done
+    })
+  }
   try {
     localStorage.removeItem('misri-mine-kept-at') // see keepMine in pwa.ts
   } catch {}
@@ -41,6 +46,12 @@ const DEVICE_USER = 'misri-device-user'
 // set once this page has checked the browser's copies belong to who's signed in
 let claimed = false
 export const deviceClaimed = () => claimed
+let markClaimed = () => {}
+let claim = new Promise<void>((done) => {
+  markClaimed = done
+})
+/** Resolves once the browser's copies are known to be the signed-in account's. */
+export const whenClaimed = () => claim
 
 /** Whether this browser's offline copies belong to someone other than `userId`. */
 export const ownerChanged = (previous: string | null, userId: string) =>
@@ -63,5 +74,6 @@ export async function claimDevice(userId: string): Promise<boolean> {
     localStorage.setItem(DEVICE_USER, userId)
   } catch {}
   claimed = true
+  markClaimed()
   return true
 }
