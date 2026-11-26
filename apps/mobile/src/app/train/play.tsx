@@ -9,7 +9,7 @@ import {
   takeBack,
   withReply,
 } from '@misri/core/play'
-import { Stack } from 'expo-router'
+import { router, Stack } from 'expo-router'
 import { Button, Select, useThemeColor } from 'heroui-native'
 import { useEffect, useMemo, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
@@ -214,6 +214,25 @@ export default function Play() {
           </Button>
         )}
 
+        {outcome && chess.history().length > 1 && (
+          // the point isn't to beat it: it's what this game can teach
+          <Button
+            onPress={() =>
+              router.push({
+                pathname: '/train/analysis/game',
+                params: {
+                  pgn: game.pgn,
+                  colour: game.colour,
+                  outcome,
+                  opponent: `Stockfish (${level.label})`,
+                },
+              })
+            }
+          >
+            <Icon name="Lightbulb" size={16} />
+            <Button.Label>Review this game: where to play better</Button.Label>
+          </Button>
+        )}
         <View className="flex-row gap-2">
           <Button
             variant="secondary"
