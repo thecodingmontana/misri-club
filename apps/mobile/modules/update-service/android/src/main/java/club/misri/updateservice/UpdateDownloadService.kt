@@ -20,6 +20,13 @@ class UpdateDownloadService : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    // Stopping comes in order after the start, so startForeground has always
+    // run first: stopping a just-started service from outside crashes the app.
+    if (intent?.action == ACTION_STOP) {
+      stopForeground(STOP_FOREGROUND_REMOVE)
+      stopSelf()
+      return START_NOT_STICKY
+    }
     val notice = notification(
       this,
       intent?.getStringExtra(EXTRA_TITLE) ?: "Downloading the update",
@@ -41,6 +48,7 @@ class UpdateDownloadService : Service() {
 
   companion object {
     const val NOTICE_ID = 7301
+    const val ACTION_STOP = "club.misri.updateservice.STOP"
     const val EXTRA_TITLE = "title"
     const val EXTRA_TEXT = "text"
     const val EXTRA_PERCENT = "percent"
