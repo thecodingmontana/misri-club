@@ -12,6 +12,7 @@ import { Button, Card, Spinner, Tabs } from 'heroui-native'
 import { type ReactNode, useState } from 'react'
 import { Text, View } from 'react-native'
 import { FormError } from '@/auth-shell'
+import { BracketView } from '@/bracket'
 import {
   EmptyCard,
   FormatExplainer,
@@ -194,6 +195,8 @@ function Sections({
   const league = competition.format === 'league'
   const challenge = competition.format === 'challenge'
   const groups = competition.format === 'groups'
+  const champion =
+    data.members.find((m) => m.id === competition.championId) ?? null
   const [tab, setTab] = useState(
     competition.status === 'open'
       ? 'players'
@@ -236,12 +239,20 @@ function Sections({
         ) : data.matches.length === 0 ? (
           <EmptyCard>The bracket appears once the tournament starts.</EmptyCard>
         ) : (
-          <Bracket matches={data.matches} />
+          <BracketView
+            matches={data.matches}
+            viewerId={viewerId}
+            champion={champion}
+          />
         )}
       </Tabs.Content>
       <Tabs.Content value="bracket" className="pt-3">
         {data.matches.some((m) => m.groupNo === null) ? (
-          <Bracket matches={knockoutPart(data.matches)} />
+          <BracketView
+            matches={knockoutPart(data.matches)}
+            viewerId={viewerId}
+            champion={champion}
+          />
         ) : (
           <EmptyCard>
             The bracket is drawn once every group game is settled.
@@ -395,59 +406,6 @@ function knockoutRoundName(count: number, round: number) {
   if (count === 2) return 'Semi-finals'
   if (count === 4) return 'Quarter-finals'
   return `Round ${round}`
-}
-
-/** The knockout round by round, each tie on one line, winners in bold. */
-function Bracket({ matches }: { matches: MatchView[] }) {
-  return (
-    <View className="gap-4">
-      {byRound(matches).map(([round, ties]) => (
-        <View key={round} className="gap-2">
-          <Kicker>{knockoutRoundName(tieCount(ties), round)}</Kicker>
-          <Card className="p-0">
-            {ties
-              .filter(
-                (m, i) =>
-                  ties.findIndex((t) => t.position === m.position) === i,
-              )
-              .map((m, i, rows) => (
-                <View
-                  key={m.id}
-                  className={`gap-1 px-3 py-2 ${i < rows.length - 1 ? 'border-b border-border/60' : ''}`}
-                >
-                  {m.bye ? (
-                    <Text className="font-medium text-sm text-foreground">
-                      {displayName(m.bye)}{' '}
-                      <Text className="text-muted">· bye</Text>
-                    </Text>
-                  ) : (
-                    [m.home, m.away].map((p, k) => (
-                      <Text
-                        key={p?.id ?? k}
-                        className={`text-sm ${
-                          p &&
-                          // a two-leg tie's winner is the aggregate, not one leg's
-                          ties.filter((t) => t.position === m.position)
-                            .length === 1 &&
-                          (
-                            m.winnerId === p.id ||
-                              (m.homeWon !== null && (k === 0) === m.homeWon)
-                          )
-                            ? 'font-bold text-foreground'
-                            : 'font-normal text-muted'
-                        }`}
-                      >
-                        {p ? displayName(p) : 'To be decided'}
-                      </Text>
-                    ))
-                  )}
-                </View>
-              ))}
-          </Card>
-        </View>
-      ))}
-    </View>
-  )
 }
 
 function roundLabel(data: Data, round: number, count: number) {

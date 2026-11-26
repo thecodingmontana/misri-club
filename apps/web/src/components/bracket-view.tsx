@@ -1,7 +1,7 @@
 import { Trophy } from '#/components/icons'
 import { displayName } from '#/components/match-card'
 import { PlayerAvatar } from '#/components/player-chip'
-import { bracketLayout, type Slot } from '#/lib/bracket-layout'
+import { bracketLayout, halves, type Slot, tieOf } from '#/lib/bracket-layout'
 import { countdown, formatDate } from '#/lib/format'
 import { cn } from '#/lib/utils'
 import type { MatchView, PlayerView } from '#/server/competition-view.server'
@@ -11,50 +11,6 @@ import type { MatchView, PlayerView } from '#/server/competition-view.server'
 
 /** Height of one first-round tie's cell; later rounds double it. */
 const CELL = 116
-
-function winnerOf(match: MatchView) {
-  return match.bye?.id ?? match.winnerId
-}
-
-/** One game's points for a player: 1, ½, 0, or null while it's open. */
-function legPoints(m: MatchView, playerId: string): number | null {
-  if (m.status === 'void') return null
-  if (m.result === 'draw') return 0.5
-  const winner =
-    m.winnerId ??
-    (m.homeWon === null ? null : m.homeWon ? m.home?.id : m.away?.id)
-  if (!winner) return null
-  return winner === playerId ? 1 : 0
-}
-
-const halves = (n: number) => (n % 1 ? `${Math.floor(n) || ''}½` : String(n))
-
-/**
- * A tie's state: one game (its winner), or home & away (the aggregate, with
- * a decider counted in; level and nothing open means the organiser decides).
- */
-function tieOf(legs: MatchView[]) {
-  const [first] = legs
-  if (!first || legs.length < 2 || !first.home || !first.away) {
-    return { winner: first ? winnerOf(first) : null, aggregate: null }
-  }
-  const total = (id: string) =>
-    legs.reduce((sum, m) => sum + (legPoints(m, id) ?? 0), 0)
-  const home = total(first.home.id)
-  const away = total(first.away.id)
-  const open = legs.some(
-    (m) => m.status !== 'void' && legPoints(m, first.home?.id ?? '') === null,
-  )
-  const winner =
-    open || home === away ? null : home > away ? first.home.id : first.away.id
-  return {
-    winner,
-    aggregate: { [first.home.id]: home, [first.away.id]: away } as Record<
-      string,
-      number
-    >,
-  }
-}
 
 function Row({
   player,

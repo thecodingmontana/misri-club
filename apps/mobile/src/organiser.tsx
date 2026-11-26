@@ -566,7 +566,7 @@ function StartDate({
             value={draft}
             onChangeText={setDraft}
             placeholder="2026-12-01"
-            keyboardType="numbers-and-punctuation"
+            keyboardType="numeric"
             onBlur={() => valid && draft !== value && onChange(draft)}
           />
           {value && (
