@@ -13,6 +13,7 @@ import { authClient, sessionToken } from './auth'
 import { cacheGeneration, clearCached, readCached, writeCached } from './cache'
 import { API_URL } from './config'
 import { clearGames } from './my-games'
+import { clearOutbox } from './outbox'
 
 type Session = {
   /** null: signed out; undefined: still reading the stored one */
@@ -79,6 +80,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // pages kept for offline belong to this account only
     clearCached()
     await clearGames()
+    await clearOutbox()
     setToken(null)
     setMe(null)
     setUnreachable(false)

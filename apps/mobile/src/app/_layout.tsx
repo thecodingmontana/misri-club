@@ -4,12 +4,14 @@ import { Redirect, Stack, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { HeroUINativeProvider, useThemeColor } from 'heroui-native'
 import { useEffect, useState } from 'react'
+import { AppState } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useUniwind } from 'uniwind'
 import { Loading, Problem, Screen } from '@/components'
 import { trackScreen, trackUser } from '@/lib/analytics'
 import { introSeen } from '@/lib/intro'
 import { openTappedNotifications, registerForPush } from '@/lib/notifications'
+import { flushOutbox } from '@/lib/outbox'
 import { firstReminders, scheduleReminders } from '@/lib/reminders'
 import { SessionProvider, useSession } from '@/lib/session'
 import { loadSoundSetting } from '@/lib/sound'
@@ -53,9 +55,18 @@ function Gate() {
       .then(firstReminders)
       .then(scheduleReminders)
       .catch(() => {})
+    // what was done offline goes now, and whenever the app comes back
+    void flushOutbox(api)
+    const back = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void flushOutbox(api)
+    })
     // fresh games and standings on the home screen whenever the app opens
     refreshWidgets()
-    return openTappedNotifications()
+    const stopTaps = openTappedNotifications()
+    return () => {
+      back.remove()
+      stopTaps()
+    }
   }, [ready, api])
   const segments = useSegments()
   // the route pattern, e.g. /c/[slug]: which pages get used, not whose

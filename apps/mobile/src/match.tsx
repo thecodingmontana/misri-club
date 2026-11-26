@@ -11,10 +11,11 @@ import {
   Spinner,
 } from 'heroui-native'
 import { type ReactNode, useState } from 'react'
-import { Text, View } from 'react-native'
+import { Alert, Text, View } from 'react-native'
 import { FormError } from '@/auth-shell'
 import { Choice } from '@/form'
 import { countdown, formatDate } from '@/lib/format'
+import { sendOrQueue } from '@/lib/outbox'
 import { useSession } from '@/lib/session'
 import { play } from '@/lib/sound'
 
@@ -426,12 +427,14 @@ function Answer({
     setBusy(accept)
     setError(null)
     try {
-      await api.act('answerReport', {
+      const sent = await sendOrQueue(api, 'answerReport', {
         slug,
         matchId,
         accept,
         seen: { result: seen.result, homeWhite: seen.homeWhite },
       })
+      if (sent === 'queued')
+        Alert.alert('Saved offline', "It sends when you're back online.")
       play('success')
       onDone()
     } catch (cause) {
@@ -538,7 +541,17 @@ function ReportForm({
             setBusy(true)
             setError(null)
             try {
-              await api.act('reportResult', { slug, matchId, outcome, white })
+              const sent = await sendOrQueue(api, 'reportResult', {
+                slug,
+                matchId,
+                outcome,
+                white,
+              })
+              if (sent === 'queued')
+                Alert.alert(
+                  'Saved offline',
+                  "It sends when you're back online.",
+                )
               play('success')
               setOpen(false)
               onDone()

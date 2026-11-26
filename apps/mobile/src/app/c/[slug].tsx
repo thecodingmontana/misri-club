@@ -10,7 +10,7 @@ import { timeControlLabel } from '@misri/core/time-control'
 import { router, Stack, useLocalSearchParams } from 'expo-router'
 import { Button, Card, Spinner, Tabs } from 'heroui-native'
 import { type ReactNode, useState } from 'react'
-import { Text, View } from 'react-native'
+import { Alert, Text, View } from 'react-native'
 import { FormError } from '@/auth-shell'
 import { BracketView } from '@/bracket'
 import {
@@ -22,6 +22,7 @@ import {
 } from '@/competitions'
 import { Problem, SavedNote, Screen } from '@/components'
 import { formatDate } from '@/lib/format'
+import { sendOrQueue } from '@/lib/outbox'
 import { useSession } from '@/lib/session'
 import { useLoad } from '@/lib/use-load'
 import {
@@ -534,7 +535,13 @@ function ConcedeButton({
       confirmLabel="Give walkover"
       danger
       onConfirm={async () => {
-        await api?.act('concedeMatch', { slug, matchId: match.id })
+        if (!api) return
+        const sent = await sendOrQueue(api, 'concedeMatch', {
+          slug,
+          matchId: match.id,
+        })
+        if (sent === 'queued')
+          Alert.alert('Saved offline', "It sends when you're back online.")
         onDone()
       }}
     />
