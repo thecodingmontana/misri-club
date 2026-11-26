@@ -109,7 +109,9 @@ export function SelectField<T extends string>({
           }
         }}
       >
-        <Select.Trigger>
+        <Select.Trigger
+          accessibilityLabel={`${label}, ${current?.label ?? ''}`}
+        >
           <Select.Value placeholder={label} />
           <Select.TriggerIndicator />
         </Select.Trigger>
