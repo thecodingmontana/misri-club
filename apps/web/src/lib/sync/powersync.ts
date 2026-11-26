@@ -1,4 +1,5 @@
-import { MAX_SCORES } from '@misri/core/actions'
+// not from actions: that module loads the database client, server only
+import { MAX_SCORES } from '@misri/core/analysis'
 import type {
   Authenticator,
   CrudEntry,
@@ -7,6 +8,7 @@ import type {
   UploadMutationsOptions,
 } from '@powersync/web'
 import { PowerSyncDatabase, UpdateType } from '@powersync/web'
+import { deviceClaimed } from '#/lib/session-cache'
 import { toast } from '#/lib/toast'
 import { saveAnalysisFn } from '#/server/analysis.functions'
 import { markInboxReadFn } from '#/server/inbox.functions'
@@ -243,7 +245,9 @@ const openDatabase = () =>
 
 /** The local database, connected to sync; null on the server or without an instance. */
 export function startSync(): PowerSyncDatabase | null {
-  if (typeof window === 'undefined' || !ENDPOINT) return null
+  // not before this browser's copies are known to be this account's
+  if (typeof window === 'undefined' || !ENDPOINT || !deviceClaimed())
+    return null
   if (!db) {
     db = openDatabase()
     void db.connect({
@@ -288,6 +292,10 @@ export async function stopSync() {
   // disk may still hold the last account's rows, so it's opened to be wiped
   const closing = db ?? openDatabase()
   db = null
-  await closing.disconnectAndClear()
-  await closing.close()
+  try {
+    await closing.disconnectAndClear()
+  } finally {
+    // a failed wipe still lets go of the file, so the retry opens it afresh
+    await closing.close()
+  }
 }

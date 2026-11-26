@@ -3,13 +3,19 @@ import { registerHooks } from 'node:module'
 import { test } from 'node:test'
 
 // Stand-ins for what only exists on a phone: storage, notifications, the API.
-const g = globalThis as unknown as { __store: Map<string, string> }
+const g = globalThis as unknown as {
+  __store: Map<string, string>
+  __failReads: number
+}
+g.__failReads = 0
 g.__store = new Map()
 const stub = (source: string) =>
   `data:text/javascript,${encodeURIComponent(source)}`
 const STUBS: Record<string, string> = {
   './storage': stub(`const s = globalThis.__store
-    export const getItemAsync = async (k) => s.get(k) ?? null
+    export const getItemAsync = async (k) => {
+      if (globalThis.__failReads > 0) { globalThis.__failReads--; throw new Error('read') }
+      return s.get(k) ?? null }
     export const setItemAsync = async (k, v) => { s.set(k, v) }
     export const deleteItemAsync = async (k) => { s.delete(k) }`),
   'expo-notifications': stub(
@@ -121,4 +127,24 @@ test('a sign-out while sending keeps nothing for the next account', async () => 
   fail()
   await sending
   assert.deepEqual(stored(), [])
+})
+
+test('a failed read after sending keeps the rest of the list', async () => {
+  await clearOutbox()
+  await sendOrQueue(offline as never, 'reportResult', { n: 1 })
+  await sendOrQueue(offline as never, 'concedeMatch', { n: 2 })
+  const sent: string[] = []
+  const api = {
+    act: async (name: string) => {
+      sent.push(name)
+      g.__failReads = 1 // the reread after this send fails
+    },
+  }
+  await flushOutbox(api as never)
+  assert.deepEqual(sent, ['reportResult'], 'stopped after the failed read')
+  assert.deepEqual(
+    stored().map((i: { name: string }) => i.name),
+    ['reportResult', 'concedeMatch'],
+    'nothing lost',
+  )
 })

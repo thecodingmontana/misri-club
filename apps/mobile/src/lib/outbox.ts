@@ -95,7 +95,13 @@ export function flushOutbox(api: ApiClient) {
         // re-read: something may have been queued while this one was sending
         const removed = await locked(async () => {
           if (mine !== generation) return false
-          const items = await read()
+          // a failed read isn't an empty list: saving [] would lose the rest
+          let items: Queued[]
+          try {
+            items = JSON.parse((await Store.getItemAsync(KEY)) ?? '[]')
+          } catch {
+            return false
+          }
           // only the one sent: two old entries can share a timestamp
           const at = items.findIndex((item) => idOf(item) === idOf(next))
           if (at >= 0) items.splice(at, 1)

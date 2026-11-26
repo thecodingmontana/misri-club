@@ -10,6 +10,7 @@ import {
   startChessVerification,
   testPush,
 } from './account.ts'
+import { MAX_SCORES } from './analysis.ts'
 import { calendarPath, resetCalendarToken } from './calendar-token.ts'
 import {
   createCompetition,
@@ -57,7 +58,6 @@ import { isTimeControl } from './time-control.ts'
 
 const MINUTE = 60 * 1000
 /** Scores one saved analysis may hold: one per position, a 300-move game fits. */
-export const MAX_SCORES = 700
 const HOUR = 60 * MINUTE
 
 /** The daily cron runs at 05:00 UTC: a start day means that morning's run. */

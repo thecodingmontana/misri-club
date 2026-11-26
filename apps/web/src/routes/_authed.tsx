@@ -59,8 +59,12 @@ export const Route = createFileRoute('/_authed')({
 function Signed() {
   useRememberDevice()
   const router = useRouter()
+  const { user } = Route.useRouteContext()
   useEffect(() => {
-    void import('#/lib/sync/powersync').then((sync) => sync.startSync())
+    // a full page load checked the session on the server: the claim runs here
+    void claimDevice(user.id).then(async (ok) => {
+      if (ok) (await import('#/lib/sync/powersync')).startSync()
+    })
     // this player's pages, ready for offline
     navigator.serviceWorker?.ready
       .then(() =>
@@ -72,6 +76,6 @@ function Signed() {
         ),
       )
       .catch(() => {})
-  }, [router])
+  }, [router, user.id])
   return <Outlet />
 }
