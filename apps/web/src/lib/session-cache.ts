@@ -16,12 +16,36 @@ export function forgetSession() {
   try {
     localStorage.removeItem('misri-mine-kept-at') // see keepMine in pwa.ts
   } catch {}
-  if (typeof caches !== 'undefined') {
-    void caches.delete('misri-pages-v1').catch(() => {})
-  }
-  if (typeof window !== 'undefined') {
-    void import('#/lib/sync/powersync')
-      .then((sync) => sync.stopSync())
-      .catch(() => {})
-  }
+  return Promise.all([
+    typeof caches !== 'undefined'
+      ? caches.delete('misri-pages-v1').catch(() => {})
+      : null,
+    typeof window !== 'undefined'
+      ? import('#/lib/sync/powersync')
+          .then((sync) => sync.stopSync())
+          .catch(() => {})
+      : null,
+  ])
+}
+
+const DEVICE_USER = 'misri-device-user'
+
+/** Whether this browser's offline copies belong to someone other than `userId`. */
+export const ownerChanged = (previous: string | null, userId: string) =>
+  previous !== null && previous !== userId
+
+/**
+ * A browser's offline copies (pages, synced data, unsent changes) belong to
+ * the account that made them. Signing in as someone else, even when the last
+ * one's session just expired or was ended elsewhere, wipes them first.
+ */
+export async function claimDevice(userId: string) {
+  let previous: string | null = null
+  try {
+    previous = localStorage.getItem(DEVICE_USER)
+  } catch {}
+  if (ownerChanged(previous, userId)) await forgetSession()
+  try {
+    localStorage.setItem(DEVICE_USER, userId)
+  } catch {}
 }

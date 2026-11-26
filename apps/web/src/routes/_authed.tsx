@@ -7,7 +7,7 @@ import {
 import { useEffect } from 'react'
 import { useRememberDevice } from '#/components/push-device'
 import { keepMine } from '#/lib/pwa'
-import { last } from '#/lib/session-cache'
+import { claimDevice, last } from '#/lib/session-cache'
 import { getSessionFn } from '#/server/auth.functions'
 import { getMyCompetitionsFn } from '#/server/competitions.functions'
 import { getMyGamesFn } from '#/server/my-games.functions'
@@ -29,6 +29,8 @@ export const Route = createFileRoute('/_authed')({
       Date.now() - last.checked.at < REUSE_MS
     const session =
       fresh && last.checked ? last.checked.session : await getSessionFn()
+    // someone else's offline copies go before anything of theirs is shown
+    if (inBrowser && session.user) await claimDevice(session.user.id)
     if (inBrowser && !fresh) last.checked = { at: Date.now(), session }
     if (!session.user) {
       // a visitor arriving at the front door gets the introduction first
