@@ -656,6 +656,12 @@ export async function tidyLateGames(competitionId: string) {
     for (const { matchId, fixture } of plan.fromByes) {
       const bye = rows.find((r) => r.id === matchId)
       if (!bye) continue
+      // only a game still unplayed moves: a sync may have just settled it
+      const gone = await tx
+        .delete(matches)
+        .where(and(eq(matches.id, fixture.matchId), unplayedLate))
+        .returning({ id: matches.id })
+      if (gone.length === 0) continue
       await tx
         .update(matches)
         .set({
@@ -668,7 +674,6 @@ export async function tidyLateGames(competitionId: string) {
           lastHourRemindedAt: null,
         })
         .where(eq(matches.id, matchId))
-      await tx.delete(matches).where(eq(matches.id, fixture.matchId))
       moved.push({ ...fixture, round: bye.round, dueAt: bye.dueAt })
     }
     for (const placed of plan.inRounds) {
@@ -683,7 +688,7 @@ export async function tidyLateGames(competitionId: string) {
           remindedAt: null,
           lastHourRemindedAt: null,
         })
-        .where(eq(matches.id, fixture.matchId))
+        .where(and(eq(matches.id, fixture.matchId), unplayedLate))
       moved.push({ ...fixture, round: placed.round, dueAt: placed.dueAt })
     }
     return moved

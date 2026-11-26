@@ -59,9 +59,12 @@ const MINUTE = 60 * 1000
 const HOUR = 60 * MINUTE
 
 /** The daily cron runs at 05:00 UTC: a start day means that morning's run. */
-function startDay(day: string) {
+export function startDay(day: string) {
   const at = new Date(`${day}T05:00:00Z`)
-  if (Number.isNaN(at.getTime())) throw new UserError('Pick a real date.')
+  // 30 February would quietly become 2 March: only a day that exists
+  if (Number.isNaN(at.getTime()) || at.toISOString().slice(0, 10) !== day) {
+    throw new UserError('Pick a real date.')
+  }
   const today = new Date().toISOString().slice(0, 10)
   if (day <= today) throw new UserError('Pick a day from tomorrow on.')
   return at
