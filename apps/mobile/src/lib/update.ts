@@ -181,6 +181,10 @@ const RETRY_AFTER_MS = [3_000, 10_000, 30_000]
 let task: DownloadTask | null = null
 // each download run's number: a newer one, or a stop, ends an older one
 let run = 0
+// the release the player cancelled: no starting it again by itself on Wi-Fi
+// shortcut: kept until the app closes; persist it if a restart re-downloading bothers anyone
+let cancelledTag: string | null = null
+export const wasCancelled = (tag: string) => cancelledTag === tag
 let stopping: 'pause' | 'cancel' | null = null
 const wait = (ms: number) => new Promise((done) => setTimeout(done, ms))
 
@@ -208,6 +212,7 @@ const whenActive = () =>
  */
 export async function startDownload(update: Update) {
   if (state.download.status === 'downloading') return
+  cancelledTag = null
   const file = apkFile(update)
   const kept = keptDownload(update)
   if (kept.status === 'ready') return setFor(update, kept)
@@ -360,6 +365,7 @@ export function pauseDownload() {
 export function cancelDownload() {
   stopping = 'cancel'
   const { update } = state
+  cancelledTag = update?.tag ?? null
   if (task) return task.cancel()
   // paused, failed or waiting to try again: nothing running, so at once
   run++

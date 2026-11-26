@@ -24,7 +24,10 @@ function homeWins(round: Array<BracketMatch>): Array<BracketMatch> {
       dueAt: new Date(0),
     })),
   )
-  return step.kind === 'next' ? step.matches : []
+  if (step.kind === 'next') return step.matches
+  // nothing after the final, and only because it crowned someone
+  assert.equal(step.kind, 'champion')
+  return []
 }
 
 function assertNobodyTwice(round: Array<BracketMatch>, label: string) {

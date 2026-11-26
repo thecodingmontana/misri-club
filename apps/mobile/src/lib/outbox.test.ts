@@ -83,3 +83,42 @@ test('signing out mid-flush stops it, and nothing comes back', async () => {
   assert.deepEqual(sent, ['reportResult'], 'the second is not sent')
   assert.deepEqual(stored(), [], 'and the list stays empty')
 })
+
+test('two old entries sharing a timestamp: sending one keeps the other', async () => {
+  g.__store.clear()
+  const old = { name: 'reportResult', input: {}, at: 5 }
+  g.__store.set(
+    'misri.outbox.v1',
+    JSON.stringify([old, { ...old, name: 'concedeMatch' }]),
+  )
+  const sent: string[] = []
+  // the first goes; the second finds the server unreachable and stays
+  const api = {
+    act: async (name: string) => {
+      if (sent.length) throw new TypeError('offline')
+      sent.push(name)
+    },
+  }
+  await flushOutbox(api as never)
+  assert.deepEqual(sent, ['reportResult'])
+  assert.deepEqual(
+    stored().map((i: { name: string }) => i.name),
+    ['concedeMatch'],
+  )
+})
+
+test('a sign-out while sending keeps nothing for the next account', async () => {
+  g.__store.clear()
+  let fail = () => {}
+  const api = {
+    act: () =>
+      new Promise((_, reject) => {
+        fail = () => reject(new TypeError('offline'))
+      }),
+  }
+  const sending = sendOrQueue(api as never, 'reportResult', {})
+  await clearOutbox()
+  fail()
+  await sending
+  assert.deepEqual(stored(), [])
+})

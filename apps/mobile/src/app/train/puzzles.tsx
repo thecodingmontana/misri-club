@@ -13,9 +13,14 @@ import {
   type Theme,
 } from '@misri/core/puzzle'
 import { Chess } from 'chess.js'
-import { router, Stack, useLocalSearchParams } from 'expo-router'
+import {
+  router,
+  Stack,
+  useFocusEffect,
+  useLocalSearchParams,
+} from 'expo-router'
 import { Button, Card, Skeleton, useThemeColor } from 'heroui-native'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { Board } from '@/board'
 import { Kicker } from '@/competitions'
@@ -346,6 +351,15 @@ function MyPuzzles() {
       })
     },
     String(Boolean(api)),
+  )
+
+  // back from analysing a game: its mistakes are puzzles now
+  const shown = useRef(false)
+  useFocusEffect(
+    useCallback(() => {
+      if (shown.current) void reload()
+      shown.current = true
+    }, [reload]),
   )
 
   if (error && !data) return <Problem message={error} onRetry={reload} />

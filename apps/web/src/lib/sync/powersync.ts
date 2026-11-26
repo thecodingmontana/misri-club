@@ -1,3 +1,4 @@
+import { MAX_SCORES } from '@misri/core/actions'
 import type {
   Authenticator,
   CrudEntry,
@@ -124,10 +125,13 @@ async function callBackendApi(
   ) {
     // ids are `${user_id}:${game_url}`, and user ids have no colon
     const url = mutation.id.slice(mutation.id.indexOf(':') + 1)
+    const scores = JSON.parse(mutation.opData.scores)
+    // longer than the server ever takes: retrying would block the queue a day
+    if (!Array.isArray(scores) || scores.length > MAX_SCORES) {
+      return { status: 'fatal_error', errorCode: 'analysis_too_long' }
+    }
     try {
-      await saveAnalysisFn({
-        data: { url, scores: JSON.parse(mutation.opData.scores) },
-      })
+      await saveAnalysisFn({ data: { url, scores } })
       return { status: 'success' }
     } catch (error) {
       // offline, signed out for now or a server error: try again. Dropping it

@@ -16,16 +16,23 @@ export function forgetSession() {
   try {
     localStorage.removeItem('misri-mine-kept-at') // see keepMine in pwa.ts
   } catch {}
+  // true when both went; never throws, so callers needn't wait or catch
   return Promise.all([
     typeof caches !== 'undefined'
-      ? caches.delete('misri-pages-v1').catch(() => {})
-      : null,
+      ? caches.delete('misri-pages-v1').then(
+          () => true,
+          () => false,
+        )
+      : true,
     typeof window !== 'undefined'
       ? import('#/lib/sync/powersync')
           .then((sync) => sync.stopSync())
-          .catch(() => {})
-      : null,
-  ])
+          .then(
+            () => true,
+            () => false,
+          )
+      : true,
+  ]).then((done) => done.every(Boolean))
 }
 
 const DEVICE_USER = 'misri-device-user'
@@ -44,7 +51,9 @@ export async function claimDevice(userId: string) {
   try {
     previous = localStorage.getItem(DEVICE_USER)
   } catch {}
-  if (ownerChanged(previous, userId)) await forgetSession()
+  // the new owner is written only once the last one's copies are gone, so a
+  // wipe that failed is tried again on the next page
+  if (ownerChanged(previous, userId) && !(await forgetSession())) return
   try {
     localStorage.setItem(DEVICE_USER, userId)
   } catch {}

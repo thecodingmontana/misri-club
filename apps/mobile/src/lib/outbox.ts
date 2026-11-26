@@ -47,12 +47,16 @@ export async function sendOrQueue(
   name: Queueable,
   input: unknown,
 ): Promise<'sent' | 'queued'> {
+  const mine = generation
   try {
     await api.act(name as never, input as never)
     return 'sent'
   } catch (error) {
     // the server answered: its "no" is for the player now, not later
     if (error instanceof ApiError || !isQueueable(name)) throw error
+    // signed out while it was sending: it belonged to that account, so it's
+    // not kept for whoever signs in next (the player has left the page anyway)
+    if (mine !== generation) return 'queued'
     const id = `${Date.now()}:${Math.random().toString(36).slice(2)}`
     await locked(async () =>
       write([...(await read()), { name, input, at: Date.now(), id }]),
@@ -89,11 +93,19 @@ export function flushOutbox(api: ApiClient) {
           await tell(`${QUEUED_LABEL[next.name]} wasn't sent`, error.message)
         }
         // re-read: something may have been queued while this one was sending
-        await locked(async () => {
-          if (mine !== generation) return
-          const sent = idOf(next)
-          await write((await read()).filter((item) => idOf(item) !== sent))
+        const removed = await locked(async () => {
+          if (mine !== generation) return false
+          const items = await read()
+          // only the one sent: two old entries can share a timestamp
+          const at = items.findIndex((item) => idOf(item) === idOf(next))
+          if (at >= 0) items.splice(at, 1)
+          // a failed save would send it again and again: stop, try later
+          return Store.setItemAsync(KEY, JSON.stringify(items)).then(
+            () => true,
+            () => false,
+          )
         })
+        if (!removed) return
       }
     } finally {
       flushing = null

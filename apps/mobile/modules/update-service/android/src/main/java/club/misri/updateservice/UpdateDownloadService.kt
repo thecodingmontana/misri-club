@@ -24,7 +24,8 @@ class UpdateDownloadService : Service() {
     // run first: stopping a just-started service from outside crashes the app.
     if (intent?.action == ACTION_STOP) {
       stopForeground(STOP_FOREGROUND_REMOVE)
-      stopSelf()
+      // only if no newer start arrived meanwhile (a resume right after a pause)
+      stopSelfResult(startId)
       return START_NOT_STICKY
     }
     val notice = notification(

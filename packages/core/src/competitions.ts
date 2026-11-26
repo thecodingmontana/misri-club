@@ -677,7 +677,7 @@ export async function tidyLateGames(competitionId: string) {
     }
     for (const placed of plan.inRounds) {
       const { fixture } = placed
-      await tx
+      const shifted = await tx
         .update(matches)
         .set({
           round: placed.round,
@@ -688,6 +688,9 @@ export async function tidyLateGames(competitionId: string) {
           lastHourRemindedAt: null,
         })
         .where(and(eq(matches.id, fixture.matchId), unplayedLate))
+        .returning({ id: matches.id })
+      // settled meanwhile: it stayed put, so nobody is told it moved
+      if (shifted.length === 0) continue
       moved.push({ ...fixture, round: placed.round, dueAt: placed.dueAt })
     }
     return moved

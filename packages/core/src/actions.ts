@@ -56,6 +56,8 @@ import { isTimeControl } from './time-control.ts'
  */
 
 const MINUTE = 60 * 1000
+/** Scores one saved analysis may hold: one per position, a 300-move game fits. */
+export const MAX_SCORES = 700
 const HOUR = 60 * MINUTE
 
 /** The daily cron runs at 05:00 UTC: a start day means that morning's run. */
@@ -440,7 +442,7 @@ export const actions = {
           ]),
         )
         .min(1)
-        .max(700),
+        .max(MAX_SCORES),
     }),
     (viewer, data) => saveAnalysis(viewer.id, data.url, data.scores),
   ),

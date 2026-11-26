@@ -19,6 +19,7 @@ import {
   refreshUpdate,
   startDownload,
   updateStore,
+  wasCancelled,
   wasPutOff,
 } from '@/lib/update'
 
@@ -52,12 +53,13 @@ export function UpdatePrompt() {
         .then(async (found) => {
           if (!active || !found) return
           // on Wi-Fi it downloads by itself; on mobile data it waits to be asked
-          if (
+          // (not one the player cancelled: that waits to be started again)
+          const idle = () =>
+            active &&
             updateStore.get().download.status === 'idle' &&
-            (await onWifi())
-          ) {
-            void startDownload(found)
-          }
+            !wasCancelled(found.tag)
+          // checked again after the lookup: a tap may have started or paused it
+          if (idle() && (await onWifi()) && idle()) void startDownload(found)
           if (!active || updateStore.get().open) return
           // the page opens by itself once per version; the top bar keeps it after
           if (await wasPutOff(found.tag)) return
