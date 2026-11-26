@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import { authClient, sessionToken } from './auth'
@@ -32,6 +33,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null | undefined>(undefined)
   const [me, setMe] = useState<Me | null | undefined>(undefined)
   const [unreachable, setUnreachable] = useState(false)
+  // the latest refresh decides; an older one finishing last is ignored
+  const latestRun = useRef(0)
 
   const api = useMemo(
     () => (token ? createApiClient({ url: API_URL, token }) : null),
@@ -39,21 +42,28 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   )
 
   const refresh = useCallback(async () => {
+    const run = ++latestRun.current
     const next = await sessionToken()
     setToken(next)
-    if (!next) return setMe(null)
+    if (!next) {
+      setUnreachable(false)
+      return setMe(null)
+    }
     const client = createApiClient({ url: API_URL, token: next })
     const since = cacheGeneration()
-    setUnreachable(false)
     try {
       // null: a token the server no longer knows (signed out elsewhere)
       const fresh = await client.me()
+      if (run !== latestRun.current) return
+      // the message stays up while retrying, and goes with the answer
+      setUnreachable(false)
       setMe(fresh)
       // null too: a refused session can't come back from the copy offline
       writeCached('me', fresh, since)
     } catch {
       // unreachable (offline): still signed in, as last seen
       const kept = (await readCached<Me>('me'))?.data ?? null
+      if (run !== latestRun.current) return
       setMe(kept)
       // still signed in: say we can't reach Misri, don't ask to sign in again
       if (!kept) setUnreachable(true)

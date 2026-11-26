@@ -17,16 +17,31 @@ export interface Reminders {
 
 const KEY = 'misri.reminders.v1'
 const CHANNEL = 'training'
-// on until switched off: a 6pm daily puzzle and the 8pm streak warning
-export const DEFAULT_REMINDERS: Reminders = { puzzleAt: 18, streak: true }
+// set for everyone who allows notifications: an 8am puzzle, the 8pm warning
+export const DEFAULT_REMINDERS: Reminders = { puzzleAt: 8, streak: true }
+const OFF: Reminders = { puzzleAt: null, streak: false }
 
 export async function readReminders(): Promise<Reminders> {
   try {
     const stored = JSON.parse((await Store.getItemAsync(KEY)) ?? 'null')
-    return { ...DEFAULT_REMINDERS, ...stored }
+    return stored ? { ...OFF, ...stored } : OFF
   } catch {
-    return DEFAULT_REMINDERS
+    return OFF
   }
+}
+
+/**
+ * The first time the app is opened (after it asked for notifications): the
+ * defaults when they were allowed, off when not. Never touches a choice made.
+ */
+export async function firstReminders() {
+  if (Platform.OS !== 'android') return
+  if (await Store.getItemAsync(KEY).catch(() => null)) return
+  const { granted } = await Notifications.getPermissionsAsync()
+  await Store.setItemAsync(
+    KEY,
+    JSON.stringify(granted ? DEFAULT_REMINDERS : OFF),
+  )
 }
 
 /** Saves the choice and schedules it; false when notifications are refused. */

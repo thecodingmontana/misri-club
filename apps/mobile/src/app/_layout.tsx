@@ -10,7 +10,7 @@ import { Loading, Problem, Screen } from '@/components'
 import { trackScreen, trackUser } from '@/lib/analytics'
 import { introSeen } from '@/lib/intro'
 import { openTappedNotifications, registerForPush } from '@/lib/notifications'
-import { scheduleReminders } from '@/lib/reminders'
+import { firstReminders, scheduleReminders } from '@/lib/reminders'
 import { SessionProvider, useSession } from '@/lib/session'
 import { loadSoundSetting } from '@/lib/sound'
 import { loadTheme } from '@/lib/theme'
@@ -47,8 +47,12 @@ function Gate() {
   // signed in and set up: this phone gets pushes, and tapping one opens it
   useEffect(() => {
     if (!ready || !api) return
-    void registerForPush(api).catch(() => {})
-    void scheduleReminders().catch(() => {})
+    // asks for notifications first; the reminder defaults follow the answer
+    void registerForPush(api)
+      .catch(() => false)
+      .then(firstReminders)
+      .then(scheduleReminders)
+      .catch(() => {})
     // fresh games and standings on the home screen whenever the app opens
     refreshWidgets()
     return openTappedNotifications()

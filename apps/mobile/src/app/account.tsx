@@ -508,6 +508,7 @@ function Notifications() {
 const PUZZLE_TIMES = [
   { value: -1, label: 'Off' },
   { value: 7, label: '7am' },
+  { value: 8, label: '8am' },
   { value: 12, label: 'Noon' },
   { value: 18, label: '6pm' },
   { value: 21, label: '9pm' },
