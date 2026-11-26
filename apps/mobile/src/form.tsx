@@ -6,11 +6,12 @@ import {
   Label,
   Radio,
   RadioGroup,
+  Select,
   Tabs,
   TextField,
 } from 'heroui-native'
 import { type ReactNode, useState } from 'react'
-import { Text, View } from 'react-native'
+import { ScrollView, Text, View } from 'react-native'
 import { play } from '@/lib/sound'
 
 // what still fits one row on a phone: a few short options, equal widths
@@ -81,6 +82,52 @@ export function Choice<T extends string | number>({
 }
 
 /** Small muted help under a field. */
+/** One choice from a list, in a dialog that scrolls: for lists too long for radios. */
+export function SelectField<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: T
+  options: Array<{ value: T; label: string }>
+  onChange: (value: T) => void
+}) {
+  const current = options.find((o) => o.value === value) ?? options[0]
+  return (
+    <View className="flex-1 gap-1.5">
+      <Label>{label}</Label>
+      <Select
+        presentation="dialog"
+        value={current}
+        onValueChange={(option) => {
+          const picked = option as { value: T } | undefined
+          if (picked) {
+            play('select')
+            onChange(picked.value)
+          }
+        }}
+      >
+        <Select.Trigger>
+          <Select.Value placeholder={label} />
+          <Select.TriggerIndicator />
+        </Select.Trigger>
+        <Select.Portal>
+          <Select.Overlay />
+          <Select.Content presentation="dialog">
+            <ScrollView style={{ maxHeight: 360 }}>
+              {options.map((o) => (
+                <Select.Item key={o.value} value={o.value} label={o.label} />
+              ))}
+            </ScrollView>
+          </Select.Content>
+        </Select.Portal>
+      </Select>
+    </View>
+  )
+}
+
 export function Hint({ children }: { children: ReactNode }) {
   return <Text className="font-normal text-xs text-muted">{children}</Text>
 }
