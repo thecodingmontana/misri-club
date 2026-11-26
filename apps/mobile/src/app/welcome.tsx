@@ -110,7 +110,7 @@ export default function Welcome() {
                     <Text className="font-bold text-white">{item.lead}</Text>
                     {item.rest}
                   </Text>
-                  <Text className="font-normal text-[10px] text-white/50">
+                  <Text className="font-normal text-2xs text-white/50">
                     Photo: {item.credit} / Unsplash
                   </Text>
                 </View>

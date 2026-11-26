@@ -76,6 +76,8 @@
      at 13px, captions kept at the 12px floor. Line-heights by role: body
      1.5, headings tighter, display 1.05-1.1. HeroUI's components read these
      too, so every screen shifts together. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1.35;
   --text-xs: 0.75rem;
   --text-xs--line-height: 1.4;
   --text-sm: 0.8125rem;

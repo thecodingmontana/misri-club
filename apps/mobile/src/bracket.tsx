@@ -135,12 +135,12 @@ function TieCard({
   return (
     <View className="w-full gap-1">
       <View className="flex-row justify-between px-1">
-        <Text className="font-semibold text-[10px] uppercase tracking-widest text-muted">
+        <Text className="font-semibold text-2xs uppercase tracking-widest text-muted">
           Match {slot.number}
         </Text>
         <Text
           numberOfLines={1}
-          className={`shrink pl-2 font-semibold text-[10px] ${live ? 'text-accent' : 'text-muted'}`}
+          className={`shrink pl-2 font-semibold text-2xs ${live ? 'text-accent' : 'text-muted'}`}
         >
           {slot.legs.length > 1
             ? legCaption(slot.legs, now)

@@ -136,7 +136,7 @@ function MatchCard({
               <View className="size-1.5 rounded-full bg-accent" />
             )}
             <Text
-              className={`font-medium text-[11px] ${
+              className={`font-medium text-2xs ${
                 tone === 'live'
                   ? 'font-semibold text-accent'
                   : tone === 'bad'
@@ -164,7 +164,7 @@ function Side({ player, won }: { player: PlayerView; won: boolean }) {
       <PlayerAvatar player={player} />
       <Text
         numberOfLines={1}
-        className={`text-[13px] ${won ? 'font-bold text-foreground' : 'font-medium text-foreground/85'}`}
+        className={`text-sm ${won ? 'font-bold text-foreground' : 'font-medium text-foreground/85'}`}
       >
         {displayName(player)}
       </Text>

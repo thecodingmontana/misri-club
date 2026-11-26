@@ -352,7 +352,7 @@ function Head({
 }) {
   return (
     <Text
-      className={`font-semibold text-center text-[11px] uppercase tracking-widest text-muted ${className}`}
+      className={`font-semibold text-center text-2xs uppercase tracking-widest text-muted ${className}`}
     >
       {children}
     </Text>

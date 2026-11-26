@@ -173,11 +173,11 @@ function Tile({
 }) {
   return (
     <Card className="flex-1 items-center px-2 py-3">
-      <Text className="font-semibold text-[10px] uppercase tracking-widest text-muted">
+      <Text className="font-semibold text-2xs uppercase tracking-widest text-muted">
         {label}
       </Text>
       <Text className="font-display mt-0.5 text-2xl text-accent">{value}</Text>
-      <Text className="font-normal text-center text-[10px] text-muted">
+      <Text className="font-normal text-center text-2xs text-muted">
         {hint}
       </Text>
     </Card>
@@ -196,7 +196,7 @@ function ResultRow({ result }: { result: Result }) {
           className={`size-7 items-center justify-center rounded-full ${look.className}`}
         >
           <Text
-            className={`font-bold text-[11px] ${look.className.split(' ')[1]}`}
+            className={`font-bold text-2xs ${look.className.split(' ')[1]}`}
           >
             {look.label}
           </Text>
@@ -224,7 +224,7 @@ function ResultRow({ result }: { result: Result }) {
           </Text>
         </View>
         {result.endedAt && (
-          <Text className="font-normal text-[10px] text-muted">
+          <Text className="font-normal text-2xs text-muted">
             {relativeTime(result.endedAt)}
           </Text>
         )}

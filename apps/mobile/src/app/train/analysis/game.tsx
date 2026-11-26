@@ -313,7 +313,7 @@ function Moment({
             className={`flex-1 items-center rounded-full px-2 py-1.5 ${i === index ? 'bg-background' : ''}`}
           >
             <Text
-              className={`font-semibold text-[11px] ${i === index ? 'text-foreground' : 'text-muted'}`}
+              className={`font-semibold text-2xs ${i === index ? 'text-foreground' : 'text-muted'}`}
             >
               {s.label}
             </Text>

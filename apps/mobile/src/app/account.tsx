@@ -1174,7 +1174,7 @@ function About() {
           </View>
         ))}
       </View>
-      <Text className="font-normal text-center text-[11px] text-muted">
+      <Text className="font-normal text-center text-2xs text-muted">
         Misri isn't made by or connected to chess.com.
       </Text>
       <View className="flex-row gap-4">

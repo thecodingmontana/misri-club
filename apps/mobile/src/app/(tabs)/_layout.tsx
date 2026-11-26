@@ -156,7 +156,7 @@ function TopBar() {
               pointerEvents="none"
               className="absolute top-0 right-0 h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1"
             >
-              <Text className="font-semibold text-[10px] text-accent-foreground">
+              <Text className="font-semibold text-2xs text-accent-foreground">
                 {unread > 9 ? '9+' : unread}
               </Text>
             </View>
