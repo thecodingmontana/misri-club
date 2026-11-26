@@ -132,13 +132,15 @@ const KEEP_MINE_EVERY_MS = 30 * 60 * 1000
 const KEEP_MINE_MAX = 12
 
 /**
- * The signed-in player's home, inbox and competitions, refreshed for offline
- * at most every half hour: the page (for a reload) and its data (preloading
- * runs the page's loader, whose answer the service worker keeps).
+ * The signed-in player's home, inbox, competitions and Analysis, refreshed for
+ * offline at most every half hour: the page (for a reload) and its data
+ * (preloading runs the page's loader, whose answer the service worker keeps;
+ * `keepData` fetches the rest, such as recent games, for the same reason).
  */
 export async function keepMine(
   listMine: () => Promise<Array<{ slug: string; status: string }>>,
   preload: (path: string) => Promise<unknown>,
+  keepData: () => Promise<unknown> = async () => {},
 ) {
   const saveData = (navigator as { connection?: { saveData?: boolean } })
     .connection?.saveData
@@ -156,6 +158,7 @@ export async function keepMine(
   const paths = [
     '/',
     '/inbox',
+    '/analysis',
     ...mine
       .filter((c) => c.status !== 'finished')
       .slice(0, KEEP_MINE_MAX)
@@ -165,6 +168,7 @@ export async function keepMine(
     keepPage(path, true)
     await preload(path).catch(() => {})
   }
+  await keepData().catch(() => {})
 }
 
 const RELOADED_AT = 'misri-reloaded-for'
