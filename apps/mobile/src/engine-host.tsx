@@ -1,12 +1,13 @@
 import { type ComponentRef, useEffect, useMemo, useRef, useState } from 'react'
 import { View } from 'react-native'
 import { WebView } from 'react-native-webview'
-import { SITE_URL } from '@/lib/config'
+import { ENGINE_PAGE } from '@/engine-page.generated'
 import { Engine } from '@/lib/uci'
 
 /**
  * A Stockfish for this screen: `engine` to ask, `host` to render somewhere
- * (an invisible web view running the website's engine page), and `restart`
+ * (an invisible web view running Stockfish, bundled in the app so it works
+ * offline: scripts/engine-page.mjs), and `restart`
  * for a fresh one after it failed to load.
  */
 export function useEngine() {
@@ -32,12 +33,11 @@ export function useEngine() {
       <WebView
         key={generation}
         ref={view}
-        source={{ uri: `${SITE_URL}/stockfish/engine.html` }}
+        // any https origin: the page makes its engine from blob: URLs
+        source={{ html: ENGINE_PAGE, baseUrl: 'https://misri.local/' }}
         onMessage={(event) => engine.receive(event.nativeEvent.data)}
         onError={() =>
-          engine.receive(
-            'error The chess engine did not load. Check your connection and try again.',
-          )
+          engine.receive('error The chess engine did not load. Try again.')
         }
       />
     </View>

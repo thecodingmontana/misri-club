@@ -11,6 +11,7 @@
       "**/src/**/*",
       "**/scripts/**/*",
       "!**/src/icons.generated.ts",
+      "!**/src/engine-page.generated.ts",
       "!**/src/uniwind-types.d.ts",
       "!**/src/global.css"
     ]

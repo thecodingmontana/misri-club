@@ -20,13 +20,26 @@ import { useEngine } from '@/engine-host'
 import { Icon } from '@/icon'
 import { PHONE_PLAY_KEY } from '@/lib/progress'
 import { play, type Sound } from '@/lib/sound'
+import { recordGame } from '@/lib/stockfish-games'
 import * as Store from '@/lib/storage'
+import { StockfishHistory } from '@/stockfish-history'
 
 const FRESH: SavedGame = { pgn: '', colour: 'white', level: 1, record: {} }
 const RESULT_SOUND: Record<Outcome, Sound> = {
   win: 'success',
   draw: 'warning',
   loss: 'error',
+}
+
+/** A loss tallied for the player who gave the game up. */
+function resign(current: SavedGame): SavedGame {
+  const label = LEVELS[current.level].label
+  const tally = current.record[label] ?? { win: 0, draw: 0, loss: 0 }
+  return {
+    ...current,
+    resigned: true,
+    record: { ...current.record, [label]: { ...tally, loss: tally.loss + 1 } },
+  }
 }
 
 /** The game with `pgn` applied, its result tallied if that move ended it. */
@@ -77,7 +90,9 @@ export default function Play() {
   useEffect(() => engine.setSkill(level.skill), [engine, level])
 
   const chess = useMemo(() => loadGame(game.pgn), [game.pgn])
-  const outcome = outcomeFor(chess, game.colour)
+  const outcome: Outcome | null = game.resigned
+    ? 'loss'
+    : outcomeFor(chess, game.colour)
   const yourTurn = chess.turn() === game.colour[0]
   const last = chess.history({ verbose: true }).at(-1)
   const thinking = loaded && !outcome && !yourTurn && !error
@@ -105,13 +120,33 @@ export default function Play() {
     }
   }, [engine, loaded, chess, outcome, yourTurn, level, game.colour])
 
+  // every finished game is kept, so it can be reviewed now or later
+  const [playedId, setPlayedId] = useState<string | null>(null)
+  const played = chess.history().length
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once per finished game
+  useEffect(() => {
+    setPlayedId(null)
+    if (!outcome || played < 2) return
+    let live = true
+    void recordGame({
+      pgn: game.pgn,
+      colour: game.colour,
+      outcome,
+      level: level.label,
+      resigned: game.resigned,
+    }).then((id) => live && setPlayedId(id))
+    return () => {
+      live = false
+    }
+  }, [outcome, game.pgn])
+
   // a new game also recovers from an engine that failed to load
   const newGame = (colour: 'white' | 'black') => {
     if (error) {
       setError(null)
       restart()
     }
-    setGame({ ...game, pgn: '', colour })
+    setGame({ ...game, pgn: '', colour, resigned: false })
   }
 
   const onMove = (from: string, to: string) => {
@@ -130,7 +165,9 @@ export default function Play() {
   const status = outcome
     ? {
         win: 'Checkmate. You win!',
-        loss: 'Checkmate. Stockfish wins.',
+        loss: game.resigned
+          ? 'You resigned. Stockfish wins.'
+          : 'Checkmate. Stockfish wins.',
         draw: 'Draw.',
       }[outcome]
     : thinking
@@ -214,23 +251,32 @@ export default function Play() {
           </Button>
         )}
 
-        {outcome && chess.history().length > 1 && (
+        {outcome && played > 1 && (
           // the point isn't to beat it: it's what this game can teach
           <Button
+            isDisabled={!playedId}
             onPress={() =>
+              playedId &&
               router.push({
                 pathname: '/train/analysis/game',
-                params: {
-                  pgn: game.pgn,
-                  colour: game.colour,
-                  outcome,
-                  opponent: `Stockfish (${level.label})`,
-                },
+                params: { played: playedId },
               })
             }
           >
             <Icon name="Lightbulb" size={16} />
             <Button.Label>Review this game: where to play better</Button.Label>
+          </Button>
+        )}
+        {!outcome && played > 1 && !error && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onPress={() => {
+              play('error')
+              setGame(resign(game))
+            }}
+          >
+            <Button.Label>Resign and review this game</Button.Label>
           </Button>
         )}
         <View className="flex-row gap-2">
@@ -240,7 +286,11 @@ export default function Play() {
             className="flex-1"
             isDisabled={chess.history().length === 0}
             onPress={() =>
-              setGame({ ...game, pgn: takeBack(game.pgn, game.colour) })
+              setGame({
+                ...game,
+                pgn: takeBack(game.pgn, game.colour),
+                resigned: false,
+              })
             }
           >
             <Button.Label numberOfLines={1}>Take back</Button.Label>
@@ -268,6 +318,7 @@ export default function Play() {
             {tally?.win ?? 0}W · {tally?.draw ?? 0}D · {tally?.loss ?? 0}L
           </Text>
         </Text>
+        <StockfishHistory />
       </ScrollView>
     </Screen>
   )

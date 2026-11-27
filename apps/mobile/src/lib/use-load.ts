@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { cacheGeneration, readCached, writeCached } from './cache'
+import { readable } from './readable'
 import { useSession } from './session'
 
 /**
@@ -44,7 +45,7 @@ export function useLoad<T>(load: () => Promise<T>, key: string, keep?: string) {
       return true
     } catch (e) {
       if (mine !== run.current) return false
-      const message = (e as Error).message
+      const message = readable((e as Error).message)
       if (/sign in first/i.test(message)) await signOut()
       setError(message)
       return false

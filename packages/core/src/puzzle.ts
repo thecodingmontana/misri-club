@@ -179,3 +179,25 @@ export function judgeMove(
   if (lan !== expected) return { kind: 'wrong' }
   return { kind: 'right', fen: chess.fen(), reply: solution[step + 1] ?? null }
 }
+
+/**
+ * Of puzzles kept for offline, the one nearest what's asked: the same theme
+ * and difficulty, then the theme at any difficulty, then (when no theme or
+ * none of it is kept) any. -1 when there are none.
+ */
+export function closestPuzzle(
+  kept: Array<{ theme: Theme | null; difficulty: Difficulty }>,
+  theme: Theme | undefined,
+  difficulty: Difficulty,
+) {
+  const exact = kept.findIndex(
+    (k) => k.theme === (theme ?? null) && k.difficulty === difficulty,
+  )
+  if (exact >= 0) return exact
+  if (theme) {
+    const sameTheme = kept.findIndex((k) => k.theme === theme)
+    if (sameTheme >= 0) return sameTheme
+  }
+  const sameDifficulty = kept.findIndex((k) => k.difficulty === difficulty)
+  return sameDifficulty >= 0 ? sameDifficulty : kept.length - 1
+}
