@@ -67,10 +67,13 @@ export default function Lesson() {
       return listed ?? (await api.matchGame(url))
     },
     `${Boolean(api)}:${url}:${params.pgn ?? ''}`,
+    // kept on the phone, so a game opened before reopens offline
+    url ? `lesson-game-${url}` : undefined,
   )
   const { data: saved } = useLoad(
     () => (api && url ? api.savedAnalyses([url]) : Promise.resolve({})),
     `${Boolean(api)}:${url}`,
+    url ? `analysis-${url}` : undefined,
   )
   const [fresh, setFresh] = useState<Score[] | null>(null)
   const scores =
