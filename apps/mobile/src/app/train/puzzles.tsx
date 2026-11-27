@@ -4,7 +4,6 @@ import {
   DIFFICULTIES,
   type Difficulty,
   fetchDailyPuzzle,
-  fetchLichessPuzzle,
   fromUci,
   judgeMove,
   puzzleStart,
@@ -28,11 +27,14 @@ import { Problem, Screen } from '@/components'
 import { SelectField } from '@/form'
 import { Icon } from '@/icon'
 import { recordPuzzle } from '@/lib/progress'
+import { nextPuzzle } from '@/lib/puzzle-stash'
 import { useSession } from '@/lib/session'
 import { play } from '@/lib/sound'
 import { useLoad } from '@/lib/use-load'
 
 type Status = 'solving' | 'wrong' | 'solved' | 'revealed'
+
+const NEXT_AFTER_MS = 1500
 
 const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   easiest: 'Easiest',
@@ -56,12 +58,13 @@ export default function Puzzles() {
   const [round, setRound] = useState(0)
   const [solved, setSolved] = useState(0)
   const { data, error, loading, reload } = useLoad(async () => {
-    // the daily puzzle first when asked for, random ones after it
-    const puzzle =
+    // the daily puzzle first when asked for, random ones after it; with no
+    // connection, one kept on the phone
+    const { puzzle, offline } =
       params.daily === '1' && round === 0 && !theme
-        ? await fetchDailyPuzzle()
-        : await fetchLichessPuzzle(theme, difficulty)
-    return { ...puzzle, start: puzzleStart(puzzle) }
+        ? await nextPuzzle(theme, difficulty, fetchDailyPuzzle)
+        : await nextPuzzle(theme, difficulty)
+    return { ...puzzle, start: puzzleStart(puzzle), offline }
   }, `${theme}:${difficulty}:${round}`)
 
   return (
@@ -133,6 +136,11 @@ export default function Puzzles() {
                 solvedCount={solved}
                 onSolved={() => setSolved((n) => n + 1)}
                 onNext={() => setRound((n) => n + 1)}
+                footer={
+                  data.offline
+                    ? "You're offline: a puzzle saved on your phone"
+                    : undefined
+                }
               />
             )}
           </>
@@ -213,6 +221,8 @@ function Puzzle({
       setStatus('solved')
       onSolved()
       recordPuzzle(data.puzzle.themes, !helped)
+      // a moment to see it, then on to the next
+      later(onNext, NEXT_AFTER_MS)
       return
     }
     const reply = verdict.reply
@@ -248,7 +258,7 @@ function Puzzle({
       : {
           solving: `${side} to move. Find the best move.`,
           wrong: 'Not that one. Try again.',
-          solved: 'Solved!',
+          solved: 'Solved! Next one coming…',
           revealed: 'Here is the solution.',
         }[status]
 
