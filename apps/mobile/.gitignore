@@ -7,3 +7,4 @@ expo-env.d.ts
 *.keystore
 dist-web
 google-services.json
+src/engine-page.generated.ts

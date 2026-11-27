@@ -1,9 +1,8 @@
 /**
  * Stockfish for the app, over UCI, with the website's engine API (`setSkill`,
- * `evaluate`, `terminate`). The engine runs on the website's /stockfish/
- * engine.html in a hidden web view (engine-host.tsx); `send` reaches it and
- * every line it prints comes back through `receive`.
- * shortcut: the engine page loads over the network, so Play and Analyse need a connection; bundle the wasm in the app if offline matters.
+ * `evaluate`, `terminate`). The engine runs bundled in a hidden web view
+ * (engine-host.tsx), offline too; `send` reaches it and every line it prints
+ * comes back through `receive`.
  */
 
 import type { Score } from '@misri/core/analysis'
@@ -33,10 +32,7 @@ export class Engine {
     this.send('uci')
     this.send('isready')
     this.loading = setTimeout(
-      () =>
-        this.fail(
-          'The chess engine did not load. Check your connection and try again.',
-        ),
+      () => this.fail('The chess engine did not load. Try again.'),
       loadTimeoutMs,
     )
   }
