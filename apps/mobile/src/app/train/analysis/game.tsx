@@ -1,9 +1,10 @@
-import { positionsOf, type Score } from '@misri/core/analysis'
+import { type Phase, positionsOf, type Score } from '@misri/core/analysis'
 import {
   buildLesson,
   type LessonMoment,
   type QuizQuestion,
 } from '@misri/core/lesson'
+import { type GameReport, gameReport } from '@misri/core/report'
 import { Stack, useLocalSearchParams } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
 import {
@@ -22,43 +23,42 @@ import { useEngine } from '@/engine-host'
 import { Icon } from '@/icon'
 import { useSession } from '@/lib/session'
 import { play } from '@/lib/sound'
+import { playedGame, saveReview } from '@/lib/stockfish-games'
 import * as Store from '@/lib/storage'
 import { useLoad } from '@/lib/use-load'
 import { SpeakButton } from '@/speak'
 
-const MOVETIME_MS = 120
+// long enough per position to see a few moves deep, not just the next one
+const MOVETIME_MS = 250
 
 /**
  * A lesson from one of your games, built from Stockfish's verdict on every
  * move, as on the website: the mental model, the key moments, a quiz. The
- * game is a chess.com one (`url`), or one just played here against Stockfish
- * (`pgn`, `colour`, `outcome`, `opponent`), which lives on this phone only.
+ * game is a chess.com one (`url`), or one played here against Stockfish
+ * (`played`, its id in the phone's history), whose review stays with it.
  */
 export default function Lesson() {
-  const params = useLocalSearchParams<{
-    url?: string
-    pgn?: string
-    colour?: 'white' | 'black'
-    outcome?: 'win' | 'draw' | 'loss'
-    opponent?: string
-  }>()
+  const params = useLocalSearchParams<{ url?: string; played?: string }>()
   const url = params.url ?? ''
-  const local = params.pgn
-    ? {
-        pgn: params.pgn,
-        colour:
-          params.colour === 'black' ? ('black' as const) : ('white' as const),
-        outcome: params.outcome ?? ('loss' as const),
-        opponent: params.opponent ?? 'Stockfish',
-        chessComUrl: '',
-      }
-    : null
+  const playedId = params.played ?? ''
   const { api } = useSession()
   const accent = useThemeColor('accent')
   const { engine, host, restart } = useEngine()
   const { data: game, error } = useLoad(
     async () => {
-      if (local) return local
+      if (playedId) {
+        const played = await playedGame(playedId)
+        return played
+          ? {
+              pgn: played.pgn,
+              colour: played.colour,
+              outcome: played.outcome,
+              opponent: `Stockfish (${played.level})`,
+              chessComUrl: '',
+              kept: played.scores ?? null,
+            }
+          : null
+      }
       if (!api) return null
       const listed = (await api.myGames()).games.find(
         (g) => g.chessComUrl === url,
@@ -66,7 +66,7 @@ export default function Lesson() {
       // an older competition game: fetched on its own, by its match
       return listed ?? (await api.matchGame(url))
     },
-    `${Boolean(api)}:${url}:${params.pgn ?? ''}`,
+    `${Boolean(api)}:${url}:${playedId}`,
     // kept on the phone, so a game opened before reopens offline
     url ? `lesson-game-${url}` : undefined,
   )
@@ -76,8 +76,9 @@ export default function Lesson() {
     url ? `analysis-${url}` : undefined,
   )
   const [fresh, setFresh] = useState<Score[] | null>(null)
+  const kept = game && 'kept' in game ? game.kept : null
   const scores =
-    fresh ?? (saved as Record<string, Score[]> | null)?.[url] ?? null
+    fresh ?? kept ?? (saved as Record<string, Score[]> | null)?.[url] ?? null
   const [progress, setProgress] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   // the lesson works without it, but the website and other phones need it
@@ -90,6 +91,10 @@ export default function Lesson() {
       .then(() => setUnsaved(null))
       .catch(() => setUnsaved(scores))
 
+  const report = useMemo(
+    () => (game && scores ? gameReport(game.pgn, game.colour, scores) : null),
+    [game, scores],
+  )
   const lesson = useMemo(
     () =>
       game && scores
@@ -115,7 +120,13 @@ export default function Lesson() {
         out.push(await engine.evaluate(fen, MOVETIME_MS))
       }
       setFresh(out)
-      void save(out)
+      if (playedId)
+        void saveReview(
+          playedId,
+          out,
+          gameReport(game.pgn, game.colour, out).accuracy,
+        )
+      else void save(out)
     } catch (e) {
       setFailure((e as Error).message)
       // the next try gets a fresh engine
@@ -129,7 +140,7 @@ export default function Lesson() {
   const autoStarted = useRef(false)
   // biome-ignore lint/correctness/useExhaustiveDependencies: once, when the game is there
   useEffect(() => {
-    if (!local || !game || scores || autoStarted.current) return
+    if (!playedId || !game || scores || autoStarted.current) return
     autoStarted.current = true
     void analyse()
   }, [game])
@@ -152,8 +163,9 @@ export default function Lesson() {
             <Card>
               <Card.Body>
                 <Text className="text-center font-normal text-sm text-muted">
-                  This game isn't one of yours: it's not among your latest 50
-                  games or your competition games.
+                  {playedId
+                    ? "This game isn't on this phone any more."
+                    : "This game isn't one of yours: it's not among your latest 50 games or your competition games."}
                 </Text>
               </Card.Body>
             </Card>
@@ -176,7 +188,7 @@ export default function Lesson() {
               </Text>
               <Text className="text-center font-normal text-xs text-muted">
                 The lesson is built from Stockfish's verdict on every move vs{' '}
-                {game.opponent}. It takes about ten seconds.
+                {game.opponent}. It takes about half a minute.
               </Text>
               {progress ? (
                 <Text className="font-normal text-xs text-muted">
@@ -229,6 +241,7 @@ export default function Lesson() {
                 {lesson.principle.body}
               </Text>
             </View>
+            {report && <Report report={report} />}
             {lesson.moments.map((moment) => (
               <Moment
                 key={moment.ply}
@@ -456,5 +469,122 @@ function Completed({ url }: { url: string }) {
       {done && <Icon name="CheckCircle" size={16} />}
       <Button.Label>{done ? 'Completed' : 'Mark as completed'}</Button.Label>
     </Button>
+  )
+}
+
+const PHASE_NAME: Record<Phase, string> = {
+  opening: 'Opening',
+  middlegame: 'Middlegame',
+  endgame: 'Endgame',
+}
+const KIND: Record<
+  GameReport['improvements'][number]['kind'],
+  { mark: string; label: string; tone: string }
+> = {
+  blunder: { mark: '??', label: 'Blunder', tone: 'text-danger' },
+  mistake: { mark: '?', label: 'Mistake', tone: 'text-warning' },
+  inaccuracy: { mark: '?!', label: 'Inaccuracy', tone: 'text-muted' },
+}
+
+/** The move-by-move detail: accuracy by phase, and every move that cost something. */
+function Report({ report }: { report: GameReport }) {
+  const { counts, phases, improvements } = report
+  return (
+    <View className="gap-3">
+      <Text className="font-display text-xl uppercase text-foreground">
+        Your game, move by move
+      </Text>
+      <Card>
+        <Card.Body className="gap-3">
+          <View className="flex-row items-baseline justify-between">
+            <Text className="font-normal text-sm text-muted">Accuracy</Text>
+            <Text className="font-display text-3xl text-accent">
+              {report.accuracy.toFixed(1)}%
+            </Text>
+          </View>
+          <View className="flex-row gap-2">
+            {(['blunder', 'mistake', 'inaccuracy'] as const).map((kind) => (
+              <View
+                key={kind}
+                className="flex-1 items-center rounded-xl bg-background py-2"
+              >
+                <Text className={`font-bold text-lg ${KIND[kind].tone}`}>
+                  {counts[kind]}
+                </Text>
+                <Text className="font-normal text-2xs text-muted">
+                  {KIND[kind].label}
+                  {counts[kind] === 1 ? '' : 's'}
+                </Text>
+              </View>
+            ))}
+          </View>
+          {phases.map((phase) => (
+            <View key={phase.phase} className="gap-1">
+              <View className="flex-row justify-between">
+                <Text className="font-medium text-xs text-foreground">
+                  {PHASE_NAME[phase.phase]}
+                </Text>
+                <Text className="font-normal text-xs text-muted">
+                  {phase.accuracy.toFixed(0)}% over {phase.moves} moves
+                </Text>
+              </View>
+              <View className="h-1.5 overflow-hidden rounded-full bg-background">
+                <View
+                  className="h-full rounded-full bg-accent"
+                  style={{ width: `${Math.round(phase.accuracy)}%` }}
+                />
+              </View>
+            </View>
+          ))}
+        </Card.Body>
+      </Card>
+      {improvements.length > 0 ? (
+        <Card>
+          <Card.Body className="gap-2">
+            <Text className="font-semibold text-sm text-foreground">
+              Every move to play better
+            </Text>
+            {improvements.map((move) => (
+              <View
+                key={move.ply}
+                className="flex-row items-center gap-2"
+                accessible
+                accessibilityLabel={`Move ${move.moveNumber}, ${move.played}, a ${KIND[move.kind].label.toLowerCase()}${move.best ? `; better was ${move.best}` : ''}`}
+              >
+                <Text className="w-8 font-normal text-xs text-muted">
+                  {move.moveNumber}.
+                </Text>
+                <Text
+                  className={`w-20 font-semibold text-sm ${KIND[move.kind].tone}`}
+                >
+                  {move.played}
+                  {KIND[move.kind].mark}
+                </Text>
+                <Text className="flex-1 font-normal text-xs text-muted">
+                  {move.best ? (
+                    <>
+                      better{' '}
+                      <Text className="font-semibold text-foreground">
+                        {move.best}
+                      </Text>
+                    </>
+                  ) : null}
+                </Text>
+                <Text className="font-normal text-2xs text-muted">
+                  -{Math.round(move.dropped)}%
+                </Text>
+              </View>
+            ))}
+            <Text className="font-normal text-2xs text-muted">
+              The percentage is the winning chance each move gave away.
+            </Text>
+          </Card.Body>
+        </Card>
+      ) : (
+        <Text className="font-normal text-sm text-muted">
+          No move here cost you anything that matters. Clean game.
+        </Text>
+      )}
+    </View>
   )
 }

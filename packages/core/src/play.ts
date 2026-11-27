@@ -68,5 +68,7 @@ export const savedGame = z.object({
     z.string(),
     z.object({ win: z.number(), draw: z.number(), loss: z.number() }),
   ),
+  /** the player gave this game up: a loss, over before checkmate */
+  resigned: z.boolean().optional(),
 })
 export type SavedGame = z.infer<typeof savedGame>
